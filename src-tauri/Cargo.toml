@@ -1,0 +1,89 @@
+[package]
+name = "logamee-mdx"
+version = "0.1.0"
+description = "Local Markdown editor"
+edition = "2021"
+default-run = "mdx"
+license = "MIT"
+repository = "https://github.com/sunlin92/logamee-mdx"
+
+[lib]
+name = "mmd_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+default = []
+bench-cli = []
+packaged-lifecycle-e2e = []
+
+[[bin]]
+name = "mdx"
+path = "src/main.rs"
+
+[[bin]]
+name = "mmd_bench"
+path = "src/bin/mmd_bench.rs"
+required-features = ["bench-cli"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+base64 = "=0.22.1"
+fs2 = "=0.4.3"
+getrandom = "=0.4.3"
+mime_guess = "2.0.5"
+libc = "=0.2.186"
+md-5 = "=0.10.6"
+notify = "=8.2.0"
+notify-debouncer-full = "=0.7.0"
+percent-encoding = "2.3.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+sha2 = "=0.10.9"
+tauri = { version = "2.11.5", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2.7.1"
+tauri-plugin-single-instance = "=2.4.3"
+tiny_http = "0.12.0"
+walkdir = "2.5.0"
+zip = { version = "=8.6.0", default-features = false }
+tauri-plugin-updater = "=2.10.1"
+tauri-plugin-process = "=2.3.1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.61.3", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+] }
+windows-core = "=0.61.2"
+windows-sys = { version = "=0.61.2", features = [
+    "Wdk_Foundation",
+    "Wdk_Storage_FileSystem",
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-foundation = { version = "=0.3.2", default-features = false, features = [
+    "std",
+    "NSError",
+    "NSFileManager",
+    "NSData",
+    "NSString",
+    "NSURL",
+] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "environment": {
+    "os": "darwin",
+    "arch": "arm64"
+  },
+  "app": {
+    "name": "logamee-mdx",
+    "version": "0.1.0"
+  },
+  "build": {
+    "profile": "release",
+    "gitCommit": "250afbf3fe13b659389b1ec0882a336d41dbc956",
+    "dirty": true,
+    "runner": "cargo mmd_bench"
+  },
+  "index": {
+    "implementationId": "mmd-memory-substring-v1",
+    "schemaId": "mmd-workspace-index-v1"
+  },
+  "corpus": {
+    "fixtureVersion": 1,
+    "fixtureDigest": "141589b69391bd61092bb3914557ce2189c16502738a37608cecda02601daaa3",
+    "seed": 7417,
+    "fileCount": 10000,
+    "digest": "sha256-v1:488be7075a92f4c1c0e4a225507fb16c745c148d051bf06e50d6e6d2aceef34b",
+    "indexedMarkdownBytes": 3572792,
+    "limits": {
+      "maxFiles": 100000,
+      "maxFileBytes": 1048576,
+      "maxAggregateBytes": 268435456,
+      "maxResults": 100,
+      "maxQueryChars": 256,
+      "maxSnippetChars": 240
+    }
+  },
+  "measurement": {
+    "wallClock": "std::time::Instant",
+    "timingUnit": "milliseconds",
+    "warmupCount": 2,
+    "sampleCount": 5,
+    "processCount": 10,
+    "errorCount": 0
+  },
+  "memory": {
+    "measurementKind": "independentProcessPeakRssDelta",
+    "peakIncrementalBytesSamples": [
+      15843328,
+      16629760,
+      15810560,
+      15843328,
+      16285696
+    ],
+    "estimatedIndexBytes": 7525584
+  },
+  "metrics": {
+    "coldBuildMs": {
+      "min": 43.837,
+      "median": 46.094,
+      "p95": 87.44,
+      "max": 87.44,
+      "samples": 5
+    },
+    "warmQueryMs": {
+      "min": 9.585,
+      "median": 11.466,
+      "p95": 19.659,
+      "max": 19.659,
+      "samples": 5
+    },
+    "peakIncrementalMemoryBytes": {
+      "min": 15810560,
+      "median": 15843328,
+      "p95": 16629760,
+      "max": 16629760,
+      "samples": 5
+    },
+    "cancellationMs": {
+      "min": 3.577,
+      "median": 4.439,
+      "p95": 6.176,
+      "max": 6.176,
+      "samples": 5
+    }
+  },
+  "errors": [],
+  "incompleteReason": null,
+  "rebaseline": null
+}

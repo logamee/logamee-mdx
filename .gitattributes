@@ -1,0 +1,2 @@
+scripts/licenses/** -text
+public/vendor/notices/** -text -whitespace

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "mdx",
+  "version": "0.1.0",
+  "identifier": "local.mmd.editor",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "mdx Markdown Editor",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data:; media-src 'self' asset: http://asset.localhost; frame-src 'self' asset: http://asset.localhost http://127.0.0.1:*; connect-src 'self' asset: http://asset.localhost; style-src 'self' asset: http://asset.localhost 'unsafe-inline'; font-src 'self' asset: http://asset.localhost data:; worker-src 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": []
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "fileAssociations": [
+      {
+        "ext": ["md", "mdx", "markdown", "mdown", "mkd"],
+        "name": "Markdown Document",
+        "description": "Markdown Document",
+        "role": "Editor",
+        "mimeType": "text/markdown",
+        "rank": "Default"
+      }
+    ],
+    "resources": {
+      "../LICENSE": "LICENSE"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "targets": "all"
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [],
+      "pubkey": ""
+    }
+  }
+}

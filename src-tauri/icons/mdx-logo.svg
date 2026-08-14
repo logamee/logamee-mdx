@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">mdx application icon</title>
+  <desc id="desc">Paper document with a geometric M and an editing cursor.</desc>
+  <rect x="52" y="52" width="920" height="920" rx="218" fill="#34444a"/>
+  <rect x="64" y="64" width="896" height="896" rx="206" fill="#18252b"/>
+
+  <path
+    d="M282 196H640L782 338V792C782 830 752 860 714 860H282C244 860 214 830 214 792V264C214 226 244 196 282 196Z"
+    fill="#0d1518"
+    opacity="0.42"
+    transform="translate(0 22)"
+  />
+  <path
+    d="M282 196H640L782 338V792C782 830 752 860 714 860H282C244 860 214 830 214 792V264C214 226 244 196 282 196Z"
+    fill="#f4f6f3"
+  />
+  <path d="M640 196V286C640 315 663 338 692 338H782L640 196Z" fill="#b9d5cc"/>
+  <path d="M640 196V286C640 315 663 338 692 338H706L640 272Z" fill="#769f93" opacity="0.7"/>
+
+  <path
+    d="M300 700V380H365L452 520L539 380H604V700H540V493L452 620L364 493V700H300Z"
+    fill="#1c3037"
+  />
+  <rect x="660" y="410" width="36" height="290" rx="18" fill="#e45c4d"/>
+</svg>

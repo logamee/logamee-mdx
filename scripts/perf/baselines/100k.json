@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "environment": {
+    "os": "darwin",
+    "arch": "arm64"
+  },
+  "app": {
+    "name": "logamee-mdx",
+    "version": "0.1.0"
+  },
+  "build": {
+    "profile": "release",
+    "gitCommit": "250afbf3fe13b659389b1ec0882a336d41dbc956",
+    "dirty": true,
+    "runner": "cargo mmd_bench"
+  },
+  "index": {
+    "implementationId": "mmd-memory-substring-v1",
+    "schemaId": "mmd-workspace-index-v1"
+  },
+  "corpus": {
+    "fixtureVersion": 1,
+    "fixtureDigest": "6373ddfac9cb09ba48e6572a5417569cdf4adefd2e974510117f84c430497ea2",
+    "seed": 7417,
+    "fileCount": 100000,
+    "digest": "sha256-v1:1a19d73ae96f843980377289fbe3b362ea99fa5fa818caf2a0ab111ab8d79cac",
+    "indexedMarkdownBytes": 35969134,
+    "limits": {
+      "maxFiles": 100000,
+      "maxFileBytes": 1048576,
+      "maxAggregateBytes": 268435456,
+      "maxResults": 100,
+      "maxQueryChars": 256,
+      "maxSnippetChars": 240
+    }
+  },
+  "measurement": {
+    "wallClock": "std::time::Instant",
+    "timingUnit": "milliseconds",
+    "warmupCount": 2,
+    "sampleCount": 5,
+    "processCount": 10,
+    "errorCount": 0
+  },
+  "memory": {
+    "measurementKind": "independentProcessPeakRssDelta",
+    "peakIncrementalBytesSamples": [
+      154828800,
+      156729344,
+      156647424,
+      156745728,
+      154910720
+    ],
+    "estimatedIndexBytes": 75738268
+  },
+  "metrics": {
+    "coldBuildMs": {
+      "min": 491.286,
+      "median": 515.947,
+      "p95": 602.721,
+      "max": 602.721,
+      "samples": 5
+    },
+    "warmQueryMs": {
+      "min": 97.505,
+      "median": 100.419,
+      "p95": 108.578,
+      "max": 108.578,
+      "samples": 5
+    },
+    "peakIncrementalMemoryBytes": {
+      "min": 154828800,
+      "median": 156647424,
+      "p95": 156745728,
+      "max": 156745728,
+      "samples": 5
+    },
+    "cancellationMs": {
+      "min": 39.31,
+      "median": 40.667,
+      "p95": 56.385,
+      "max": 56.385,
+      "samples": 5
+    }
+  },
+  "errors": [],
+  "incompleteReason": null,
+  "rebaseline": null
+}

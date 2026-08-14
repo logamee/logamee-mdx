@@ -1,0 +1,26 @@
+{
+  "documents": [
+    {
+      "relativePath": "notes/alpha.md",
+      "content": "A deterministic full-text needle."
+    },
+    {
+      "relativePath": "notes/needle-guide.md",
+      "content": "Filename search fixture."
+    }
+  ],
+  "limits": {
+    "maxFiles": 100,
+    "maxFileBytes": 4096,
+    "maxAggregateBytes": 8192,
+    "maxResults": 10,
+    "maxQueryChars": 64,
+    "maxSnippetChars": 80
+  },
+  "queries": [
+    { "kind": "filename", "text": "needle" },
+    { "kind": "fullText", "text": "needle" }
+  ],
+  "warmupCount": 1,
+  "sampleCount": 3
+}

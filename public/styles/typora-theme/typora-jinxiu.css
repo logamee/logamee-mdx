@@ -1,0 +1,2557 @@
+/* Typora Jinxiu Theme for Course Learning Page */
+
+/* 全局样式 - 参考 Typora 编译器样式 */
+.typora-jinxiu {
+  font-family: "Noto Serif SC", "Times New Roman", serif;
+  font-size: 16px;
+  font-weight: 400;
+  text-align: justify;
+  /* 正文专用色，避免仅继承时看不出与纯黑的差别 */
+  color: var(--text-reading, var(--text-main));
+  background-color: transparent;
+  padding: 0 9rem;
+  border-radius: 0;
+  line-height: 1.5;
+  letter-spacing: 0.07em;
+}
+
+/**
+ * 与 .typora-jinxiu 同左右留白（不套用整段 .typora-jinxiu，避免 p/h 字号/字族被主题覆盖）
+ * 用于内嵌题、与正文同列宽对齐
+ */
+.typora-read-gutter {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  /* 与 .typora-jinxiu 完全一致，任意断点下同宽 */
+  padding-left: 9rem;
+  padding-right: 9rem;
+}
+
+/* 课程学习页（外包 .typora-content）：桌面端略减左右 gutter，正文稍宽；博客用 .jinxiu-blog-portal 不变；≤1023px 仍由文末「响应式调整」媒体查询收紧排版 */
+@media (min-width: 769px) {
+  .typora-content .typora-jinxiu:not(.jinxiu-blog-portal) {
+    padding-left: 7rem;
+    padding-right: 7rem;
+  }
+  .typora-content .typora-read-gutter {
+    padding-left: 7rem;
+    padding-right: 7rem;
+  }
+}
+
+/* 调整行间距 */
+.typora-jinxiu p {
+  margin: 1em 0;
+  line-height: 1.5em;
+  text-align: left;
+}
+
+/* KaTeX 块级公式（$$…$$）：阅读区加大、加粗 */
+.typora-jinxiu .katex-display {
+  font-size: 22px;
+  line-height: 1.25;
+}
+.typora-jinxiu .katex-display .katex {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+}
+.typora-jinxiu .katex-display .katex-html {
+  font-weight: 700 !important;
+}
+
+/* KaTeX：正文 letter-spacing / 引用块 p * 勿改公式内部行高与相对字号 */
+.typora-jinxiu .katex,
+.typora-jinxiu .katex-display {
+  letter-spacing: 0;
+  word-spacing: normal;
+}
+
+.typora-jinxiu .katex .katex-html,
+.typora-jinxiu .katex-display .katex-html {
+  line-height: normal;
+}
+
+.typora-jinxiu blockquote .katex,
+.typora-jinxiu blockquote .katex-display {
+  color: inherit;
+}
+
+/* 勿用 blockquote p * 命中 .katex 子节点；仅兜底字族/行高，避免 MathML 层露出成「重影」 */
+.typora-jinxiu blockquote .katex .katex-mathml {
+  clip: rect(1px, 1px, 1px, 1px) !important;
+  border: 0 !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: absolute !important;
+  width: 1px !important;
+}
+
+.typora-jinxiu blockquote .katex,
+.typora-jinxiu blockquote .katex-display > .katex {
+  font-family: KaTeX_Main, KaTeX_Math, KaTeX_AMS, "Times New Roman", serif;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.typora-jinxiu blockquote .katex-display {
+  font-size: 22px;
+  line-height: 1.35;
+  margin: 0.35em 0;
+}
+
+.typora-jinxiu blockquote .katex-display > .katex {
+  font-size: 1em !important;
+  font-weight: 700 !important;
+}
+
+/* 调整滚动条样式 - 参考 Typora 编译器 */
+.typora-jinxiu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.typora-jinxiu::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
+  border-radius: 4px;
+}
+
+.typora-jinxiu::-webkit-scrollbar-thumb {
+  background-color: #c1c1c1;
+  border-radius: 4px;
+}
+
+.typora-jinxiu::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a8a8;
+}
+
+/* 暗黑模式滚动条 */
+.dark .typora-jinxiu::-webkit-scrollbar-track {
+  background-color: #2d2d2d;
+}
+
+.dark .typora-jinxiu::-webkit-scrollbar-thumb {
+  background-color: #555555;
+}
+
+.dark .typora-jinxiu::-webkit-scrollbar-thumb:hover {
+  background-color: #666666;
+}
+
+/* 暗黑模式 */
+.dark .typora-jinxiu {
+  color: #94a3b8;
+  background-color: transparent;
+}
+
+/* 暗黑模式标题 */
+.dark .typora-jinxiu h1 {
+  color: #ffffff;
+}
+
+/* 深色模式二级标题：与全站 CTA 一致 —— var(--theme-emphasis) 底 + var(--theme-emphasis-foreground) 字 */
+.dark .typora-jinxiu h2 {
+  color: var(--theme-emphasis-foreground);
+  background-color: var(--theme-emphasis);
+  text-align: left;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.12em;
+  line-height: 1.32;
+  padding: 6px 12.5px;
+  border-radius: 4px;
+  box-shadow: none !important;
+  border: none;
+  border-bottom: none !important;
+}
+
+.dark .typora-jinxiu h2 a {
+  color: var(--theme-emphasis-foreground) !important;
+  border-bottom: none !important;
+}
+
+.dark .typora-jinxiu h2 a:hover {
+  opacity: 0.85;
+  text-decoration: underline;
+}
+
+.dark .typora-jinxiu h2 strong {
+  color: var(--theme-emphasis-foreground) !important;
+}
+
+.dark .typora-jinxiu h2 code {
+  color: var(--theme-emphasis-foreground) !important;
+  background-color: color-mix(in srgb, var(--theme-emphasis-foreground) 14%, var(--theme-emphasis)) !important;
+}
+
+.dark .typora-jinxiu h3 {
+  color: #ffffff;
+}
+
+.dark .typora-jinxiu h4,
+.dark .typora-jinxiu h5,
+.dark .typora-jinxiu h6 {
+  color: #ffffff;
+}
+
+/* 暗黑模式正文 */
+.dark .typora-jinxiu p {
+  color: var(--text-main);
+}
+
+/* 链接样式 */
+.typora-jinxiu a {
+  color: var(--theme-emphasis);
+  text-decoration: none;
+}
+
+.typora-jinxiu a:hover {
+  text-decoration: underline;
+}
+
+/* 暗黑模式链接样式 */
+.dark .typora-jinxiu a {
+  color: var(--theme-emphasis);
+  text-decoration: none;
+}
+
+.dark .typora-jinxiu a:hover {
+  text-decoration: underline;
+}
+
+/* 选中内容 */
+.typora-jinxiu ::selection {
+  background-color: var(--theme-emphasis);
+  color: white;
+}
+
+/*
+ * 学习页「学点英语 / 思考帧」是辅助学习区，不进入阅读划线 / 印记流程。
+ * 禁止选中这些区域的文本，避免用户误以为可创建印记。
+ */
+.typora-jinxiu [data-jinxiu-reading-unselectable-section],
+.typora-jinxiu [data-jinxiu-reading-unselectable-section] * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 标题样式 */
+.typora-jinxiu h1 {
+  font-family: "Noto Serif SC", "Times New Roman", serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--theme-emphasis);
+  text-align: center;
+  margin-top: 1.8em;
+  margin-bottom: 1.8em;
+  padding-top: 0.9rem;
+  padding-bottom: 0.5rem;
+  border-bottom: none !important;
+}
+
+.typora-jinxiu h2 {
+  font-family: "Noto Serif SC", "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: var(--theme-emphasis);
+  padding: 6px 12.5px;
+  border-radius: 4px;
+  /* inline-flex + center：混排「1.7 ■ 思考帧」时几何符号与中文竖向更齐；纯文本仍为一行匿名 flex 子项 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.12em;
+  line-height: 1.32;
+  margin: 1.2em 0 0.8em;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) !important;
+  border-bottom: none !important;
+}
+
+/* ■▪ 等与宋体中文同排时字盒偏下，略上移与旁侧文字光学居中（正文 h2、课程大纲等，见 jinxiuHeadingPunct.tsx） */
+.typora-jinxiu h2 .jinxiu-h2-punct,
+.content-navigation .jinxiu-h2-punct {
+  display: inline-block;
+  transform: translateY(-0.06em);
+}
+
+.typora-jinxiu h2 a {
+  color: #ffffff !important;
+  border-bottom: none !important;
+}
+
+.typora-jinxiu h2 strong {
+  color: #ffffff !important;
+}
+
+.typora-jinxiu h2 code {
+  color: #ffffff !important;
+  background-color: var(--theme-emphasis) !important;
+}
+
+.typora-jinxiu h3 {
+  font-family: "Noto Serif SC", "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--theme-emphasis);
+  margin: 2em 0 1.2em;
+}
+
+/**
+ * 课程学习页正文外包 `.typora-content`，其内联样式里 `.typora-content h3` / `p` 等与 `.typora-jinxiu` 规则特异度相同且更晚载入，
+ * 会盖掉主题。提高一层选择器，保证排版与字重按 Jinxiu 阅读样式生效。
+ */
+.typora-content .typora-jinxiu h3 {
+  margin: 2em 0 1.2em;
+  font-weight: 800;
+}
+
+.dark .typora-content .typora-jinxiu h3 {
+  color: #ffffff;
+}
+
+.typora-content .typora-jinxiu p {
+  font-weight: 400;
+  color: var(--text-main);
+}
+
+.dark .typora-content .typora-jinxiu p {
+  color: var(--text-main);
+}
+
+.typora-content .typora-jinxiu li,
+.typora-content .typora-jinxiu li section {
+  font-weight: 400;
+  color: var(--text-main);
+}
+
+.dark .typora-content .typora-jinxiu ul,
+.dark .typora-content .typora-jinxiu ol,
+.dark .typora-content .typora-jinxiu li,
+.dark .typora-content .typora-jinxiu li section {
+  color: var(--text-main);
+}
+
+.dark .typora-content .typora-jinxiu li::marker {
+  color: var(--text-main);
+}
+
+.dark .typora-content .typora-jinxiu ol ol li::before {
+  color: var(--text-main);
+}
+
+.typora-jinxiu h4 {
+  font-family: "Noto Serif SC", "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--theme-emphasis);
+  margin: 1.3em 0 1em;
+}
+
+.typora-jinxiu h5 {
+  font-family: "Noto Serif SC", "Times New Roman", serif;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--theme-emphasis);
+  margin: 1.1em 0 0.8em;
+}
+
+.typora-jinxiu h6 {
+  font-family: "Noto Serif SC", "Times New Roman", serif;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--theme-emphasis);
+  margin: 1em 0 0.6em;
+}
+
+/* 正文样式 */
+.typora-jinxiu p {
+  margin: 1em 0;
+  text-align: left;
+  line-height: 1.5em;
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--text-main);
+}
+
+/* 加粗文字样式 - 中文加粗更明显 */
+.typora-jinxiu strong,
+.typora-jinxiu b {
+  font-weight: 800 !important;
+  color: var(--text-main);
+}
+
+.dark .typora-jinxiu strong,
+.dark .typora-jinxiu b {
+  color: #e2e8f0;
+}
+
+/* 分割线 */
+.typora-jinxiu hr {
+  margin: 20px 0;
+  border: 0;
+  border-top: 2px solid var(--theme-emphasis);
+  border-radius: 2px;
+  box-shadow: none !important;
+  background: none !important;
+  height: 2px !important;
+}
+
+/* 列表样式 */
+.typora-jinxiu ul {
+  list-style-type: disc;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding-left: 20px;
+  font-size: 18px;
+}
+
+.typora-jinxiu ul ul {
+  list-style: "■   ";
+}
+
+.typora-jinxiu ul ul ul {
+  list-style: "▪  ";
+}
+
+.typora-jinxiu ol {
+  list-style-type: decimal;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding-left: 20px;
+  font-size: 18px;
+}
+
+.typora-jinxiu ol ol {
+  counter-reset: liist;
+  list-style: none;
+}
+
+.typora-jinxiu ol ol li {
+  counter-increment: liist;
+  position: relative;
+}
+
+.typora-jinxiu ol ol li::before {
+  content: "(" counter(liist,lower-alpha) ")";
+  position: absolute;
+  left: -2em;
+}
+
+/* 正文列表项 18px（与段落层级区分可调） */
+.typora-jinxiu li {
+  margin: 0.4rem 0;
+  line-height: 1.5;
+  text-align: justify;
+  color: var(--text-main);
+  font-size: 18px;
+  font-weight: 400;
+}
+
+/* 深色下列表与正文同色 */
+.dark .typora-jinxiu ul,
+.dark .typora-jinxiu ol,
+.dark .typora-jinxiu li,
+.dark .typora-jinxiu li section {
+  color: var(--text-main);
+}
+
+.typora-jinxiu li section {
+  margin-top: 5px;
+  margin-bottom: 5px;
+  line-height: 1.5;
+  text-align: justify;
+  color: var(--text-main);
+  font-weight: 400;
+  font-size: 18px;
+}
+
+/* 列表标记样式 */
+.typora-jinxiu ::marker {
+  font-weight: bold;
+  color: color-mix(in srgb, var(--theme-emphasis) 80%, transparent);
+}
+
+/* 深色下列点/序号与正文同色，不用强调色 */
+.dark .typora-jinxiu li::marker {
+  color: var(--text-main);
+}
+
+.dark .typora-jinxiu ol ol li::before {
+  color: var(--text-main);
+}
+
+/* 引用块 */
+.typora-jinxiu blockquote {
+  display: block;
+  overflow: auto;
+  border-left: 5px solid var(--theme-emphasis);
+  padding: 15px 30px 15px 20px;
+  margin-bottom: 20px;
+  margin-top: 20px;
+  background: #f5f8fa;
+  box-shadow: 4px 4px 5px #c5c0c0;
+  border-radius:4px 15px 15px 4px;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  color: #333333 !important;
+  line-height: 1.5 !important;
+}
+
+/* 引用块正文：只设段落/列表本体，勿用 p * / li *（会压垮 KaTeX 分式与隐藏 MathML） */
+.typora-jinxiu blockquote > p,
+.typora-jinxiu blockquote > ul,
+.typora-jinxiu blockquote > ol,
+.typora-jinxiu blockquote > h1,
+.typora-jinxiu blockquote > h2,
+.typora-jinxiu blockquote > h3,
+.typora-jinxiu blockquote > h4,
+.typora-jinxiu blockquote > h5,
+.typora-jinxiu blockquote > h6,
+.typora-jinxiu blockquote p,
+.typora-jinxiu blockquote li {
+  font-size: 18px !important;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  color: #333333 !important;
+  line-height: 1.5 !important;
+}
+
+.typora-jinxiu blockquote p:has(.katex-display) {
+  margin: 0.35em 0;
+}
+
+/* 暗黑模式引用块（勿使用 blockquote *，否则会用 !important 盖住 SyntaxHighlighter 的 token 色） */
+.dark .typora-jinxiu blockquote {
+  border-left: 5px solid var(--theme-emphasis) !important;
+  background: rgba(245, 248, 250, 0.1) !important;
+  box-shadow: 4px 4px 5px rgba(0, 0, 0, 0.3) !important;
+  line-height: 1.5 !important;
+  color: #a0a0a0 !important;
+}
+
+/* 同上：暗黑引用内正文，不用 blockquote * 以免覆盖代码高亮 */
+.dark .typora-jinxiu blockquote > p,
+.dark .typora-jinxiu blockquote > ul,
+.dark .typora-jinxiu blockquote > ol,
+.dark .typora-jinxiu blockquote > h1,
+.dark .typora-jinxiu blockquote > h2,
+.dark .typora-jinxiu blockquote > h3,
+.dark .typora-jinxiu blockquote > h4,
+.dark .typora-jinxiu blockquote > h5,
+.dark .typora-jinxiu blockquote > h6,
+.dark .typora-jinxiu blockquote p,
+.dark .typora-jinxiu blockquote li {
+  font-size: 18px !important;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  color: #a0a0a0 !important;
+  line-height: 1.5 !important;
+}
+
+/* 含 Box Drawing 的多行引用（教材目录树等）：等宽以便竖线对齐 */
+.typora-jinxiu blockquote.jinxiu-bq-tree > p,
+.typora-jinxiu blockquote.jinxiu-bq-tree > p * {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace !important;
+  line-height: 1.45 !important;
+}
+
+.typora-jinxiu blockquote.jinxiu-bq-tree > p {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  letter-spacing: 0;
+  text-align: left;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.dark .typora-jinxiu blockquote.jinxiu-bq-tree > p,
+.dark .typora-jinxiu blockquote.jinxiu-bq-tree > p * {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace !important;
+  line-height: 1.45 !important;
+}
+
+/* 手写 ASCII/箭头流程示意：保持结构紧凑，超宽时在正文栏内横向滚动 */
+.typora-jinxiu p.jinxiu-text-diagram {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  margin: 1.15rem 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--theme-emphasis) 6%, transparent);
+  color: var(--text-main);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace !important;
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+  letter-spacing: 0;
+  text-align: left;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.dark .typora-jinxiu p.jinxiu-text-diagram {
+  background: color-mix(in srgb, var(--theme-emphasis) 10%, transparent);
+  color: var(--text-main);
+}
+
+/* 行内代码：与正文同字族（避免 SourceHanSerifCN等与段落观感割裂）；代码块内由 .typora-jinxiu pre code 覆盖 */
+.typora-jinxiu code {
+  font-family: inherit;
+  color: var(--theme-emphasis);
+  background-color: #fefefe;
+  font-weight: 700;
+  text-align: justify;
+  vertical-align: baseline;
+  padding: 2px;
+  background: rgb(246, 248, 250);
+  border-radius: 14px;
+  box-shadow: 1px 1px 5px #c8d3df;
+}
+
+/* 代码块样式（非 SyntaxHighlighter，由 Jinxiu 伪行号等装饰） */
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) {
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  background-color: #F5F6F7 !important;
+  padding: 1rem 0.6rem !important;
+  margin: 15px 0 !important;
+  border-radius: 8px !important;
+  overflow-x: auto !important;
+  font-size: 16px !important;
+  line-height: 2rem !important;
+  color: #333333 !important;
+  font-weight: normal !important;
+  position: relative !important;
+  box-shadow: none !important;
+  border: none !important;
+  counter-reset: line;
+}
+
+/* 更具体的选择器，确保代码块文字颜色正确 */
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code {
+  color: #333333 !important;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  font-size: 16px !important;
+  font-weight: normal !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  display: block;
+
+  padding-left: 3rem !important;
+  position: relative;
+}
+
+/* 代码行号 */
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) {
+  position: relative;
+  margin: 15px 0 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  background-color: #F5F6F7 !important;
+}
+
+/* 代码容器 */
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code {
+  display: block;
+  padding: 0.8rem 0.6rem 1rem !important;
+  margin: 0 !important;
+  font-size: 16px !important;
+  line-height: 2rem !important;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  color: #333333 !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow-x: auto !important;
+  position: relative;
+  white-space: pre-wrap;
+  padding-left: 3rem !important;
+}
+
+/* 代码块 - 顶部三个彩色圆点（勿用在 react-syntax-highlighter 的 .jinxiu-code-block-pre，避免压住首行代码） */
+.typora-jinxiu pre:not(.jinxiu-code-block-pre)::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  background-color: #3b82f6;
+  border-radius: 6px;
+  z-index: 3;
+  box-shadow: 20px 0 #ffc600, 40px 0 #00e03d;
+}
+
+/* 行号显示区域（仅非 SyntaxHighlighter 代码块；超过 20 行时伪元素本也会截断故仅作降级） */
+.typora-jinxiu pre:not(.jinxiu-code-block-pre)::after {
+  content: '1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 10\A 11\A 12\A 13\A 14\A 15\A 16\A 17\A 18\A 19\A 20';
+  position: absolute;
+  left: 0;
+  top: 1.8rem;
+  width: 2.5rem;
+  padding-right: 0.5rem;
+  text-align: right;
+  color: #999999;
+  font-size: 16px !important;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  line-height: 2rem !important;
+  user-select: none;
+  white-space: pre;
+  z-index: 2;
+  background-color: #F5F6F7;
+  border-right: none;
+  height: calc(100% - 0.3rem);
+  overflow: hidden;
+}
+
+/* 确保代码块中的普通文字颜色正确（无 Prism 高亮时）；SyntaxHighlighter 块见 .jinxiu-code-block-pre */
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code span {
+  color: #333333 !important;
+}
+
+/* 引用块内代码卡与引用区底色统一（内联 #F5F6F7 会被顶掉） */
+.typora-jinxiu blockquote .markdown-code-block-copy-wrap.jinxiu-code-surface {
+  --jinxiu-code-surface: #f5f8fa !important;
+  background-color: #f5f8fa !important;
+}
+
+/* 整块同色底：pre/code 统用变量，避免内联 pre 底与 code 底分层 */
+.typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre {
+  background: var(--jinxiu-code-surface) !important;
+  background-color: var(--jinxiu-code-surface) !important;
+  background-image: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre code {
+  background: var(--jinxiu-code-surface) !important;
+  background-color: var(--jinxiu-code-surface) !important;
+  background-image: none !important;
+}
+
+/* react-syntax-highlighter：字族与换行；底色素由上方与变量控制 */
+.typora-jinxiu pre.jinxiu-code-block-pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  color: inherit !important;
+  overflow-x: auto !important;
+}
+.typora-jinxiu pre.jinxiu-code-block-pre code {
+  font-family: inherit !important;
+  padding: 0 !important;
+  padding-left: 0 !important;
+  margin: 0 !important;
+  white-space: pre !important;
+  color: inherit !important;
+  /* 与 .typora-jinxiu code 行内糖果样式隔离 */
+  font-weight: 400 !important;
+  text-align: left !important;
+  vertical-align: baseline !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* Prism 会在换行等 token 的 :before 上画标记，行间像细边框/梯子线 */
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.lf:before,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.cr:before,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.space:before,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.tab:not(:empty):before {
+  content: none !important;
+  color: transparent !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code span.linenumber,
+.typora-jinxiu pre.jinxiu-code-block-pre code span.react-syntax-highlighter-line-number {
+  vertical-align: top !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+}
+
+/* 高亮块纯色底：行号(comment/linenumber)与行容器 span 上的 Prism 浅色底统一清掉，避免斑马纹 */
+.typora-jinxiu pre.jinxiu-code-block-pre code > span:not(.jinxiu-code-line),
+.typora-jinxiu pre.jinxiu-code-block-pre code span:not(.jinxiu-code-line) {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* GitCode 风格代码阅读面：白底、紧凑行号、缩进参考线，去掉 Mac 顶栏装饰 */
+.typora-jinxiu .markdown-code-block-copy-wrap.jinxiu-code-surface {
+  --jinxiu-code-surface: #ffffff;
+  --jinxiu-code-gutter: 4.9rem;
+  --jinxiu-code-indent-guide: rgba(31, 35, 40, 0.18);
+  background: var(--jinxiu-code-surface) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  color: #1f2328;
+}
+
+.typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre {
+  max-width: 100%;
+  overflow-x: hidden !important;
+  padding-right: 16px !important;
+  tab-size: 4;
+  letter-spacing: 0;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code {
+  tab-size: 4;
+  letter-spacing: 0;
+}
+
+.typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre code.jinxiu-fenced-code-inner {
+  min-width: 0;
+  white-space: pre-wrap !important;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre code.jinxiu-fenced-code-inner span[class*="token"] {
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code .jinxiu-code-line {
+  display: block !important;
+  min-height: 1.62em;
+  position: relative;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre code .jinxiu-code-line {
+  min-width: 0;
+  box-sizing: border-box;
+  padding-left: var(--jinxiu-code-gutter, 4.9rem);
+}
+
+.typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre code .jinxiu-code-line > span.linenumber,
+.typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre code .jinxiu-code-line > span.react-syntax-highlighter-line-number {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  width: var(--jinxiu-code-gutter, 4.9rem) !important;
+  min-width: 3.25rem !important;
+  margin-right: 0 !important;
+  padding-right: 1rem !important;
+  text-align: right !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code span.linenumber,
+.typora-jinxiu pre.jinxiu-code-block-pre code span.react-syntax-highlighter-line-number {
+  color: #1f82a6 !important;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace !important;
+  font-size: 15px !important;
+  line-height: 1.62 !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.keyword,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.selector,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.important {
+  color: #b000ff !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.function,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.method {
+  color: #0033cc !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.class-name,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.builtin,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.property,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.attr-name {
+  color: #267f99 !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.comment,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.prolog,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.doctype,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.cdata {
+  color: #008000 !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.string,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.char,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.regex,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.attr-value {
+  color: #a31515 !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.number,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.boolean,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.constant {
+  color: #098658 !important;
+}
+
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.operator,
+.typora-jinxiu pre.jinxiu-code-block-pre code .token.punctuation {
+  color: #1f2328 !important;
+}
+
+/* 少量未走 SyntaxHighlighter 的传统 pre 也对齐 GitCode 风格 */
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) {
+  background-color: #ffffff !important;
+  border: 1px solid #d8dee4 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  color: #1f2328 !important;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace !important;
+  line-height: 1.62 !important;
+  margin: 1.5rem 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 0 !important;
+  tab-size: 4;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre)::before {
+  content: none !important;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre)::after {
+  background-color: #ffffff !important;
+  color: #1f82a6 !important;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace !important;
+  font-size: 15px !important;
+  line-height: 1.62 !important;
+  padding-right: 1rem;
+  top: 14px;
+  width: 3.25rem;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code {
+  background: transparent !important;
+  color: #1f2328 !important;
+  display: block;
+  font-family: inherit !important;
+  font-size: 15px !important;
+  line-height: 1.62 !important;
+  overflow-x: visible !important;
+  padding: 14px 16px 18px 4.9rem !important;
+  white-space: pre !important;
+}
+
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code span.linenumber,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code span.react-syntax-highlighter-line-number {
+  color: #6e95c9 !important;
+}
+
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.keyword,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.selector,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.important {
+  color: #d2a8ff !important;
+}
+
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.function,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.method {
+  color: #79c0ff !important;
+}
+
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.class-name,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.builtin,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.property,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.attr-name {
+  color: #7ee787 !important;
+}
+
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.comment,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.prolog,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.doctype,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.cdata {
+  color: #8b949e !important;
+}
+
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.string,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.char,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.regex,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.attr-value {
+  color: #a5d6ff !important;
+}
+
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.number,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.boolean,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.constant {
+  color: #79c0ff !important;
+}
+
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.operator,
+.dark .typora-jinxiu pre.jinxiu-code-block-pre code .token.punctuation {
+  color: #c9d1d9 !important;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.keyword {
+  color: #1d4ed8 !important;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.operator {
+  color: #2563eb !important;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.variable,
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.builtin,
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.tag,
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.property,
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.quote {
+  color: #b9218e !important;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.number {
+  color: #1e40af !important;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.string {
+  color: #6f42c2 !important;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.comment {
+  color: #9a9a9a !important;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.function {
+  color: #2563eb !important;
+}
+
+.typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.class-name {
+  color: #6366f1 !important;
+}
+
+/* 暗黑模式代码块 */
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) {
+  background-color: #2d2d2d !important;
+  color: #999999 !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+/* 暗黑模式行号显示区域（无 SyntaxHighlighter 时；高亮块由组件绘制行号） */
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre)::after {
+  content: '1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 10\A 11\A 12\A 13\A 14\A 15\A 16\A 17\A 18\A 19\A 20';
+  position: absolute;
+  left: 0;
+  top: 1.8rem;
+  width: 2.5rem;
+  padding-right: 0.5rem;
+  text-align: right;
+  color: #666666 !important;
+  font-size: 16px !important;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  line-height: 2rem !important;
+  user-select: none;
+  white-space: pre;
+  z-index: 2;
+  background-color: #2d2d2d !important;
+  border-right: none !important;
+  height: calc(100% - 0.3rem);
+  overflow: hidden;
+}
+
+/* 暗黑模式下更具体的选择器，确保代码块文字颜色正确 */
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code {
+  color: #999999 !important;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  font-size: 16px !important;
+  font-weight: normal !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0.8rem 0.6rem 1rem !important;
+  border-radius: 0 !important;
+  padding-left: 3rem !important;
+}
+
+/* 确保暗黑模式下代码块中的普通文字颜色正确 */
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code span {
+  color: #999999 !important;
+}
+
+/* 暗黑模式下的 Mac 风格代码块圆点（同上，不作用在 SyntaxHighlighter） */
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre):before {
+  background-color: #ff5f56;
+  box-shadow: 20px 0 #ffbd2e, 40px 0 #27c93f;
+}
+
+/* 暗黑模式下的代码语法高亮 */
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.keyword {
+  color: var(--theme-emphasis) !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.operator {
+  color: color-mix(in srgb, var(--theme-emphasis) 65%, #cbd5e1) !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.variable,
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.builtin,
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.tag,
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.property,
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.quote {
+  color: #d64db7 !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.number {
+  color: var(--theme-emphasis) !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.string {
+  color: #7dd3fc !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.comment {
+  color: #b0b0b0 !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.function {
+  color: #93c5fd !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code .token.class-name {
+  color: #60a5fa !important;
+}
+
+.dark .typora-jinxiu code {
+  background-color: rgba(246, 248, 250, 0.1);
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+  color: var(--theme-emphasis);
+}
+
+/* GitCode 风格代码块最终深色覆盖：保持在旧 Typora 深色规则之后，避免被 #2d2d2d 回写 */
+.dark .typora-jinxiu .markdown-code-block-copy-wrap.jinxiu-code-surface {
+  --jinxiu-code-surface: #0d1117;
+  --jinxiu-code-indent-guide: rgba(139, 148, 158, 0.26);
+  background: var(--jinxiu-code-surface) !important;
+  color: #c9d1d9;
+}
+
+.dark .typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre,
+.dark .typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre code {
+  background: var(--jinxiu-code-surface) !important;
+  background-color: var(--jinxiu-code-surface) !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) {
+  background-color: #0d1117 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #c9d1d9 !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre)::after {
+  background-color: #0d1117 !important;
+  color: #6e95c9 !important;
+}
+
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code,
+.dark .typora-jinxiu pre:not(.jinxiu-code-block-pre) code span {
+  color: #c9d1d9 !important;
+}
+
+/* 表格样式 */
+.typora-jinxiu table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  font-size: 10.5pt !important;
+  margin: 15px 0 !important;
+  table-layout: fixed !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  border: 1px solid #d9dfe4 !important;
+  display: table !important;
+}
+
+/* 确保表格在 PC 端占满宽度 */
+@media (min-width: 768px) {
+  .typora-jinxiu table {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* 确保表格的所有父容器都占满宽度 */
+  .typora-jinxiu {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .typora-jinxiu > div {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .typora-jinxiu > div > div {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* 确保包含表格的容器也占满宽度 */
+.typora-jinxiu {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+
+/* 确保表格的每一列都能够根据内容自动调整宽度 */
+.typora-jinxiu table th,
+.typora-jinxiu table td {
+  min-width: 150px !important;
+  box-sizing: border-box !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* 确保表格的父容器也占满宽度 */
+.typora-jinxiu > div {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* 确保表格的所有祖先容器都占满宽度 */
+.typora-jinxiu * {
+  box-sizing: border-box !important;
+}
+
+.typora-jinxiu table th {
+  padding: 10px 12px !important;
+  border: 1px solid #d9dfe4 !important;
+  text-align: center !important;
+  font-weight: 900 !important;
+  color: var(--theme-emphasis) !important;
+  background-color: #f6f8fa !important;
+}
+
+.typora-jinxiu table td {
+  padding: 10px 12px !important;
+  border: 1px solid #d9dfe4 !important;
+  text-align: center !important;
+  color: #333333 !important;
+  background-color: #f9fafc !important;
+}
+
+.typora-jinxiu table tr {
+  border: 1px solid #d9dfe4 !important;
+}
+
+.typora-jinxiu table thead {
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  font-weight: 900 !important;
+  font-size: 16px !important;
+  text-align: center !important;
+}
+
+/* 暗黑模式表格 */
+.dark .typora-jinxiu table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  font-size: 10.5pt !important;
+  margin: 15px 0 !important;
+  table-layout: fixed !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  display: table !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* 确保暗黑模式下表格在 PC 端占满宽度 */
+@media (min-width: 768px) {
+  .dark .typora-jinxiu table {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* 确保暗黑模式下表格的所有父容器都占满宽度 */
+  .dark .typora-jinxiu {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .dark .typora-jinxiu > div {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .dark .typora-jinxiu > div > div {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* 确保暗黑模式下表格的所有祖先容器都占满宽度 */
+.dark .typora-jinxiu * {
+  box-sizing: border-box !important;
+}
+
+.dark .typora-jinxiu table th {
+  padding: 10px 12px !important;
+  border: 1px solid var(--border-color) !important;
+  text-align: center !important;
+  font-weight: 900 !important;
+  color: var(--theme-emphasis) !important;
+  background-color: #334155 !important;
+  width: 25% !important;
+  min-width: 120px !important;
+}
+
+.dark .typora-jinxiu table td {
+  padding: 10px 12px !important;
+  border: 1px solid var(--border-color) !important;
+  text-align: center !important;
+  color: var(--text-main) !important;
+  background-color: #1e293b !important;
+  width: 25% !important;
+  min-width: 120px !important;
+}
+
+.dark .typora-jinxiu table tr {
+  border: 1px solid var(--border-color) !important;
+}
+
+.dark .typora-jinxiu table thead {
+  font-family: "Noto Serif SC", "Times New Roman", serif !important;
+  font-weight: 900 !important;
+  font-size: 16px !important;
+  text-align: center !important;
+}
+
+/* 「学点英语」词汇表：英文词 + 美/英 分段控件 */
+.jinxiu-english-speech-root table.jinxiu-english-speech-table th.jinxiu-english-speech-col,
+.jinxiu-english-speech-root table.jinxiu-english-speech-table td.jinxiu-english-speech-td {
+  min-width: 128px !important;
+  text-align: center !important;
+}
+
+.jinxiu-english-speech-root table.jinxiu-english-speech-table td.jinxiu-english-speech-td {
+  vertical-align: middle !important;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-word-cell {
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  justify-items: center;
+  gap: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-height: 28px;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-word-cell--paragraph {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  text-align: left;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-word-cell--paragraph .jinxiu-english-word-text {
+  display: block;
+  width: 100%;
+  max-width: none;
+  text-align: inherit;
+  font-weight: inherit;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-word-cell--paragraph .jinxiu-english-word-text > p,
+.jinxiu-english-speech-root .jinxiu-english-word-cell--paragraph .jinxiu-english-word-text > div {
+  margin-bottom: 0;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-word-cell--paragraph .jinxiu-english-speech-bar {
+  margin-top: 8px;
+  justify-content: flex-start;
+}
+
+/* 嵌题灰底区块：小喇叭对比度 */
+.embed-question-block .jinxiu-english-speech-root .jinxiu-english-speech-trigger {
+  color: color-mix(in srgb, var(--theme-emphasis) 88%, #475569);
+}
+
+.embed-question-block .jinxiu-english-speech-root .jinxiu-english-speech-trigger:hover {
+  color: var(--theme-emphasis);
+  background: color-mix(in srgb, var(--theme-emphasis) 14%, transparent);
+}
+
+.embed-question-block .jinxiu-english-speech-root .jinxiu-english-accent-switch {
+  background: color-mix(in srgb, var(--theme-emphasis) 12%, transparent);
+  border-color: color-mix(in srgb, var(--theme-emphasis) 28%, transparent);
+}
+
+/* 嵌题选项行：朗读控件随选项文本换行，不撑破 flex */
+.embed-question-block button .jinxiu-english-speech-root {
+  width: 100%;
+}
+
+.embed-question-block button .jinxiu-english-speech-root .jinxiu-english-word-cell--paragraph {
+  width: 100%;
+  text-align: left;
+}
+
+.embed-question-block button .jinxiu-english-speech-root .jinxiu-english-word-cell--paragraph .jinxiu-english-speech-bar {
+  margin-top: 4px;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-word-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.35;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-speech-bar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 22px;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-speech-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 22px;
+  padding: 0 !important;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  font-size: inherit !important;
+  line-height: 0;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--theme-emphasis) 82%, #64748b);
+  transition:
+    opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0.28s,
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-speech-trigger:hover {
+  color: var(--theme-emphasis);
+  background: color-mix(in srgb, var(--theme-emphasis) 10%, transparent);
+}
+
+.jinxiu-english-speech-root .jinxiu-english-speech-trigger:focus {
+  outline: none;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-speech-trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--theme-emphasis) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-speech-trigger--playing {
+  color: var(--theme-emphasis);
+}
+
+.jinxiu-english-speech-root .jinxiu-english-speech-trigger svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-switch {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: inline-flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  padding: 2px 4px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--theme-emphasis) 7%, #eef1f4);
+  border: 1px solid color-mix(in srgb, var(--theme-emphasis) 14%, #d9dfe4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -46%) scale(0.96);
+  pointer-events: none;
+  white-space: nowrap;
+  transition:
+    opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0.34s;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-divider {
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  padding: 0 1px;
+  color: color-mix(in srgb, var(--theme-emphasis) 28%, #94a3b8);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-word-cell--accents-open .jinxiu-english-speech-trigger,
+.jinxiu-english-speech-root .jinxiu-english-word-cell:focus-within .jinxiu-english-speech-trigger {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.92);
+}
+
+.jinxiu-english-speech-root .jinxiu-english-word-cell--accents-open .jinxiu-english-accent-switch,
+.jinxiu-english-speech-root .jinxiu-english-word-cell:focus-within .jinxiu-english-accent-switch {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+  transition:
+    opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .jinxiu-english-speech-root .jinxiu-english-speech-bar:hover .jinxiu-english-speech-trigger {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: scale(0.92);
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-speech-bar:hover .jinxiu-english-accent-switch {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+    pointer-events: auto;
+    transition:
+      opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 0s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jinxiu-english-speech-root .jinxiu-english-speech-trigger,
+  .jinxiu-english-speech-root .jinxiu-english-accent-switch {
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    transform: translate(-50%, -50%);
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--accents-open .jinxiu-english-accent-switch,
+  .jinxiu-english-speech-root .jinxiu-english-word-cell:focus-within .jinxiu-english-accent-switch,
+  .jinxiu-english-speech-root .jinxiu-english-speech-bar:hover .jinxiu-english-accent-switch {
+    transform: translate(-50%, -50%);
+  }
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn {
+  position: relative;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: auto;
+  min-width: 0;
+  height: 20px;
+  padding: 0 6px !important;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  font-size: 10px !important;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--text-main, #475569) 78%, #64748b);
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn:hover {
+  color: var(--theme-emphasis);
+  background: color-mix(in srgb, var(--theme-emphasis) 10%, transparent);
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn:focus {
+  outline: none;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--theme-emphasis) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn--active {
+  color: var(--theme-emphasis);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn--active:has(.jinxiu-english-accent-btn__bars) .jinxiu-english-accent-btn__label {
+  display: inline;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn__label {
+  position: relative;
+  z-index: 1;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn__bars {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+  width: 9px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn__bars span {
+  display: block;
+  width: 1.5px;
+  border-radius: 9999px;
+  background: currentColor;
+  transform-origin: bottom center;
+  animation: jinxiu-english-accent-bar 0.75s ease-in-out infinite;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn__bars span:nth-child(1) {
+  height: 4px;
+  animation-delay: 0s;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn__bars span:nth-child(2) {
+  height: 7px;
+  animation-delay: 0.12s;
+}
+
+.jinxiu-english-speech-root .jinxiu-english-accent-btn__bars span:nth-child(3) {
+  height: 5px;
+  animation-delay: 0.24s;
+}
+
+@keyframes jinxiu-english-accent-bar {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes jinxiu-english-accent-label-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.dark .jinxiu-english-speech-root .jinxiu-english-accent-divider {
+  color: color-mix(in srgb, var(--theme-emphasis) 24%, #64748b);
+}
+
+.dark .jinxiu-english-speech-root .jinxiu-english-accent-switch {
+  background: color-mix(in srgb, var(--theme-emphasis) 10%, #1e293b);
+  border-color: color-mix(in srgb, var(--theme-emphasis) 18%, var(--border-color, #334155));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.dark .jinxiu-english-speech-root .jinxiu-english-accent-btn {
+  color: color-mix(in srgb, var(--text-main, #cbd5e1) 88%, #94a3b8);
+}
+
+.dark .jinxiu-english-speech-root .jinxiu-english-accent-btn:hover,
+.dark .jinxiu-english-speech-root .jinxiu-english-accent-btn--active {
+  color: var(--theme-emphasis);
+}
+
+.dark .jinxiu-english-speech-root .jinxiu-english-accent-btn--active {
+  background: color-mix(in srgb, #ffffff 10%, #334155);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.24);
+}
+
+/* 窄屏：词汇表 English 列防溢出、控件更紧凑 */
+@media (max-width: 767px) {
+  .jinxiu-english-speech-root .jinxiu-english-speech-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0.85em 0;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-speech-table-wrap > table.jinxiu-english-speech-table {
+    margin: 0 !important;
+  }
+
+  .jinxiu-english-speech-root table.jinxiu-english-speech-table {
+    table-layout: auto !important;
+    font-size: 13px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .jinxiu-english-speech-root table.jinxiu-english-speech-table th,
+  .jinxiu-english-speech-root table.jinxiu-english-speech-table td {
+    min-width: 0 !important;
+    padding: 6px 4px !important;
+    white-space: normal !important;
+  }
+
+  .jinxiu-english-speech-root table.jinxiu-english-speech-table th.jinxiu-english-speech-col,
+  .jinxiu-english-speech-root table.jinxiu-english-speech-table td.jinxiu-english-speech-td {
+    min-width: 0 !important;
+    width: auto !important;
+    max-width: 42vw;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell {
+    min-height: 0;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-text {
+    font-size: 0.92em;
+    line-height: 1.3;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-accent-btn {
+    width: auto;
+    min-width: 0;
+    height: 18px;
+    padding: 0 4px;
+    font-size: 9px;
+  }
+
+  /* 窄屏播放态：隐藏音柱，用文字闪烁，避免撑宽换行 */
+  .jinxiu-english-speech-root .jinxiu-english-accent-btn__bars {
+    display: none;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-accent-btn--active .jinxiu-english-accent-btn__label {
+    animation: jinxiu-english-accent-label-pulse 0.85s ease-in-out infinite;
+  }
+
+  /* 窄屏触屏：US/UK 内联排列，避免 absolute 居中撑出表格格 */
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch .jinxiu-english-speech-bar {
+    position: static;
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch .jinxiu-english-accent-switch {
+    position: static;
+    left: auto;
+    top: auto;
+    transform: none;
+    max-width: 100%;
+    padding: 1px 3px;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch.jinxiu-english-word-cell--accents-open .jinxiu-english-speech-trigger,
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch:focus-within .jinxiu-english-speech-trigger {
+    display: none;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch.jinxiu-english-word-cell--accents-open .jinxiu-english-accent-switch,
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch:focus-within .jinxiu-english-accent-switch {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch .jinxiu-english-accent-btn {
+    height: 18px;
+    padding: 0 4px !important;
+    font-size: 9px !important;
+    min-width: 0;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch .jinxiu-english-accent-divider {
+    padding: 0;
+    font-size: 9px;
+  }
+}
+
+/* 触屏（非窄屏平板等）：沿用内联 US/UK，不 absolute 溢出 */
+@media (hover: none), (pointer: coarse) {
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch .jinxiu-english-speech-bar {
+    position: static;
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch .jinxiu-english-accent-switch {
+    position: static;
+    transform: none;
+    max-width: 100%;
+    padding: 1px 3px;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch.jinxiu-english-word-cell--accents-open .jinxiu-english-speech-trigger,
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch:focus-within .jinxiu-english-speech-trigger {
+    display: none;
+  }
+
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch.jinxiu-english-word-cell--accents-open .jinxiu-english-accent-switch,
+  .jinxiu-english-speech-root .jinxiu-english-word-cell--touch:focus-within .jinxiu-english-accent-switch {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
+  }
+}
+
+.embed-question-block .jinxiu-english-speech-root .jinxiu-english-word-cell--touch .jinxiu-english-speech-bar {
+  margin-top: 6px;
+  max-width: 100%;
+}
+
+/* 图片样式 */
+.typora-jinxiu img:not([data-jinxiu-reading-image="true"]) {
+  max-width: 100%;
+  height: auto;
+  margin: 1.5em 0;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.jinxiu-adaptive-reading-image[data-jinxiu-reading-image="true"] {
+  --jinxiu-reading-image-natural-width: 100%;
+  --jinxiu-reading-image-bucket-max-width: min(100%, 680px);
+  --jinxiu-reading-image-bucket-max-height: min(70vh, 720px);
+  display: block;
+  width: auto;
+  max-width: min(
+    100%,
+    var(--jinxiu-reading-image-natural-width),
+    var(--jinxiu-reading-image-bucket-max-width)
+  );
+  max-height: var(--jinxiu-reading-image-bucket-max-height);
+  height: auto;
+  margin: 1.5em auto;
+  border-radius: 4px;
+  object-fit: contain;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.jinxiu-adaptive-reading-image[data-jinxiu-image-size="loading"],
+.jinxiu-adaptive-reading-image[data-jinxiu-image-size="fallback"],
+.jinxiu-adaptive-reading-image[data-jinxiu-image-size="standard"] {
+  --jinxiu-reading-image-bucket-max-width: min(100%, 680px);
+  --jinxiu-reading-image-bucket-max-height: min(70vh, 720px);
+}
+
+.jinxiu-adaptive-reading-image[data-jinxiu-image-size="author"] {
+  --jinxiu-reading-image-bucket-max-height: none;
+  max-width: 100%;
+}
+
+.jinxiu-adaptive-reading-image[data-jinxiu-image-size="icon"] {
+  --jinxiu-reading-image-bucket-max-width: min(100%, 220px);
+  --jinxiu-reading-image-bucket-max-height: none;
+}
+
+.jinxiu-adaptive-reading-image[data-jinxiu-image-size="formula"] {
+  --jinxiu-reading-image-bucket-max-width: min(100%, 680px);
+  --jinxiu-reading-image-bucket-max-height: none;
+}
+
+.jinxiu-adaptive-reading-image[data-jinxiu-image-size="wide"] {
+  --jinxiu-reading-image-bucket-max-width: 100%;
+  --jinxiu-reading-image-bucket-max-height: min(70vh, 720px);
+}
+
+.jinxiu-adaptive-reading-image[data-jinxiu-image-size="portrait"] {
+  --jinxiu-reading-image-bucket-max-width: min(100%, 420px);
+  --jinxiu-reading-image-bucket-max-height: min(68vh, 680px);
+}
+
+.jinxiu-adaptive-reading-image[data-jinxiu-image-size="tall"] {
+  --jinxiu-reading-image-bucket-max-width: min(100%, 360px);
+  --jinxiu-reading-image-bucket-max-height: min(68vh, 620px);
+}
+
+/* 暗黑模式图片 */
+.dark .typora-jinxiu img:not([data-jinxiu-reading-image="true"]),
+.dark .jinxiu-adaptive-reading-image[data-jinxiu-reading-image="true"] {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 表格容器样式 - 防止表格导致页面横向滚动 */
+.typora-jinxiu table {
+  display: table;
+  max-width: 100%;
+}
+
+/* 移动端表格与正文容器：防止整页横向溢出（字号与排版见文末「响应式调整」媒体查询） */
+
+/* 任务列表 */
+.typora-jinxiu .task-list-item {
+  position: relative;
+  padding-left: 25px;
+}
+
+.typora-jinxiu .task-list-item input[type="checkbox"] {
+  width: 0;
+}
+
+.typora-jinxiu .task-list-item input[type="checkbox"]::before {
+  content: "";
+  display: inline-block;
+  position: absolute;
+  left: 0px;
+  bottom: -1px;
+  width: 1.2rem;
+  height: 1.2rem;
+  border: 1.5px solid var(--theme-emphasis);
+  border-radius: 2px;
+  background-color: #fdfdfd;
+  margin-top: -0.4rem;
+}
+
+.typora-jinxiu .task-list-item input[type="checkbox"]:checked::before {
+  background-color: var(--theme-emphasis);
+  border: 1.5px solid var(--theme-emphasis);
+}
+
+.typora-jinxiu .task-list-item input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px; /* 根据需要调整 */
+  bottom: 2.5px; /* 根据需要调整 */
+  width: 7px; /* 根据需要调整 */
+  height: 12px; /* 根据需要调整 */
+  border: solid white;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}
+
+/* 暗黑模式任务列表 */
+.dark .typora-jinxiu .task-list-item input[type="checkbox"]::before {
+  background-color: #2d2d2d;
+}
+
+.dark .typora-jinxiu .task-list-item input[type="checkbox"]:checked::before {
+  background-color: var(--theme-emphasis);
+  border: 1.5px solid var(--theme-emphasis);
+}
+
+/* 左侧大纲样式 */
+.content-navigation {
+  font-family: "Noto Serif SC", "Times New Roman", serif;
+  height: 100%;
+  color: #40464f;
+  font-size: 0.92rem;
+  background-color: transparent;
+}
+
+.content-navigation .toc-item {
+  padding: 4px 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 2rem;
+}
+
+.content-navigation .toc-item:hover {
+  color: var(--theme-emphasis);
+  padding-left: 8px;
+}
+
+.content-navigation .toc-item.active {
+  color: var(--theme-emphasis);
+  font-weight: bold;
+  padding-left: 8px;
+  border-left: 4px solid var(--theme-emphasis);
+}
+
+.content-navigation .toc-item.level-1 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+.content-navigation .toc-item.level-2 {
+  font-size: 0.95rem;
+  padding-left: 2em;
+}
+
+.content-navigation .toc-item.level-3 {
+  font-size: 0.9rem;
+  padding-left: 2em;
+}
+
+.content-navigation .toc-item.level-4,
+.content-navigation .toc-item.level-5,
+.content-navigation .toc-item.level-6 {
+  font-size: 0.85rem;
+  padding-left: 2em;
+  color: #6b7280;
+}
+
+/* 暗黑模式左侧大纲 */
+.dark .content-navigation {
+  background-color: transparent;
+  color: #999999;
+}
+
+.dark .content-navigation .toc-item:hover {
+  color: #999999;
+}
+
+.dark .content-navigation .toc-item.active {
+  color: #999999;
+  border-left-color: #999999;
+}
+
+
+
+/* 响应式调整：窄屏（≤1023px，含手机与小平板）正文阶梯 —— 须覆盖桌面主题的 p 20px / 列表 18px */
+@media (max-width: 1023px) {
+  .typora-jinxiu {
+    padding: 15px;
+    font-size: 16px;
+    line-height: 1.62;
+    letter-spacing: 0.038em;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  /* 正文段落：桌面强制 20px，仅靠外层缩小无效 */
+  .typora-jinxiu p {
+    font-size: 16px !important;
+    line-height: 1.72 !important;
+  }
+
+  .typora-content .typora-jinxiu p {
+    font-size: 16px !important;
+    line-height: 1.72 !important;
+  }
+
+  /* 列表与条目：与正文同级 */
+  .typora-jinxiu ul,
+  .typora-jinxiu ol {
+    font-size: 16px !important;
+  }
+
+  .typora-jinxiu li,
+  .typora-jinxiu li section {
+    font-size: 16px !important;
+    line-height: 1.62 !important;
+  }
+
+  .dark .typora-jinxiu ul,
+  .dark .typora-jinxiu ol,
+  .dark .typora-jinxiu li,
+  .dark .typora-jinxiu li section {
+    font-size: 16px !important;
+  }
+
+  /* 内嵌习题容器：与正文栏共用 typora-read-gutter，窄屏勿再叠 9rem，否则有效宽度不足 */
+  .typora-read-gutter {
+    padding-left: 0;
+    padding-right: 0;
+    min-width: 0;
+  }
+
+  .typora-content .typora-jinxiu h3 {
+    margin: 1.35em 0 0.85em;
+  }
+
+  .typora-jinxiu h1 {
+    font-size: 26px !important;
+    margin-top: 1.28em;
+    margin-bottom: 1.28em;
+  }
+
+  .typora-jinxiu h2 {
+    font-size: 22px !important;
+    padding: 5px 11px;
+    margin: 0.95em 0 0.6em;
+  }
+
+  .typora-jinxiu h3 {
+    font-size: 20px !important;
+    margin: 1.35em 0 0.95em;
+  }
+
+  .typora-jinxiu h4 {
+    font-size: 18px !important;
+  }
+
+  .typora-jinxiu h5 {
+    font-size: 17px !important;
+  }
+
+  .typora-jinxiu h6 {
+    font-size: 17px !important;
+  }
+
+  .typora-jinxiu .katex-display {
+    font-size: 19px;
+    line-height: 1.24;
+  }
+
+  .typora-jinxiu .katex-display .katex {
+    font-size: 19px !important;
+  }
+
+  .typora-jinxiu blockquote .katex-display {
+    font-size: 19px;
+    line-height: 1.32;
+  }
+
+  .typora-jinxiu blockquote .katex-display > .katex {
+    font-size: 1em !important;
+  }
+
+  /* 引用块内正文与正文同级（避开代码块 token） */
+  .typora-jinxiu blockquote > p,
+  .typora-jinxiu blockquote > ul,
+  .typora-jinxiu blockquote > ol,
+  .typora-jinxiu blockquote > h1,
+  .typora-jinxiu blockquote > h2,
+  .typora-jinxiu blockquote > h3,
+  .typora-jinxiu blockquote > h4,
+  .typora-jinxiu blockquote > h5,
+  .typora-jinxiu blockquote > h6,
+  .typora-jinxiu blockquote p,
+  .typora-jinxiu blockquote li {
+    font-size: 16px !important;
+  }
+
+  .dark .typora-jinxiu blockquote > p,
+  .dark .typora-jinxiu blockquote > ul,
+  .dark .typora-jinxiu blockquote > ol,
+  .dark .typora-jinxiu blockquote > h1,
+  .dark .typora-jinxiu blockquote > h2,
+  .dark .typora-jinxiu blockquote > h3,
+  .dark .typora-jinxiu blockquote > h4,
+  .dark .typora-jinxiu blockquote > h5,
+  .dark .typora-jinxiu blockquote > h6,
+  .dark .typora-jinxiu blockquote p,
+  .dark .typora-jinxiu blockquote li {
+    font-size: 16px !important;
+  }
+
+  .typora-jinxiu blockquote.jinxiu-bq-tree > p,
+  .typora-jinxiu blockquote.jinxiu-bq-tree > p *,
+  .dark .typora-jinxiu blockquote.jinxiu-bq-tree > p,
+  .dark .typora-jinxiu blockquote.jinxiu-bq-tree > p * {
+    font-size: 16px !important;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+      monospace !important;
+    line-height: 1.45 !important;
+  }
+
+  /* 传统 pre：略小于正文，便于区分代码与叙述 */
+  .typora-jinxiu pre:not(.jinxiu-code-block-pre) {
+    font-size: 14px !important;
+    line-height: 1.68rem !important;
+  }
+
+  .typora-jinxiu pre:not(.jinxiu-code-block-pre) code {
+    font-size: 14px !important;
+    line-height: 1.68rem !important;
+  }
+
+  .typora-jinxiu pre:not(.jinxiu-code-block-pre)::after {
+    font-size: 14px !important;
+    line-height: 1.68rem !important;
+    top: 1.68rem;
+  }
+
+  /* GitHub Alerts：正文与段落对齐，标题略强调 */
+  .typora-jinxiu .markdown-alert {
+    padding: 12px 14px;
+    margin: 12px 0;
+  }
+
+  .typora-jinxiu .markdown-alert-title {
+    font-size: 17px;
+    margin-bottom: 6px;
+  }
+
+  .typora-jinxiu .markdown-alert p {
+    font-size: 16px;
+    line-height: 1.68;
+  }
+
+  .typora-jinxiu .markdown-alert ul,
+  .typora-jinxiu .markdown-alert ol {
+    font-size: 16px;
+    line-height: 1.68;
+  }
+
+  .typora-jinxiu .markdown-alert li {
+    font-size: 16px !important;
+    line-height: 1.68 !important;
+  }
+
+  .typora-jinxiu .markdown-alert li p {
+    font-size: 16px !important;
+    line-height: 1.68 !important;
+  }
+
+  .typora-jinxiu .markdown-alert li section {
+    font-size: 16px !important;
+    line-height: 1.68 !important;
+  }
+
+  .typora-jinxiu .markdown-alert .task-list-item {
+    font-size: 16px !important;
+    line-height: 1.68 !important;
+  }
+
+  /* SyntaxHighlighter：可读优先，略小于正文 */
+  .typora-jinxiu pre.jinxiu-code-block-pre {
+    font-size: 14px !important;
+    line-height: 1.58 !important;
+  }
+
+  .typora-jinxiu pre.jinxiu-code-block-pre code {
+    font-size: 14px !important;
+    line-height: 1.58 !important;
+  }
+
+  .typora-jinxiu table {
+    margin: 0.85em 0;
+    font-size: 15px;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .typora-jinxiu table th,
+  .typora-jinxiu table td {
+    padding: 0.42em 0.52em;
+  }
+
+  .typora-content {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  .content-scrollbar {
+    overflow-x: hidden;
+    width: 100%;
+  }
+}
+
+/* ============================================
+   GitHub Alerts 样式 - 统一灰色背景 + SVG 图标
+   ============================================ */
+
+/* 基础 Alert 样式 - 统一灰色背景 */
+.typora-jinxiu .markdown-alert {
+  border-left: 4px solid;
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+  background-color: #f5f8fa;
+}
+
+/* Alert 标题样式（GitHub Alerts / 提示框）*/
+.typora-jinxiu .markdown-alert-title {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: #4b5563 !important;
+}
+
+/* Alert 正文与列表 */
+.typora-jinxiu .markdown-alert p {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.7;
+  color: #4b5563 !important;
+}
+
+/* Alert 内列表与正文段落同字号 */
+.typora-jinxiu .markdown-alert ul,
+.typora-jinxiu .markdown-alert ol {
+  margin: 0.5em 0;
+  padding-left: 1.25em;
+  font-size: 18px;
+  line-height: 1.7;
+  color: #4b5563;
+}
+
+.typora-jinxiu .markdown-alert li {
+  margin: 0.25em 0;
+  font-size: 18px !important;
+  line-height: 1.7 !important;
+  color: #4b5563 !important;
+  text-align: left;
+}
+
+.typora-jinxiu .markdown-alert li p {
+  font-size: 18px !important;
+  line-height: 1.7 !important;
+  color: #4b5563 !important;
+}
+
+.typora-jinxiu .markdown-alert li section {
+  font-size: 18px !important;
+  line-height: 1.7 !important;
+  color: #4b5563 !important;
+}
+
+.typora-jinxiu .markdown-alert .task-list-item {
+  font-size: 18px !important;
+  line-height: 1.7 !important;
+}
+
+/* Note - 蓝色边框 + 信息图标 */
+.typora-jinxiu .markdown-alert.markdown-alert-note {
+  border-left: 4px solid #0969da !important;
+}
+.typora-jinxiu .markdown-alert-note .markdown-alert-title::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%230969da'%3E%3Cpath d='M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  margin-right: 6px;
+}
+
+/* Tip - 绿色边框 + 信息图标（圆圈i） */
+.typora-jinxiu .markdown-alert.markdown-alert-tip {
+  border-left: 4px solid #1a7f37 !important;
+}
+.typora-jinxiu .markdown-alert-tip .markdown-alert-title::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%231a7f37'%3E%3Cpath d='M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  margin-right: 6px;
+}
+
+/* Important - 紫色边框 + 信息图标（圆圈i） */
+.typora-jinxiu .markdown-alert.markdown-alert-important {
+  border-left: 4px solid #8250df !important;
+}
+.typora-jinxiu .markdown-alert-important .markdown-alert-title::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%238250df'%3E%3Cpath d='M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  margin-right: 6px;
+}
+
+/* Warning - 黄色/橙色边框 + 警告图标（三角形带感叹号） */
+.typora-jinxiu .markdown-alert.markdown-alert-warning {
+  border-left: 4px solid #9a6700 !important;
+}
+.typora-jinxiu .markdown-alert-warning .markdown-alert-title::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%239a6700'%3E%3Cpath d='M8.865 1.52c-.18-.31-.51-.5-.87-.5s-.69.19-.87.5L.275 13.5c-.18.31-.18.69 0 1 .19.31.52.5.87.5h13.7c.36 0 .69-.19.86-.5.17-.31.18-.69.01-1L8.865 1.52zM8.995 13h-2v-2h2v2zm0-3h-2V6h2v4z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  margin-right: 6px;
+}
+
+/* Caution - 红色边框 + 危险图标 */
+.typora-jinxiu .markdown-alert.markdown-alert-caution {
+  border-left: 4px solid #cf222e !important;
+}
+.typora-jinxiu .markdown-alert-caution .markdown-alert-title::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23cf222e'%3E%3Cpath d='M4.47.22A.749.749 0 0 1 5 0h6c.199 0 .389.079.53.22l4.25 4.25c.141.14.22.331.22.53v6a.749.749 0 0 1-.22.53l-4.25 4.25A.749.749 0 0 1 11 16H5a.749.749 0 0 1-.53-.22L.22 11.53A.749.749 0 0 1 0 11V5c0-.199.079-.389.22-.53Zm.84 1.28L1.5 5.31v5.38l3.81 3.81h5.38l3.81-3.81V5.31L10.69 1.5ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  margin-right: 6px;
+}
+
+/* Alert 内加粗文字样式 - 颜色比正文深 */
+.typora-jinxiu .markdown-alert strong,
+.typora-jinxiu .markdown-alert b {
+  color: #374151 !important;
+}
+
+/* 暗黑模式 - 统一深色背景 */
+.dark .typora-jinxiu .markdown-alert {
+  background-color: rgba(245, 248, 250, 0.1);
+}
+
+.dark .typora-jinxiu .markdown-alert p {
+  color: #94a3b8 !important;
+}
+
+.dark .typora-jinxiu .markdown-alert ul,
+.dark .typora-jinxiu .markdown-alert ol {
+  color: #94a3b8;
+}
+
+.dark .typora-jinxiu .markdown-alert li,
+.dark .typora-jinxiu .markdown-alert li p,
+.dark .typora-jinxiu .markdown-alert li section {
+  color: #94a3b8 !important;
+}
+
+.dark .typora-jinxiu .markdown-alert-title {
+  color: #94a3b8 !important;
+}
+
+.dark .typora-jinxiu .markdown-alert strong,
+.dark .typora-jinxiu .markdown-alert b {
+  color: #e2e8f0 !important;
+}
+
+/* 门户博客正文：左右留白由外层 article 控制，此处不再二次收腰 */
+.typora-jinxiu.jinxiu-blog-portal {
+  padding-left: 0;
+  padding-right: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 答疑详情话题正文 / 评论：卡片内已由外层留白，Markdown 容器不再加收腰 */
+.typora-jinxiu.jinxiu-qa-detail {
+  padding-left: 0;
+  padding-right: 0;
+  padding-top: 0.1rem;
+  padding-bottom: 0.15rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 话题正文：略抬高行高与段间距，与加大的卡片内边距相称 */
+.typora-jinxiu.jinxiu-qa-detail p {
+  margin: 0.82em 0;
+  line-height: 1.6em;
+}
+
+/* 整段仅为一条 URL：不换行，超长时横向滚动（覆盖外层 break-words） */
+.typora-jinxiu.jinxiu-qa-detail p.jinxiu-qa-p-url-nowrap,
+.typora-jinxiu.jinxiu-qa-comment-preview p.jinxiu-qa-p-url-nowrap {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.95em;
+}
+
+.dark .typora-jinxiu.jinxiu-qa-detail p.jinxiu-qa-p-url-nowrap,
+.dark .typora-jinxiu.jinxiu-qa-comment-preview p.jinxiu-qa-p-url-nowrap {
+  color: var(--text-main, #e2e8f0);
+}
+
+/* 答疑楼层正文 / Markdown 编辑器预览：与课程学习同源 Jinxiu 正文（20px 段落 / 18px 列表），仅去掉左右收腰 */
+.typora-jinxiu.jinxiu-qa-comment-preview {
+  padding: 0.2rem 1.05rem 0.35rem !important;
+  margin: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.typora-jinxiu.jinxiu-qa-comment-preview > :first-child {
+  margin-top: 0 !important;
+}
+
+.typora-jinxiu.jinxiu-qa-comment-preview p {
+  margin: 0.75em 0;
+  line-height: 1.62em;
+}
+
+.typora-jinxiu.jinxiu-qa-comment-preview ul,
+.typora-jinxiu.jinxiu-qa-comment-preview ol {
+  margin-top: 0.55em;
+  margin-bottom: 0.55em;
+}
