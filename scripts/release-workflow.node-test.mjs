@@ -168,3 +168,19 @@ test('release builds fall back to unsigned installers without weakening trusted 
   assert.match(workflow, /create-update-manifest\.mjs release-assets/);
   assert.match(workflow, /"latest\.json"/);
 });
+
+test('keeps CI-only lifecycle instrumentation out of release packages', async () => {
+  const workflow = await readFile(workflowPath, 'utf8');
+
+  assert.doesNotMatch(workflow, /packaged-lifecycle-e2e/);
+  assert.doesNotMatch(workflow, /VITE_MMD_PACKAGED_LIFECYCLE_E2E/);
+  assert.doesNotMatch(workflow, /VITE_MMD_PACKAGED_OPEN_E2E/);
+});
+
+test('installs Linux desktop smoke dependencies in the release workflow', async () => {
+  const workflow = await readFile(workflowPath, 'utf8');
+
+  assert.match(workflow, /apt-get install -y[^\n]*desktop-file-utils/);
+  assert.match(workflow, /apt-get install -y[^\n]*openbox/);
+  assert.match(workflow, /apt-get install -y[^\n]*xdotool/);
+});

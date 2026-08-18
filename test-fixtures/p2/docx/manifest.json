@@ -1,0 +1,35 @@
+{
+  "source": "mammoth@1.12.0/test/test-data",
+  "files": [
+    {
+      "name": "empty.docx",
+      "bytes": 3306,
+      "sha256": "fd9160a87bcbe94570d998499f1b1ed9b39f381fde1688c2ed2b0b0a6d562bf2"
+    },
+    {
+      "name": "external-picture.docx",
+      "bytes": 4120,
+      "sha256": "2f5dbcf27f3dcec02e81535de21b81a2719e0acfd73158750cb7f91249e628f5"
+    },
+    {
+      "name": "single-paragraph.docx",
+      "bytes": 12773,
+      "sha256": "7d89bf44b4d6940234efb6973d24706c881aa875bb794bfbe54efd92f9c6cf3e"
+    },
+    {
+      "name": "tables.docx",
+      "bytes": 13087,
+      "sha256": "9f75a82d36530d91989a43fcb8940f2e753051787714cecbf6a1f49a22e58ded"
+    },
+    {
+      "name": "text-box.docx",
+      "bytes": 15850,
+      "sha256": "a94f4c516bec29b7c2e2e219ad1799700f0eecd0ebf25ef7f8fc59c14db8fdc9"
+    },
+    {
+      "name": "tiny-picture.docx",
+      "bytes": 13699,
+      "sha256": "791b57c038328560d710c33c5b53bc3ea67a6c08bd9fa0fce0770883e39228d8"
+    }
+  ]
+}

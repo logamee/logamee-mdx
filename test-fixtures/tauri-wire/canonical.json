@@ -1,0 +1,380 @@
+{
+  "open_file_responses": [
+    {
+      "kind": "markdown",
+      "path": "/workspace/notes.md",
+      "content_mode": "text",
+      "content": "# Notes",
+      "file_version": { "canonicalPath": "/workspace/notes.md", "platformIdentity": "1", "length": "7", "modifiedNanos": "1", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+    },
+    {
+      "kind": "html",
+      "path": "/workspace/page.xhtml",
+      "content_mode": "text",
+      "content": "<main>Page</main>",
+      "file_version": { "canonicalPath": "/workspace/page.xhtml", "platformIdentity": "2", "length": "17", "modifiedNanos": "2", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+      "mime_type": "application/xhtml+xml"
+    },
+    {
+      "kind": "image",
+      "path": "/workspace/assets/pixel.png",
+      "content_mode": "binary",
+      "mime_type": "image/png"
+    },
+    {
+      "kind": "video",
+      "path": "/workspace/assets/clip.mp4",
+      "content_mode": "binary",
+      "mime_type": "video/mp4"
+    },
+    {
+      "kind": "audio",
+      "path": "/workspace/assets/track.mp3",
+      "content_mode": "binary",
+      "mime_type": "audio/mpeg"
+    }
+  ],
+  "snapshot_receipts": {
+    "fresh": {
+      "status": "fresh",
+      "snapshot": {
+        "workspace_token": "workspace-7",
+        "root": "/workspace",
+        "files": [
+          {
+            "kind": "markdown",
+            "path": "/workspace/notes.md",
+            "relative_path": "notes.md",
+            "name": "notes.md"
+          },
+          {
+            "kind": "html",
+            "path": "/workspace/page.xhtml",
+            "relative_path": "page.xhtml",
+            "name": "page.xhtml"
+          },
+          {
+            "kind": "image",
+            "path": "/workspace/assets/pixel.png",
+            "relative_path": "assets/pixel.png",
+            "name": "pixel.png"
+          },
+          {
+            "kind": "video",
+            "path": "/workspace/assets/clip.mp4",
+            "relative_path": "assets/clip.mp4",
+            "name": "clip.mp4"
+          },
+          {
+            "kind": "audio",
+            "path": "/workspace/assets/track.mp3",
+            "relative_path": "assets/track.mp3",
+            "name": "track.mp3"
+          }
+        ],
+        "directories": [
+          {
+            "path": "/workspace/assets",
+            "relative_path": "assets",
+            "name": "assets"
+          }
+        ]
+      }
+    },
+    "stale": {
+      "status": "stale",
+      "workspace_token": "workspace-7",
+      "repair_reason": "workspace refresh failed"
+    },
+    "not_applicable": {
+      "status": "not-applicable"
+    }
+  },
+  "mutation_outcomes": {
+    "confirmed_not_committed": {
+      "status": "confirmed-not-committed",
+      "message": "target already exists"
+    },
+    "confirmed_committed": {
+      "status": "confirmed-committed",
+      "receipt": {
+        "committed": {
+          "path": "/workspace/notes.md"
+        },
+        "workspace": {
+          "status": "fresh",
+          "snapshot": {
+            "workspace_token": "workspace-7",
+            "root": "/workspace",
+            "files": [
+              {
+                "kind": "markdown",
+                "path": "/workspace/notes.md",
+                "relative_path": "notes.md",
+                "name": "notes.md"
+              },
+              {
+                "kind": "html",
+                "path": "/workspace/page.xhtml",
+                "relative_path": "page.xhtml",
+                "name": "page.xhtml"
+              },
+              {
+                "kind": "image",
+                "path": "/workspace/assets/pixel.png",
+                "relative_path": "assets/pixel.png",
+                "name": "pixel.png"
+              },
+              {
+                "kind": "video",
+                "path": "/workspace/assets/clip.mp4",
+                "relative_path": "assets/clip.mp4",
+                "name": "clip.mp4"
+              },
+              {
+                "kind": "audio",
+                "path": "/workspace/assets/track.mp3",
+                "relative_path": "assets/track.mp3",
+                "name": "track.mp3"
+              }
+            ],
+            "directories": [
+              {
+                "path": "/workspace/assets",
+                "relative_path": "assets",
+                "name": "assets"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "indeterminate": {
+      "status": "indeterminate",
+      "operation": "rename",
+      "paths": [
+        "/workspace/old.md",
+        "/workspace/new.md"
+      ],
+      "recovery_message": "reopen the workspace before retrying"
+    }
+  },
+  "prepared_open_file_response": {
+    "file": {
+      "kind": "markdown",
+      "path": "/workspace/notes.md",
+      "content_mode": "text",
+      "content": "# Notes",
+      "file_version": { "canonicalPath": "/workspace/notes.md", "platformIdentity": "1", "length": "7", "modifiedNanos": "1", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+    },
+    "open_receipt": "11111111111111111111111111111111",
+    "commit_operation_id": "22222222222222222222222222222222"
+  },
+  "recent_files_snapshot": {
+    "entries": [
+      {
+        "id": "33333333333333333333333333333333",
+        "display_name": "notes.md"
+      },
+      {
+        "id": "44444444444444444444444444444444",
+        "display_name": "page.xhtml"
+      }
+    ]
+  },
+  "open_commit_results": {
+    "committed": {
+      "status": "committed",
+      "recent_files": {
+        "entries": [
+          {
+            "id": "33333333333333333333333333333333",
+            "display_name": "notes.md"
+          }
+        ]
+      }
+    },
+    "not_committed": {
+      "status": "not_committed",
+      "message": "The file could not be finalized. Please try again."
+    }
+  },
+  "open_commit_statuses": {
+    "pending": {
+      "status": "pending"
+    },
+    "committed": {
+      "status": "committed",
+      "recent_files": {
+        "entries": [
+          {
+            "id": "33333333333333333333333333333333",
+            "display_name": "notes.md"
+          }
+        ]
+      }
+    },
+    "not_committed": {
+      "status": "not_committed",
+      "message": "The file could not be finalized. Please try again."
+    },
+    "unknown": {
+      "status": "unknown"
+    }
+  },
+  "active_document_watch": {
+    "registration_present_text": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 1,
+      "snapshot": {
+        "status": "present",
+        "file": {
+          "kind": "markdown",
+          "path": "/workspace/notes.md",
+          "content_mode": "text",
+          "content": "# External",
+          "file_version": { "canonicalPath": "/workspace/notes.md", "platformIdentity": "1", "length": "10", "modifiedNanos": "3", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }
+        },
+        "preview_revision": 1
+      }
+    },
+    "registration_present_pdf": {
+      "protocol_version": 1,
+      "watch_id": "watch-2",
+      "document_id": "pane-document-2",
+      "document_generation": 8,
+      "sequence": 1,
+      "snapshot": {
+        "status": "present",
+        "file": {
+          "kind": "pdf",
+          "path": "/workspace/document.pdf",
+          "content_mode": "binary",
+          "mime_type": "application/pdf",
+          "bytes_base64": "AQ=="
+        },
+        "preview_revision": 1
+      }
+    },
+    "registration_missing": {
+      "protocol_version": 1,
+      "watch_id": "watch-3",
+      "document_id": "pane-document-3",
+      "document_generation": 9,
+      "sequence": 1,
+      "snapshot": {
+        "status": "missing",
+        "path": "/workspace/missing.md"
+      }
+    },
+    "snapshot_resync": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 2,
+      "reason": "resync",
+      "previous_path": null,
+      "snapshot": {
+        "status": "present",
+        "file": {
+          "kind": "markdown",
+          "path": "/workspace/notes.md",
+          "content_mode": "text",
+          "content": "# Resynced",
+          "file_version": { "canonicalPath": "/workspace/notes.md", "platformIdentity": "1", "length": "10", "modifiedNanos": "4", "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" }
+        },
+        "preview_revision": 2
+      }
+    },
+    "state_changed": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 3,
+      "event": {
+        "kind": "state",
+        "reason": "changed",
+        "previous_path": null,
+        "snapshot": {
+          "status": "present",
+          "file": {
+            "kind": "markdown",
+            "path": "/workspace/notes.md",
+            "content_mode": "text",
+            "content": "# Changed",
+            "file_version": { "canonicalPath": "/workspace/notes.md", "platformIdentity": "1", "length": "9", "modifiedNanos": "5", "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" }
+          },
+          "preview_revision": 3
+        }
+      }
+    },
+    "state_renamed": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 4,
+      "event": {
+        "kind": "state",
+        "reason": "renamed",
+        "previous_path": "/workspace/notes.md",
+        "snapshot": {
+          "status": "present",
+          "file": {
+            "kind": "markdown",
+            "path": "/workspace/renamed.md",
+            "content_mode": "text",
+            "content": "# Renamed",
+            "file_version": { "canonicalPath": "/workspace/renamed.md", "platformIdentity": "1", "length": "9", "modifiedNanos": "6", "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }
+          },
+          "preview_revision": 4
+        }
+      }
+    },
+    "state_missing": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 5,
+      "event": {
+        "kind": "state",
+        "reason": "missing",
+        "previous_path": null,
+        "snapshot": {
+          "status": "missing",
+          "path": "/workspace/renamed.md"
+        }
+      }
+    },
+    "health_degraded": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 6,
+      "event": {
+        "kind": "health",
+        "status": "degraded",
+        "message": "Monitoring is temporarily retrying."
+      }
+    },
+    "health_failed": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 7,
+      "event": {
+        "kind": "health",
+        "status": "failed",
+        "message": "Monitoring stopped. Reopen the file to retry."
+      }
+    }
+  }
+}

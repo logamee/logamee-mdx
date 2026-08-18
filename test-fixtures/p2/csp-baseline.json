@@ -1,0 +1,8 @@
+{
+  "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data:; media-src 'self' asset: http://asset.localhost; frame-src 'self' asset: http://asset.localhost http://127.0.0.1:*; connect-src 'self' asset: http://asset.localhost; style-src 'self' asset: http://asset.localhost 'unsafe-inline'; font-src 'self' asset: http://asset.localhost data:",
+  "only_permitted_addition": {
+    "directive": "worker-src",
+    "sources": ["'self'"]
+  },
+  "sensitive_directives": ["media-src", "frame-src", "style-src"]
+}

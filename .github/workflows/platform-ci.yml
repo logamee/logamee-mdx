@@ -1,0 +1,359 @@
+name: Platform CI
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend quality
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run check:release-version
+      - run: node --test scripts/ci/*.node-test.mjs
+      - run: npm run test:metadata
+      - run: npm run test:packaged-main-binary
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: git diff --exit-code
+
+  native:
+    name: Native ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64
+            os: macos-15
+            arch_command: test "$(uname -m)" = arm64
+            target: aarch64-apple-darwin
+            bundles: dmg
+            artifact: platform-ci-macos-arm64
+            asset: mdx_ci_aarch64.dmg
+          - name: macOS x64
+            os: macos-15-intel
+            arch_command: test "$(uname -m)" = x86_64
+            target: x86_64-apple-darwin
+            bundles: dmg
+            artifact: platform-ci-macos-x64
+            asset: mdx_ci_x64.dmg
+          - name: Windows x64
+            os: windows-latest
+            arch_command: if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64') { throw 'Expected x64' }
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+            artifact: platform-ci-windows-x64
+            asset: mdx_ci_x64-setup.exe
+          - name: Linux x64
+            os: ubuntu-22.04
+            arch_command: test "$(uname -m)" = x86_64
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+            artifact: platform-ci-linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Assert runner architecture
+        run: ${{ matrix.arch_command }}
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl wget file libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        with:
+          toolchain: 1.95.0
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.target }}
+      - run: npm ci
+      - run: npm run check:release-version
+      - name: Windows packaged-open verifier tests
+        if: runner.os == 'Windows'
+        run: node --test scripts/ci/packaged-open-evidence.node-test.mjs
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --release
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --release --features bench-cli
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --release --features packaged-lifecycle-e2e packaged_lifecycle_e2e::tests
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --release --features packaged-lifecycle-e2e packaged_open_e2e::tests
+      - name: Durable writer target-native CAS evidence
+        run: >-
+          node scripts/ci/lifecycle-evidence.mjs run-cargo-tests
+          --gate durable-write-cas
+          --target ${{ matrix.target }}
+          --output .m2-evidence/cas.json
+          --filter durable_write::tests::final_compare_race_retains_complete_competing_bytes
+          --filter durable_write::tests::expected_absent_install_race_retains_independent_intended_bytes
+          --filter durable_write::tests::staged_path_substitution_at_native_boundary_preserves_all_complete_images
+      - name: Native Trash file and directory evidence
+        run: >-
+          node scripts/ci/lifecycle-evidence.mjs run-cargo-tests
+          --gate native-trash
+          --target ${{ matrix.target }}
+          --output .m2-evidence/trash.json
+          --filter workspace_trash_native::identity_tests::real_native_trash_round_trip_for_file_and_non_empty_directory
+          --ignored true
+        env:
+          MMD_RUN_NATIVE_TRASH_SMOKE: '1'
+      - name: Native filesystem watcher
+        run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --release native_parent_watcher_reports_same_path_changes_and_stops -- --ignored
+        env:
+          MMD_RUN_NATIVE_WATCH_TESTS: '1'
+      - run: cargo check --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --release
+      - run: cargo check --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --release --features bench-cli
+      - run: npm run perf:smoke
+      - name: Build macOS package
+        if: runner.os == 'macOS'
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+          VITE_MMD_PACKAGED_LIFECYCLE_E2E: '1'
+          VITE_MMD_PACKAGED_OPEN_E2E: '1'
+        run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --features packaged-lifecycle-e2e --ci
+      - name: Build non-macOS package
+        if: runner.os != 'macOS'
+        env:
+          VITE_MMD_PACKAGED_LIFECYCLE_E2E: '1'
+          VITE_MMD_PACKAGED_OPEN_E2E: '1'
+        run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --features packaged-lifecycle-e2e --ci
+      - name: Stage macOS artifact
+        if: runner.os == 'macOS'
+        env:
+          ASSET: ${{ matrix.asset }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          mkdir staging
+          mapfile=($(find "src-tauri/target/$TARGET/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg'))
+          test "${#mapfile[@]}" -eq 1
+          cp "${mapfile[0]}" "staging/$ASSET"
+      - name: Stage Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          ASSET: ${{ matrix.asset }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          New-Item -ItemType Directory staging | Out-Null
+          $files = @(Get-ChildItem "src-tauri/target/$env:TARGET/release/bundle/nsis" -Filter '*-setup.exe' -File)
+          if ($files.Count -ne 1) { throw "Expected one NSIS installer, found $($files.Count)" }
+          Copy-Item $files[0].FullName "staging/$env:ASSET"
+      - name: Stage Linux artifacts
+        if: runner.os == 'Linux'
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          mkdir staging
+          appimages=($(find "src-tauri/target/$TARGET/release/bundle/appimage" -maxdepth 1 -type f -name '*.AppImage'))
+          debs=($(find "src-tauri/target/$TARGET/release/bundle/deb" -maxdepth 1 -type f -name '*.deb'))
+          test "${#appimages[@]}" -eq 1
+          test "${#debs[@]}" -eq 1
+          cp "${appimages[0]}" staging/mdx_ci_amd64.AppImage
+          cp "${debs[0]}" staging/mdx_ci_amd64.deb
+      - name: Extract packaged macOS main binary
+        if: runner.os == 'macOS'
+        env:
+          ASSET: ${{ matrix.asset }}
+        run: |
+          mkdir -p package-extract/macos packaged-main
+          hdiutil attach "$PWD/staging/$ASSET" -mountpoint "$PWD/package-extract/macos" -nobrowse -readonly
+          trap 'hdiutil detach "$PWD/package-extract/macos" -force || true' EXIT
+          binaries=($(find package-extract/macos -type f -path '*/Contents/MacOS/mdx'))
+          test "${#binaries[@]}" -eq 1
+          cp "${binaries[0]}" packaged-main/mdx
+          hdiutil detach "$PWD/package-extract/macos"
+          trap - EXIT
+      - name: Install and capture packaged Windows main binary
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          ASSET: ${{ matrix.asset }}
+        run: |
+          New-Item -ItemType Directory packaged-main | Out-Null
+          $installer = Start-Process -FilePath "staging/$env:ASSET" -ArgumentList '/S' -Wait -PassThru
+          if ($installer.ExitCode -ne 0) { throw "NSIS install failed with exit code $($installer.ExitCode)" }
+          $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\mdx'
+          if (-not (Test-Path -LiteralPath $uninstallKey)) { throw 'Tauri NSIS uninstall metadata is missing' }
+          $installation = Get-ItemProperty -LiteralPath $uninstallKey
+          $installDirectory = ([string]$installation.InstallLocation).Trim('"')
+          $mainBinary = [string]$installation.MainBinaryName
+          $appPath = Join-Path $installDirectory $mainBinary
+          if (-not (Test-Path -LiteralPath $appPath -PathType Leaf)) { throw "Installed application is missing: $appPath" }
+          Copy-Item -LiteralPath $appPath packaged-main/mdx.exe
+          $uninstaller = Join-Path $installDirectory 'uninstall.exe'
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "NSIS uninstall failed with exit code $($uninstall.ExitCode)" }
+      - name: Extract packaged Linux main binaries
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p package-extract/appimage package-extract/deb packaged-main
+          appimage="$PWD/staging/mdx_ci_amd64.AppImage"
+          chmod +x "$appimage"
+          (cd package-extract/appimage && "$appimage" --appimage-extract >/dev/null)
+          appimage_binaries=($(find package-extract/appimage/squashfs-root -type f -path '*/usr/bin/mdx'))
+          test "${#appimage_binaries[@]}" -eq 1
+          cp "${appimage_binaries[0]}" packaged-main/mdx-appimage
+          dpkg-deb -x staging/mdx_ci_amd64.deb package-extract/deb
+          test -f package-extract/deb/usr/bin/mdx
+          cp package-extract/deb/usr/bin/mdx packaged-main/mdx-deb
+      - name: Finalize M2 lifecycle evidence
+        if: runner.os == 'macOS'
+        run: >-
+          node scripts/ci/lifecycle-evidence.mjs finalize
+          --target ${{ matrix.target }}
+          --identity-format macho-text
+          --source-binary src-tauri/target/${{ matrix.target }}/release/mdx
+          --package-variant dmg
+          --packaged-binary packaged-main/mdx
+          --package staging/${{ matrix.asset }}
+          --receipt .m2-evidence/cas.json
+          --receipt .m2-evidence/trash.json
+          --output staging/m2-lifecycle-evidence.json
+      - name: Finalize M2 lifecycle evidence (Windows)
+        if: runner.os == 'Windows'
+        run: >-
+          node scripts/ci/lifecycle-evidence.mjs finalize
+          --target ${{ matrix.target }}
+          --identity-format pe-text
+          --source-binary src-tauri/target/${{ matrix.target }}/release/mdx.exe
+          --package-variant nsis
+          --packaged-binary packaged-main/mdx.exe
+          --package staging/${{ matrix.asset }}
+          --receipt .m2-evidence/cas.json
+          --receipt .m2-evidence/trash.json
+          --output staging/m2-lifecycle-evidence.json
+      - name: Finalize M2 lifecycle evidence (Linux)
+        if: runner.os == 'Linux'
+        run: >-
+          node scripts/ci/lifecycle-evidence.mjs finalize
+          --target ${{ matrix.target }}
+          --identity-format elf-text
+          --source-binary src-tauri/target/${{ matrix.target }}/release/mdx
+          --package-variant appimage
+          --packaged-binary packaged-main/mdx-appimage
+          --package staging/mdx_ci_amd64.AppImage
+          --package-variant deb
+          --packaged-binary packaged-main/mdx-deb
+          --package staging/mdx_ci_amd64.deb
+          --receipt .m2-evidence/cas.json
+          --receipt .m2-evidence/trash.json
+          --output staging/m2-lifecycle-evidence.json
+      - name: Create artifact manifest
+        if: runner.os == 'macOS' || runner.os == 'Windows'
+        run: >-
+          node scripts/ci/artifact-manifest.mjs create staging
+          ${{ matrix.asset }} m2-lifecycle-evidence.json
+      - name: Create artifact manifest (Linux)
+        if: runner.os == 'Linux'
+        run: >-
+          node scripts/ci/artifact-manifest.mjs create staging
+          mdx_ci_amd64.AppImage mdx_ci_amd64.deb m2-lifecycle-evidence.json
+      - name: Verify staged artifact association
+        run: node scripts/ci/artifact-manifest.mjs verify staging
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.artifact }}-base
+          path: staging/*
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
+
+  smoke:
+    name: Smoke ${{ matrix.name }}
+    needs: native
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64
+            os: macos-15
+            artifact: platform-ci-macos-arm64
+            expected_arch: arm64
+            target: aarch64-apple-darwin
+          - name: macOS x64
+            os: macos-15-intel
+            artifact: platform-ci-macos-x64
+            expected_arch: x86_64
+            target: x86_64-apple-darwin
+          - name: Windows x64
+            os: windows-latest
+            artifact: platform-ci-windows-x64
+            target: x86_64-pc-windows-msvc
+          - name: Linux x64
+            os: ubuntu-22.04
+            artifact: platform-ci-linux-x64
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    env:
+      GITHUB_RUN_ID: ${{ github.run_id }}
+      GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+      GITHUB_SHA: ${{ github.sha }}
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Install Linux smoke dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fuse libfuse2 libglib2.0-bin desktop-file-utils openbox x11-utils xdotool xvfb
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ matrix.artifact }}-base
+          path: artifact
+      - name: Install and start macOS package
+        if: runner.os == 'macOS'
+        run: scripts/ci/smoke-macos.sh artifact ${{ matrix.expected_arch }} ${{ matrix.target }}
+      - name: Install, start, and uninstall Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/ci/smoke-windows.ps1 -ArtifactDirectory artifact -Target ${{ matrix.target }}
+      - name: Install and start Linux packages
+        if: runner.os == 'Linux'
+        run: scripts/ci/smoke-linux.sh artifact ${{ matrix.target }}
+      - name: Upload verified lifecycle artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.artifact }}-verified
+          path: artifact/*
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
+
+  platform-ci:
+    name: Platform CI complete
+    if: always()
+    needs: [frontend, native, smoke]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Require every platform
+        env:
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          NATIVE_RESULT: ${{ needs.native.result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+        run: test "$FRONTEND_RESULT" = success && test "$NATIVE_RESULT" = success && test "$SMOKE_RESULT" = success

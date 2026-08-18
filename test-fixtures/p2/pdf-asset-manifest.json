@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "pdfjs_version": "6.1.200",
+  "worker_url": "/vendor/pdfjs/6.1.200/build/pdf.worker.min.mjs",
+  "cmap_base_url": "/vendor/pdfjs/6.1.200/cmaps/",
+  "standard_font_base_url": "/vendor/pdfjs/6.1.200/standard_fonts/",
+  "wasm_base_url": "/vendor/pdfjs/6.1.200/wasm/",
+  "files": [
+    {
+      "url": "/vendor/pdfjs/6.1.200/build/pdf.worker.min.mjs",
+      "sha256": "c7719084a5839386cc39bc1941cb32b34cd91b22ef08dd831a48a620e0363e60"
+    },
+    {
+      "url": "/vendor/pdfjs/6.1.200/cmaps/Adobe-Japan1-UCS2.bcmap",
+      "sha256": "054b66e4a813a1c3a724faa8f9c7e658834ce117519233dca13677c1aa0fc25b"
+    },
+    {
+      "url": "/vendor/pdfjs/6.1.200/standard_fonts/FoxitSans.pfb",
+      "sha256": "795ea3efa43d0872b63bf0067be97553b46983e4f075097669391e9d15388ecc"
+    },
+    {
+      "url": "/vendor/pdfjs/6.1.200/wasm/openjpeg_nowasm_fallback.js",
+      "sha256": "336154bf67f765f8f75d16a0accee61b5ee5f6a75b2a2905703df913bd550f3e"
+    }
+  ]
+}

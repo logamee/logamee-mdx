@@ -1,0 +1,88 @@
+{
+  "valid": [
+    {
+      "kind": "pdf",
+      "path": "/workspace/Guide.PDF",
+      "content_mode": "binary",
+      "mime_type": "application/pdf",
+      "bytes_base64": "JVBERi0xLjcK"
+    },
+    {
+      "kind": "docx",
+      "path": "/workspace/Guide.DOCX",
+      "content_mode": "binary",
+      "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "bytes_base64": "UEsDBBQAAAAA"
+    }
+  ],
+  "invalid": {
+    "pdf_text_mode": {
+      "kind": "pdf",
+      "path": "/workspace/guide.pdf",
+      "content_mode": "text",
+      "mime_type": "application/pdf",
+      "bytes_base64": "JVBERi0xLjcK"
+    },
+    "docx_missing_mime": {
+      "kind": "docx",
+      "path": "/workspace/guide.docx",
+      "content_mode": "binary",
+      "bytes_base64": "UEsDBBQAAAAA"
+    },
+    "pdf_missing_bytes": {
+      "kind": "pdf",
+      "path": "/workspace/guide.pdf",
+      "content_mode": "binary",
+      "mime_type": "application/pdf"
+    },
+    "pdf_wrong_mime": {
+      "kind": "pdf",
+      "path": "/workspace/guide.pdf",
+      "content_mode": "binary",
+      "mime_type": "application/octet-stream",
+      "bytes_base64": "JVBERi0xLjcK"
+    },
+    "pdf_mime_case_drift": {
+      "kind": "pdf",
+      "path": "/workspace/guide.pdf",
+      "content_mode": "binary",
+      "mime_type": "application/PDF",
+      "bytes_base64": "JVBERi0xLjcK"
+    },
+    "docx_wrong_mime": {
+      "kind": "docx",
+      "path": "/workspace/guide.docx",
+      "content_mode": "binary",
+      "mime_type": "application/vnd.ms-word.document.macroEnabled.12",
+      "bytes_base64": "UEsDBBQAAAAA"
+    },
+    "pdf_extra_field": {
+      "kind": "pdf",
+      "path": "/workspace/guide.pdf",
+      "content_mode": "binary",
+      "mime_type": "application/pdf",
+      "bytes_base64": "JVBERi0xLjcK",
+      "content": "not allowed"
+    },
+    "unknown_kind": {
+      "kind": "binary-document",
+      "path": "/workspace/guide.pdf",
+      "content_mode": "binary",
+      "mime_type": "application/pdf",
+      "bytes_base64": "JVBERi0xLjcK"
+    }
+  },
+  "invalid_base64": [
+    "",
+    "   ",
+    "TQ",
+    "TQ=",
+    "TQ===",
+    "T Q==",
+    "TQ==\n",
+    "TQ_=",
+    "AB==",
+    "AAB=",
+    "data:application/pdf;base64,TQ=="
+  ]
+}

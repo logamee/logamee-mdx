@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 const workflowPath = fileURLToPath(
   new URL('../../.github/workflows/platform-ci.yml', import.meta.url),
 );
-const releaseWorkflowPath = fileURLToPath(new URL('../../.github/workflows/release.yml', import.meta.url));
 const windowsSmokePath = fileURLToPath(new URL('./smoke-windows.ps1', import.meta.url));
 const packagedRunnerPath = fileURLToPath(new URL('./packaged-lifecycle-runner.mjs', import.meta.url));
 const packagedOpenRunnerPath = fileURLToPath(new URL('./packaged-open-runner.mjs', import.meta.url));
@@ -154,7 +153,6 @@ test('runs challenge-bound packaged native-open acceptance on every installed pa
 
 test('provides a window manager for Linux active-window evidence', async () => {
   const platform = await workflow();
-  const release = await readFile(releaseWorkflowPath, 'utf8');
   const linuxSmoke = await readFile(
     fileURLToPath(new URL('./smoke-linux.sh', import.meta.url)),
     'utf8',
@@ -164,10 +162,8 @@ test('provides a window manager for Linux active-window evidence', async () => {
     'utf8',
   );
 
-  for (const value of [platform, release]) {
-    assert.match(value, /apt-get install -y[^\n]*openbox/);
-    assert.match(value, /apt-get install -y[^\n]*xdotool/);
-  }
+  assert.match(platform, /apt-get install -y[^\n]*openbox/);
+  assert.match(platform, /apt-get install -y[^\n]*xdotool/);
   assert.match(linuxSmoke, /run_with_window_manager/);
   assert.match(xvfbWrapper, /openbox/);
   assert.match(xvfbWrapper, /xprop -root _NET_SUPPORTING_WM_CHECK/);
@@ -238,14 +234,6 @@ test('runs packaged-open verifier integration tests on the Windows native runner
   assert.ok(stepIndex < packageIndex, 'Windows verifier tests must pass before packaging');
 });
 
-test('keeps the CI-only instrumentation out of default release packages', async () => {
-  const release = await readFile(releaseWorkflowPath, 'utf8');
-
-  assert.doesNotMatch(release, /packaged-lifecycle-e2e/);
-  assert.doesNotMatch(release, /VITE_MMD_PACKAGED_LIFECYCLE_E2E/);
-  assert.doesNotMatch(release, /VITE_MMD_PACKAGED_OPEN_E2E/);
-});
-
 test('passes canonical workflow identity to installed packages and runs both Linux formats', async () => {
   const value = await workflow();
 
@@ -261,10 +249,8 @@ test('passes canonical workflow identity to installed packages and runs both Lin
 
 test('installs desktop-file-utils for Linux package association smoke tests', async () => {
   const value = await workflow();
-  const release = await readFile(releaseWorkflowPath, 'utf8');
 
   assert.match(value, /sudo apt-get install -y[^\n]*desktop-file-utils/);
-  assert.match(release, /sudo apt-get install -y[^\n]*desktop-file-utils/);
 });
 
 test('uses the Windows user-local temp volume for packaged Trash fixtures', async () => {

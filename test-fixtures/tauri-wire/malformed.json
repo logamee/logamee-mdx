@@ -1,0 +1,303 @@
+{
+  "externally_tagged_snapshot_receipt": {
+    "Fresh": {
+      "snapshot": {
+        "workspace_token": "workspace-7",
+        "root": "/workspace",
+        "files": [],
+        "directories": []
+      }
+    }
+  },
+  "tuple_snapshot_receipt": {
+    "Fresh": [
+      {
+        "workspace_token": "workspace-7",
+        "root": "/workspace",
+        "files": [],
+        "directories": []
+      }
+    ]
+  },
+  "externally_tagged_mutation_outcome": {
+    "ConfirmedNotCommitted": {
+      "message": "target already exists"
+    }
+  },
+  "tuple_mutation_outcome": {
+    "ConfirmedCommitted": [
+      {
+        "committed": {
+          "path": "/workspace/notes.md"
+        },
+        "workspace": {
+          "status": "not-applicable"
+        }
+      }
+    ]
+  },
+  "camel_case_stale_receipt": {
+    "status": "stale",
+    "workspaceToken": "workspace-7",
+    "repairReason": "workspace refresh failed"
+  },
+  "camel_case_indeterminate_outcome": {
+    "status": "indeterminate",
+    "operation": "rename",
+    "paths": [
+      "/workspace/old.md",
+      "/workspace/new.md"
+    ],
+    "recoveryMessage": "reopen the workspace before retrying"
+  },
+  "missing_branch_field": {
+    "status": "indeterminate",
+    "operation": "rename",
+    "paths": [
+      "/workspace/old.md",
+      "/workspace/new.md"
+    ]
+  },
+  "extra_branch_field": {
+    "status": "confirmed-not-committed",
+    "message": "target already exists",
+    "receipt": {
+      "committed": {
+        "path": "/workspace/notes.md"
+      },
+      "workspace": {
+        "status": "not-applicable"
+      }
+    }
+  },
+  "text_without_content": {
+    "kind": "markdown",
+    "path": "/workspace/notes.md",
+    "content_mode": "text"
+  },
+  "binary_with_content": {
+    "kind": "image",
+    "path": "/workspace/assets/pixel.png",
+    "content_mode": "binary",
+    "content": "not binary",
+    "mime_type": "image/png"
+  },
+  "unknown_open_file_kind": {
+    "kind": "pdf",
+    "path": "/workspace/document.pdf",
+    "content_mode": "binary",
+    "mime_type": "application/pdf"
+  },
+  "snapshot_with_unknown_entry_kind": {
+    "workspace_token": "workspace-7",
+    "root": "/workspace",
+    "files": [
+      {
+        "kind": "epub",
+        "path": "/workspace/document.epub",
+        "relative_path": "document.epub",
+        "name": "document.epub"
+      }
+    ],
+    "directories": []
+  },
+  "prepared_open_with_extra_field": {
+    "file": {
+      "kind": "markdown",
+      "path": "/workspace/notes.md",
+      "content_mode": "text",
+      "content": "# Notes"
+    },
+    "open_receipt": "11111111111111111111111111111111",
+    "commit_operation_id": "22222222222222222222222222222222",
+    "path": "/workspace/notes.md"
+  },
+  "prepared_open_with_invalid_receipt": {
+    "file": {
+      "kind": "markdown",
+      "path": "/workspace/notes.md",
+      "content_mode": "text",
+      "content": "# Notes"
+    },
+    "open_receipt": "receipt-1",
+    "commit_operation_id": "22222222222222222222222222222222"
+  },
+  "recent_snapshot_with_path": {
+    "entries": [
+      {
+        "id": "33333333333333333333333333333333",
+        "display_name": "notes.md",
+        "path": "/workspace/notes.md"
+      }
+    ]
+  },
+  "recent_snapshot_with_duplicate_id": {
+    "entries": [
+      {
+        "id": "33333333333333333333333333333333",
+        "display_name": "notes.md"
+      },
+      {
+        "id": "33333333333333333333333333333333",
+        "display_name": "copy.md"
+      }
+    ]
+  },
+  "committed_result_without_recent_files": {
+    "status": "committed"
+  },
+  "not_committed_result_with_recent_files": {
+    "status": "not_committed",
+    "message": "failed",
+    "recent_files": {
+      "entries": []
+    }
+  },
+  "unknown_status_with_message": {
+    "status": "unknown",
+    "message": "maybe committed"
+  },
+  "active_document_watch": {
+    "registration_extra_key": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 1,
+      "snapshot": {
+        "status": "missing",
+        "path": "/workspace/notes.md"
+      },
+      "raw_path": "/untrusted"
+    },
+    "registration_wrong_version": {
+      "protocol_version": 2,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 1,
+      "snapshot": {
+        "status": "missing",
+        "path": "/workspace/notes.md"
+      }
+    },
+    "registration_bad_watch_id": {
+      "protocol_version": 1,
+      "watch_id": "watch id",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 1,
+      "snapshot": {
+        "status": "missing",
+        "path": "/workspace/notes.md"
+      }
+    },
+    "registration_unsafe_generation": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 9007199254740992,
+      "sequence": 1,
+      "snapshot": {
+        "status": "missing",
+        "path": "/workspace/notes.md"
+      }
+    },
+    "snapshot_fractional_sequence": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 1.5,
+      "reason": "resync",
+      "previous_path": null,
+      "snapshot": {
+        "status": "missing",
+        "path": "/workspace/notes.md"
+      }
+    },
+    "state_reason_mismatch": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 2,
+      "event": {
+        "kind": "state",
+        "reason": "changed",
+        "previous_path": null,
+        "snapshot": {
+          "status": "missing",
+          "path": "/workspace/notes.md"
+        }
+      }
+    },
+    "rename_without_previous_path": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 3,
+      "event": {
+        "kind": "state",
+        "reason": "renamed",
+        "previous_path": null,
+        "snapshot": {
+          "status": "present",
+          "file": {
+            "kind": "markdown",
+            "path": "/workspace/renamed.md",
+            "content_mode": "text",
+            "content": "# Renamed"
+          },
+          "preview_revision": 3
+        }
+      }
+    },
+    "present_pdf_invalid_base64": {
+      "protocol_version": 1,
+      "watch_id": "watch-2",
+      "document_id": "pane-document-2",
+      "document_generation": 8,
+      "sequence": 1,
+      "snapshot": {
+        "status": "present",
+        "file": {
+          "kind": "pdf",
+          "path": "/workspace/document.pdf",
+          "content_mode": "binary",
+          "mime_type": "application/pdf",
+          "bytes_base64": "not-base64"
+        },
+        "preview_revision": 1
+      }
+    },
+    "health_unknown_status": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 4,
+      "event": {
+        "kind": "health",
+        "status": "recovering",
+        "message": "Retrying"
+      }
+    },
+    "health_raw_error_object": {
+      "protocol_version": 1,
+      "watch_id": "watch-1",
+      "document_id": "pane-document-1",
+      "document_generation": 7,
+      "sequence": 5,
+      "event": {
+        "kind": "health",
+        "status": "failed",
+        "message": {
+          "kind": "notify",
+          "path": "/secret"
+        }
+      }
+    }
+  }
+}
