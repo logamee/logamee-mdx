@@ -191,7 +191,34 @@ export function SettingsDialog({
 
           <section className="settings-section">
             <h3>{text.appearance}</h3>
-            <label className="settings-field"><span>{text.skin}</span><select name="selectedSkin" value={draft.selectedSkin} onChange={(event) => setDraft({ ...draft, selectedSkin: event.target.value as AppSettings['selectedSkin'] })}>{SKINS.map((skin) => <option key={skin.id} value={skin.id}>{locale === 'zh-CN' ? skin.nameZh : skin.nameEn}</option>)}</select></label>
+            <fieldset className="settings-skin-picker" role="radiogroup">
+              <legend>{text.skin}</legend>
+              <div className="settings-skin-grid">
+                {SKINS.map((skin) => {
+                  const swatches = skin.tokens
+                    ? [skin.tokens.panel, skin.tokens.chromeText, skin.tokens.accent, skin.tokens.panelMuted]
+                    : skin.swatches.light;
+                  const selected = draft.selectedSkin === skin.id;
+                  return (
+                    <label className={`settings-skin-option${selected ? ' selected' : ''}`} key={skin.id}>
+                      <input
+                        type="radio"
+                        name="selectedSkin"
+                        value={skin.id}
+                        checked={selected}
+                        onChange={() => setDraft({ ...draft, selectedSkin: skin.id })}
+                      />
+                      <span className="settings-skin-swatches" aria-hidden="true">
+                        {swatches.map((color, index) => (
+                          <span key={`${skin.id}-${index}`} style={{ backgroundColor: color }} />
+                        ))}
+                      </span>
+                      <span className="settings-skin-name">{locale === 'zh-CN' ? skin.nameZh : skin.nameEn}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
             <label className="settings-toggle"><span>{text.followSystem}</span><input name="followSystemTheme" type="checkbox" checked={draft.followSystemTheme} onChange={(event) => setDraft({ ...draft, followSystemTheme: event.target.checked })} /></label>
             <label className="settings-field"><span>{text.language}</span><select name="localeMode" value={draft.localeMode} onChange={(event) => setDraft({ ...draft, localeMode: event.target.value as AppSettings['localeMode'] })}><option value="system">System</option><option value="zh-CN">简体中文</option><option value="en">English</option></select></label>
           </section>

@@ -23,25 +23,35 @@ describe('SettingsDialog', () => {
     container.remove();
   });
 
-  it('lists the complete LogicFrame palette catalog with localized exact names', async () => {
+  it('shows the complete LogicFrame palette catalog as nine visible swatch choices', async () => {
+    const onSave = vi.fn<(settings: AppSettings) => Promise<void>>(async () => undefined);
     await act(async () => root.render(
       <SettingsDialog busy={false} locale="en" settings={currentSettingsEnvelope.settings}
         onClose={vi.fn<() => void>()}
         onReset={vi.fn<() => Promise<void>>(async () => undefined)}
-        onSave={vi.fn<(settings: AppSettings) => Promise<void>>(async () => undefined)} />,
+        onSave={onSave} />,
     ));
-    const options = [...container.querySelectorAll<HTMLOptionElement>('select[name="selectedSkin"] option')];
-    expect(options.map(({ value, textContent }) => [value, textContent])).toEqual([
-      ['original', 'Plain Paper · Indigo'],
-      ['jinxiu-zhusha', 'Vermilion Notes · Cinnabar'],
-      ['ruyao-tianqing', 'Ru Ware · Sky Blue'],
-      ['qinghua-jilan', 'Blue-and-White · Cobalt'],
-      ['songke-zhuying', 'Song Edition · Bamboo Green'],
-      ['gujuan-nuanxing', 'Apricot Paper · Red Ochre'],
-      ['zhuying-qingci', 'Spring Paper · Pea Green'],
-      ['jiushu-huangzhi', 'Misty Landscape · Antique Silk'],
-      ['shanshui-yemo', 'Night Tome · Pine Soot Ink'],
+    const choices = [...container.querySelectorAll<HTMLInputElement>('[role="radiogroup"] input[name="selectedSkin"]')];
+    const names = [...container.querySelectorAll<HTMLElement>('.settings-skin-name')];
+    expect(choices.map(({ value }) => value)).toEqual([
+      'original', 'jinxiu-zhusha', 'ruyao-tianqing', 'qinghua-jilan', 'songke-zhuying',
+      'gujuan-nuanxing', 'zhuying-qingci', 'jiushu-huangzhi', 'shanshui-yemo',
     ]);
+    expect(names.map(({ textContent }) => textContent)).toEqual([
+      'Plain Paper · Indigo', 'Vermilion Notes · Cinnabar', 'Ru Ware · Sky Blue',
+      'Blue-and-White · Cobalt', 'Song Edition · Bamboo Green', 'Apricot Paper · Red Ochre',
+      'Spring Paper · Pea Green', 'Misty Landscape · Antique Silk', 'Night Tome · Pine Soot Ink',
+    ]);
+    expect(container.querySelector('select[name="selectedSkin"]')).toBeNull();
+    expect(container.querySelectorAll('.settings-skin-swatches')).toHaveLength(9);
+
+    const lastChoice = choices[choices.length - 1];
+    await act(async () => lastChoice.click());
+    expect(lastChoice.checked).toBe(true);
+    await act(async () => container.querySelector('form')?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    ));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ selectedSkin: 'shanshui-yemo' }));
 
     await act(async () => root.render(
       <SettingsDialog busy={false} locale="zh-CN" settings={currentSettingsEnvelope.settings}
@@ -49,7 +59,7 @@ describe('SettingsDialog', () => {
         onReset={vi.fn<() => Promise<void>>(async () => undefined)}
         onSave={vi.fn<(settings: AppSettings) => Promise<void>>(async () => undefined)} />,
     ));
-    expect([...container.querySelectorAll<HTMLOptionElement>('select[name="selectedSkin"] option')]
+    expect([...container.querySelectorAll<HTMLElement>('.settings-skin-name')]
       .map(({ textContent }) => textContent)).toEqual([
       '素笺·青黛', '朱批·丹砂', '汝瓷·天青', '青花·苏青', '宋版·竹青',
       '杏笺·赭石', '春笺·豆青', '烟岚·缃素', '玄卷·松烟',
