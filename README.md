@@ -39,6 +39,14 @@ npm run dev
 常用验证命令和按变更类型的最低门禁见 [`docs/testing/validation-matrix.md`](docs/testing/validation-matrix.md)。
 开始任何实现前先阅读 [`AGENTS.md`](AGENTS.md) 与 [`DESIGN.md`](DESIGN.md)。
 
+## 关注公众号
+
+<div align="center">
+
+<img src="https://cdn.jsdelivr.net/gh/logamee/logamee-mdx@main/assets/scan-follow.webp" width="640" alt="扫码或搜索关注逻辑帧公众号" />
+
+</div>
+
 ## 许可证
 
 MIT，见 [`LICENSE`](LICENSE)。
