@@ -140,8 +140,8 @@ export async function peekOpenIntent(): Promise<OpenIntentPreview | null> {
   return response === null ? null : decodeOpenIntentPreview(response);
 }
 
-export function requestSessionRestore(): Promise<void> {
-  return invoke<void>('request_session_restore');
+export function requestSessionRestore(): Promise<boolean> {
+  return invoke<boolean>('request_session_restore');
 }
 
 export async function resolveOpenIntent(intentId: string): Promise<ResolvedOpenIntent> {
@@ -467,6 +467,10 @@ export function setNativeLocalePreference(
 export async function openDirectoryDialog(): Promise<WorkspaceSnapshot | null> {
   const response = await invoke<unknown>('open_directory_dialog');
   return response === null ? null : decodeWorkspaceSnapshot(response);
+}
+
+export async function openFileParentDirectory(path: string): Promise<WorkspaceSnapshot> {
+  return decodeWorkspaceSnapshot(await invoke<unknown>('open_file_parent_directory', { path }));
 }
 
 export async function authorizeResourceDirectory(): Promise<ResourceDirectoryAuthorization | null> {

@@ -156,12 +156,15 @@ fn validate_main_owner(owner: &str) -> Result<(), String> {
 fn request_session_restore_inner(
     coordinator: &OpenIntentCoordinator,
     owner: &str,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     validate_main_owner(owner)?;
+    if coordinator.has_startup_arguments() {
+        return Ok(false);
+    }
     let result = coordinator.enqueue_session_restore();
     #[cfg(feature = "packaged-lifecycle-e2e")]
     crate::packaged_open_e2e::observe_enqueue(coordinator, &result);
-    result.map(|_| ()).map_err(|_| {
+    result.map(|_| true).map_err(|_| {
         "Too many files are waiting to be opened. Finish the current request and try again."
             .to_string()
     })
@@ -171,7 +174,7 @@ fn request_session_restore_inner(
 pub(crate) fn request_session_restore(
     window: WebviewWindow,
     coordinator: State<'_, Arc<OpenIntentCoordinator>>,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     request_session_restore_inner(&coordinator, window.label())
 }
 
@@ -598,6 +601,29 @@ mod tests {
             peek_open_intent_inner(&coordinator).unwrap().source,
             "opened_event"
         );
+    }
+
+    #[test]
+    fn main_app_restore_request_is_skipped_after_a_startup_argument() {
+        let coordinator = OpenIntentCoordinator::default();
+        let directory = tempdir().unwrap();
+        let startup = directory.path().join("startup.md");
+        coordinator
+            .enqueue_path(startup, OpenIntentSource::StartupArguments)
+            .unwrap();
+
+        assert!(!request_session_restore_inner(&coordinator, "main").unwrap());
+        assert_eq!(
+            peek_open_intent_inner(&coordinator).unwrap().source,
+            "startup_args"
+        );
+        coordinator.consume_matching_head(
+            coordinator
+                .peek_head()
+                .expect("startup intent remains queued")
+                .id(),
+        );
+        assert!(peek_open_intent_inner(&coordinator).is_none());
     }
 
     #[test]

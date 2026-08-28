@@ -84,6 +84,43 @@ describe('rich clipboard paste conversion', () => {
     expect(markdown).not.toContain('data:image');
   });
 
+  it('preserves Markdown source text when HTML only wraps the source', () => {
+    const text = [
+      '## Heading',
+      '',
+      '**bold** and [link](docs/page.md)',
+    ].join('\n');
+
+    expect(convertRichClipboardPayload({
+      html: '<div>## Heading</div><div><span>**bold** and [link](docs/page.md)</span></div>',
+      text,
+    })).toEqual(expect.objectContaining({
+      markdown: text,
+      source: 'text',
+      formattingLoss: false,
+    }));
+  });
+
+  it('preserves line breaks from a single source wrapper', () => {
+    const text = '# Heading\n\n- item 1\n- item 2';
+
+    expect(convertRichClipboardToMarkdown({
+      html: '<div># Heading\n\n- item 1\n- item 2</div>',
+      text,
+    })).toBe(text);
+  });
+
+  it('keeps rich HTML formatting when Markdown-looking punctuation is literal text', () => {
+    expect(convertRichClipboardPayload({
+      html: '<p><strong>Bold</strong> and *literal* # text</p>',
+      text: 'Bold and *literal* # text',
+    })).toEqual(expect.objectContaining({
+      markdown: '**Bold** and \\*literal\\* \\# text',
+      source: 'html',
+      formattingLoss: false,
+    }));
+  });
+
   it('falls back to plain clipboard text, including RTF/PDF extracted text', () => {
     expect(convertRichClipboardToMarkdown({ text: '  copied PDF line 1\r\nline 2  ' }))
       .toBe('copied PDF line 1\nline 2');

@@ -273,10 +273,16 @@ function isSameEditorStatus(current: EditorStatus, next: EditorStatus): boolean 
 }
 
 function isMarkdownFormatShortcut(event: KeyboardEvent): boolean {
+  const isSlashKey = event.code === 'Slash'
+    || event.code === 'NumpadDivide'
+    || event.key === '/'
+    || event.key === '?'
+    || event.keyCode === 191
+    || event.keyCode === 111;
   return event.ctrlKey
     && !event.altKey
     && !event.metaKey
-    && (event.code === 'Slash' || event.key === '/' || (event.key === '?' && event.shiftKey));
+    && isSlashKey;
 }
 
 export function EditorPane({ activePath, content, documentEpoch, documentId, editable = true, fileKind = 'markdown', mediaInsertion, onContentChange, onPasteError, onPasteImage, outlineJump, onPopout, paneRef, popoutButton, popout = false, spellcheckEnabled = true }: EditorPaneProps) {
@@ -345,6 +351,7 @@ export function EditorPane({ activePath, content, documentEpoch, documentId, edi
     if (!view || !openMarkdownFormatDialog(view)) return;
     event.preventDefault();
     event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation();
   };
 
   const handleEditorContextMenuCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -576,6 +583,11 @@ export function EditorPane({ activePath, content, documentEpoch, documentId, edi
           }),
           Prec.highest(keymap.of([{
             key: 'Ctrl-/',
+            run: openMarkdownFormatDialog,
+            shift: openMarkdownFormatDialog,
+            stopPropagation: true,
+          }, {
+            key: 'Ctrl-?',
             run: openMarkdownFormatDialog,
             shift: openMarkdownFormatDialog,
             stopPropagation: true,

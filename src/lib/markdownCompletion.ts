@@ -32,23 +32,8 @@ interface MarkdownCompletionDocument {
   sliceString(from?: number, to?: number): string;
 }
 
-const COMPLETION_TRIGGER_CHARACTERS = new Set([
-  '!', '"', '#', '(', ')', '*', '+', '.', '[', ']', '`', '_', '{', '}', '~', '>', '-',
-]);
-
-const CLOSING_DELIMITERS = new Set([')', ']', '}', '"', '*', '_', '~', '`']);
-
-const PAIRED_DELIMITERS: Readonly<Record<string, string>> = {
-  '(': ')',
-  '{': '}',
-  '"': '"',
-  '*': '*',
-  '_': '_',
-  '~': '~',
-};
-
 function isCompletionTrigger(text: string): boolean {
-  return text === '\n' || (text.length === 1 && COMPLETION_TRIGGER_CHARACTERS.has(text));
+  return text === '\n';
 }
 
 function stringDocument(source: string): MarkdownCompletionDocument {
@@ -65,10 +50,6 @@ function stringDocument(source: string): MarkdownCompletionDocument {
       return source.slice(from, to);
     },
   };
-}
-
-function characterAt(document: MarkdownCompletionDocument, position: number): string {
-  return position < 0 || position >= document.length ? '' : document.sliceString(position, position + 1);
 }
 
 function isInsideFencedCode(source: string, position: number): boolean {
@@ -103,12 +84,6 @@ function isViewInsideFencedCode(view: EditorView, position: number): boolean {
     if (!node.parent) return false;
     node = node.parent;
   }
-}
-
-function isBlankLine(line: MarkdownCompletionLine, position: number): boolean {
-  const offset = position - line.from;
-  return /^[ \t]*$/.test(line.text.slice(0, offset))
-    && /^[ \t]*$/.test(line.text.slice(offset));
 }
 
 function getListContinuationEdit(document: MarkdownCompletionDocument, position: number): MarkdownCompletionEdit | null {
@@ -197,136 +172,6 @@ function getListContinuationEdit(document: MarkdownCompletionDocument, position:
   };
 }
 
-function getAlertCompletionEdit(document: MarkdownCompletionDocument, position: number): MarkdownCompletionEdit | null {
-  const line = document.lineAt(position);
-  const offset = position - line.from;
-  const before = line.text.slice(0, offset);
-  const after = line.text.slice(offset);
-  const match = /^(\s*)> \[$/.exec(before);
-  if (!match || !/^[ \t]*$/.test(after)) return null;
-  const indent = match[1];
-  const insert = `${indent}> [!TIP]\n${indent}> `;
-  const markerStart = line.from + indent.length + 4;
-  return {
-    from: line.from,
-    to: line.to,
-    insert,
-    selection: { anchor: markerStart, head: markerStart + 3 },
-  };
-}
-
-function getFenceCompletionEdit(document: MarkdownCompletionDocument, position: number): MarkdownCompletionEdit | null {
-  const line = document.lineAt(position);
-  const offset = position - line.from;
-  const before = line.text.slice(0, offset);
-  const after = line.text.slice(offset);
-  const match = /^(\s*)``$/.exec(before);
-  if (!match || !/^[ \t]*$/.test(after)) return null;
-  const indent = match[1];
-  const insert = `${indent}\`\`\`\n\n${indent}\`\`\``;
-  const cursor = line.from + indent.length + 4;
-  return {
-    from: line.from,
-    to: line.to,
-    insert,
-    selection: { anchor: cursor, head: cursor },
-  };
-}
-
-function getEmptyLineMarkerEdit(
-  document: MarkdownCompletionDocument,
-  position: number,
-  text: string,
-): MarkdownCompletionEdit | null {
-  const line = document.lineAt(position);
-  if (!isBlankLine(line, position)) return null;
-  const insert = text === '#'
-    ? '# '
-    : text === '>'
-      ? '> '
-      : text === '-' || text === '+' || text === '*'
-        ? `${text} `
-        : null;
-  if (!insert) return null;
-  return {
-    from: position,
-    to: position,
-    insert,
-    selection: {
-      anchor: position + insert.length,
-      head: position + insert.length,
-    },
-  };
-}
-
-function getOrderedListMarkerEdit(document: MarkdownCompletionDocument, position: number): MarkdownCompletionEdit | null {
-  const line = document.lineAt(position);
-  const offset = position - line.from;
-  const before = line.text.slice(0, offset);
-  const after = line.text.slice(offset);
-  if (!/^[ \t]*$/.test(after) || !/^(\s*)\d+$/.test(before)) return null;
-  return {
-    from: position,
-    to: position,
-    insert: '. ',
-    selection: { anchor: position + 2, head: position + 2 },
-  };
-}
-
-function getPairedDelimiterEdit(
-  document: MarkdownCompletionDocument,
-  position: number,
-  text: string,
-): MarkdownCompletionEdit | null {
-  if ((text === '*' || text === '_' || text === '~')
-    && characterAt(document, position - 1) === text
-    && characterAt(document, position) === text) {
-    return {
-      from: position - 1,
-      to: position + 1,
-      insert: text.repeat(4),
-      selection: { anchor: position + 1, head: position + 1 },
-    };
-  }
-
-  if (CLOSING_DELIMITERS.has(text) && characterAt(document, position) === text) {
-    return {
-      from: position,
-      to: position,
-      insert: '',
-      selection: { anchor: position + 1, head: position + 1 },
-    };
-  }
-
-  if (text === '`') {
-    const line = document.lineAt(position);
-    const offset = position - line.from;
-    const before = line.text.slice(0, offset);
-    const after = line.text.slice(offset);
-    if (/^\s*`?$/.test(before) && /^[ \t]*$/.test(after)) return null;
-    return {
-      from: position,
-      to: position,
-      insert: '``',
-      selection: { anchor: position + 1, head: position + 1 },
-    };
-  }
-
-  if (text === '"' && /[\p{L}\p{N}_]/u.test(characterAt(document, position - 1))
-    && /[\p{L}\p{N}_]/u.test(characterAt(document, position))) {
-    return null;
-  }
-
-  const close = PAIRED_DELIMITERS[text];
-  if (!close || characterAt(document, position) === close) return null;
-  return {
-    from: position,
-    to: position,
-    insert: `${text}${close}`,
-    selection: { anchor: position + 1, head: position + 1 },
-  };
-}
-
 function getMarkdownCompletionEditForDocument(
   document: MarkdownCompletionDocument,
   selection: MarkdownCompletionSelection,
@@ -344,37 +189,7 @@ function getMarkdownCompletionEditForDocument(
     || insideFencedCode
   ) return null;
 
-  if (input.text === '\n') return getListContinuationEdit(document, input.from);
-
-  if (input.text === '!') {
-    const alert = getAlertCompletionEdit(document, input.from);
-    if (alert) return alert;
-  }
-
-  if (input.text === '`') {
-    const fence = getFenceCompletionEdit(document, input.from);
-    if (fence) return fence;
-  }
-
-  if (input.text === '[') {
-    const line = document.lineAt(input.from);
-    const before = line.text.slice(0, input.from - line.from);
-    if (/^\s*>\s*$/.test(before) || characterAt(document, input.from) === ']') return null;
-    return {
-      from: input.from,
-      to: input.to,
-      insert: '[]()',
-      selection: { anchor: input.from + 1, head: input.from + 1 },
-    };
-  }
-
-  const marker = getEmptyLineMarkerEdit(document, input.from, input.text);
-  if (marker) return marker;
-  if (input.text === '.') {
-    const ordered = getOrderedListMarkerEdit(document, input.from);
-    if (ordered) return ordered;
-  }
-  return getPairedDelimiterEdit(document, input.from, input.text);
+  return getListContinuationEdit(document, input.from);
 }
 
 export function getMarkdownCompletionEdit(

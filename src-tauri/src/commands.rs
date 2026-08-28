@@ -6,21 +6,18 @@ use std::{
 
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use sha2::{Digest, Sha256};
+#[cfg(target_os = "macos")]
+use std::{ffi::CStr, os::unix::ffi::OsStringExt};
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::{
     ffi::CString,
     fs::File,
     os::{
         fd::{AsRawFd, FromRawFd},
-        unix::{
-            ffi::OsStrExt,
-            fs::OpenOptionsExt,
-        },
+        unix::{ffi::OsStrExt, fs::OpenOptionsExt},
     },
     path::PathBuf,
 };
-#[cfg(target_os = "macos")]
-use std::{ffi::CStr, os::unix::ffi::OsStringExt};
 
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
@@ -2300,6 +2297,29 @@ pub(crate) fn open_directory_with_ports_inner(
     Ok(snapshot)
 }
 
+fn open_file_parent_directory_with_ports_inner(
+    state: &AppState,
+    path: impl AsRef<Path>,
+    transport: impl FnOnce(&Path) -> Result<(), String>,
+) -> Result<WorkspaceSnapshot, String> {
+    let file = ensure_authorized_existing_file_inner(state, path)?;
+    if WorkspaceFileKind::classify(&file).is_none() {
+        return Err("Selected file is not a supported preview file".to_string());
+    }
+    let parent = file
+        .parent()
+        .ok_or_else(|| "Selected file has no parent directory".to_string())?;
+    open_directory_with_ports_inner(state, parent, capture_workspace_snapshot, transport)
+}
+
+#[cfg(any(test, feature = "packaged-lifecycle-e2e"))]
+pub(crate) fn open_file_parent_directory_inner(
+    state: &AppState,
+    path: impl AsRef<Path>,
+) -> Result<WorkspaceSnapshot, String> {
+    open_file_parent_directory_with_ports_inner(state, path, |_| Ok(()))
+}
+
 fn open_persisted_directory_with_ports_inner(
     state: &AppState,
     path: impl AsRef<Path>,
@@ -3390,6 +3410,21 @@ pub(crate) async fn open_directory_dialog(
 }
 
 #[tauri::command]
+pub(crate) fn open_file_parent_directory(
+    path: String,
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<WorkspaceSnapshot, String> {
+    if window.label() != "main" {
+        return Err("Only the main window can open a file parent workspace".to_string());
+    }
+    open_file_parent_directory_with_ports_inner(&state, path, |root| {
+        allow_asset_preview_directory(&app, root)
+    })
+}
+
+#[tauri::command]
 pub(crate) fn refresh_directory(
     workspace_token: String,
     path: String,
@@ -4028,6 +4063,46 @@ mod tests {
                 ("b.docx", serde_json::json!("docx")),
             ]
         );
+    }
+
+    #[test]
+    fn standalone_file_parent_workspace_uses_the_authorized_file_parent() {
+        let directory = tempdir().unwrap();
+        let nested = directory.path().join("notes");
+        fs::create_dir(&nested).unwrap();
+        let file = nested.join("current.md");
+        fs::write(&file, "# Current").unwrap();
+        let state = AppState::default();
+        open_standalone_file_with_ports_inner(
+            &state,
+            &file,
+            |path| open_authorized_file_response(path.to_path_buf()),
+            |_| Ok(()),
+        )
+        .unwrap();
+
+        let snapshot = open_file_parent_directory_inner(&state, &file).unwrap();
+
+        assert_eq!(
+            snapshot.root,
+            nested.canonicalize().unwrap().to_string_lossy()
+        );
+        assert!(snapshot
+            .files
+            .iter()
+            .any(|entry| entry.path == file.canonicalize().unwrap().to_string_lossy()));
+    }
+
+    #[test]
+    fn standalone_file_parent_workspace_rejects_an_unauthorized_file() {
+        let directory = tempdir().unwrap();
+        let file = directory.path().join("current.md");
+        fs::write(&file, "# Current").unwrap();
+        let state = AppState::default();
+
+        let error = open_file_parent_directory_inner(&state, &file).unwrap_err();
+
+        assert!(error.contains("outside the user-authorized session files and directories"));
     }
 
     #[test]

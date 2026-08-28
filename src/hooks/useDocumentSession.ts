@@ -64,6 +64,7 @@ import {
   getOpenCommitStatus,
   moveWorkspaceEntry,
   openDirectoryDialog,
+  openFileParentDirectory,
   openFileDialog,
   openRecentFile,
   openWorkspaceFile,
@@ -564,6 +565,24 @@ export function useDocumentSession({
     }
     return 'indeterminate';
   }, [advanceCrashDraftIdentity, afterConfirmedSave, applyDocumentSessionState, currentDocumentSessionState]);
+
+  const synchronizeWorkspaceForStandaloneFile = useCallback(async (
+    path: string,
+    requestedDocumentGeneration: number,
+  ) => {
+    try {
+      const response = await openFileParentDirectory(path);
+      if (
+        documentGenerationRef.current !== requestedDocumentGeneration
+        || !workspaceSessionRestoreMountedRef.current
+      ) return;
+      workspaceGenerationRef.current += 1;
+      applyWorkspaceSnapshot(response);
+    } catch (error) {
+      setError(normalizeAppError(error, localeRef.current));
+      setNotice(null);
+    }
+  }, [applyWorkspaceSnapshot]);
 
   const claimPreparedOpen = useCallback((
     prepared: PreparedOpenFileResponse | null,
@@ -1314,12 +1333,19 @@ export function useDocumentSession({
             requestedDocumentGeneration,
           );
           if (appliedGeneration !== null) {
-            applied = await applyPreparedOpen(
+            const fileApplied = await applyPreparedOpen(
               resolved.prepared,
               appliedGeneration,
               true,
               discardCurrentCrashDraft,
             ) === 'committed';
+            if (fileApplied) {
+              await synchronizeWorkspaceForStandaloneFile(
+                resolved.prepared.file.path,
+                appliedGeneration,
+              );
+            }
+            applied = fileApplied;
           }
           return;
         }
@@ -1424,6 +1450,7 @@ export function useDocumentSession({
     openIntentResolutionBlocked,
     restoreWorkspaceState,
     settleWorkspaceSessionRestore,
+    synchronizeWorkspaceForStandaloneFile,
   ]);
 
   const saveDocumentAs = useCallback(async (

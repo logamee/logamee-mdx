@@ -174,6 +174,7 @@ impl PendingOpenIntent {
 struct OpenIntentQueue {
     next_id: u64,
     pending: VecDeque<PendingOpenIntent>,
+    startup_arguments_present: bool,
 }
 
 /// A bounded FIFO of untrusted requests to open a single path.
@@ -199,6 +200,7 @@ impl OpenIntentCoordinator {
             queue: Mutex::new(OpenIntentQueue {
                 next_id: 1,
                 pending: VecDeque::new(),
+                startup_arguments_present: false,
             }),
         }
     }
@@ -272,6 +274,10 @@ impl OpenIntentCoordinator {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
+        if source == OpenIntentSource::StartupArguments {
+            queue.startup_arguments_present = true;
+        }
+
         if let Some(intent) = queue.pending.iter().find(|intent| {
             matches!(
                 &intent.target,
@@ -303,6 +309,13 @@ impl OpenIntentCoordinator {
             .pending
             .front()
             .map(PendingOpenIntent::head)
+    }
+
+    pub(crate) fn has_startup_arguments(&self) -> bool {
+        self.queue
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .startup_arguments_present
     }
 
     pub(crate) fn peek_preview(&self) -> Option<OpenIntentPreview> {
@@ -567,6 +580,23 @@ mod tests {
             restore.target(),
             ConsumedOpenIntentTarget::SessionRestore
         ));
+    }
+
+    #[test]
+    fn coordinator_remembers_startup_arguments_after_the_intent_is_consumed() {
+        let coordinator = OpenIntentCoordinator::default();
+        let startup = coordinator
+            .enqueue_args(
+                args(&["mmd", "startup.md"]),
+                &work_root(),
+                OpenIntentSource::StartupArguments,
+            )
+            .unwrap()
+            .head();
+
+        assert!(coordinator.has_startup_arguments());
+        coordinator.consume_matching_head(startup.id());
+        assert!(coordinator.has_startup_arguments());
     }
 
     #[test]

@@ -42,6 +42,8 @@ const ALLOWED_TAGS = Object.freeze([
 ] as const);
 const ALLOWED_ATTR = Object.freeze(['checked', 'href', 'start', 'title', 'type'] as const);
 const BLOCK_TAGS = new Set(['blockquote', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'li', 'ol', 'p', 'pre', 'table', 'ul']);
+const MARKDOWN_SOURCE_WRAPPER_TAGS = new Set(['br', 'div', 'p', 'span']);
+const MARKDOWN_SOURCE_BLOCK_TAGS = new Set(['div', 'p']);
 const UNSAFE_RELATIVE_PREFIX = /^(?:[a-z][a-z0-9+.-]*:|\/\/|\\|#)/iu;
 const WINDOWS_ABSOLUTE_OR_TEMP = /^(?:[a-z]:[\\/]|(?:\.\.?(?:[\\/]|$))|~[\\/])/iu;
 const NULL_CHARACTER = String.fromCharCode(0);
@@ -260,6 +262,73 @@ function normalizeMarkdownBlock(value: string): string {
     .replace(/\n[ \t]+/gu, '\n')
     .replace(/\n{3,}/gu, '\n\n')
     .trim();
+}
+
+function isMarkdownSourceWrapperTree(node: Node): boolean {
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType === Node.TEXT_NODE || child.nodeType === Node.COMMENT_NODE) continue;
+    if (child.nodeType !== Node.ELEMENT_NODE) return false;
+    const element = child as Element;
+    if (!MARKDOWN_SOURCE_WRAPPER_TAGS.has(element.localName) || !isMarkdownSourceWrapperTree(element)) return false;
+  }
+  return true;
+}
+
+function extractMarkdownSourceText(node: Node): string {
+  let output = '';
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      output += (child.textContent ?? '')
+        .replace(/\r\n?/gu, '\n')
+        .replace(/[ \t\f\u00a0]+/gu, ' ');
+      continue;
+    }
+    if (child.nodeType !== Node.ELEMENT_NODE) continue;
+
+    const element = child as Element;
+    if (element.localName === 'br') {
+      output += '\n';
+      continue;
+    }
+
+    const body = extractMarkdownSourceText(element);
+    if (MARKDOWN_SOURCE_BLOCK_TAGS.has(element.localName)) {
+      if (body.length > 0 && output.length > 0 && !output.endsWith('\n')) output += '\n';
+      output += body;
+      if (body.length > 0 && !output.endsWith('\n')) output += '\n';
+    } else {
+      output += body;
+    }
+  }
+  return output;
+}
+
+function normalizeClipboardComparisonText(value: string): string {
+  return value
+    .replace(/\r\n?/gu, '\n')
+    .replace(/[ \t\u00a0]+/gu, ' ')
+    .replace(/\n[ \t]+/gu, '\n')
+    .replace(/\n{2,}/gu, '\n')
+    .trim();
+}
+
+function getMarkdownSourceText(
+  fragment: DocumentFragment,
+  text: string,
+  limits: Limits,
+  kind: 'general' | 'pdf',
+): string | null {
+  if (!isMarkdownSourceWrapperTree(fragment)) return null;
+  const extracted = normalizeClipboardComparisonText(extractMarkdownSourceText(fragment));
+  if (extracted.length === 0) return null;
+
+  let normalizedText: string;
+  try {
+    normalizedText = normalizePlainText(text, limits, kind);
+  } catch {
+    return null;
+  }
+  return extracted === normalizeClipboardComparisonText(normalizedText) ? normalizedText : null;
 }
 
 function renderNode(node: Node, ctx: RenderContext = {}): string {
@@ -550,9 +619,16 @@ export function convertRichClipboardPayload(
   const limits = getLimits(options);
   let firstRichError: RichPasteConversionError | null = null;
   const html = typeof payload.html === 'string' ? payload.html : '';
+  const text = typeof payload.text === 'string' ? payload.text : '';
   if (html.trim().length > 0) {
     try {
       const { fragment, nodeCount } = sanitizeHtml(html, limits);
+      const markdownSource = text.trim().length > 0
+        ? getMarkdownSourceText(fragment, text, limits, payload.plainTextKind ?? 'general')
+        : null;
+      if (markdownSource !== null) {
+        return { markdown: markdownSource, source: 'text', formattingLoss: false, nodeCount };
+      }
       const markdown = normalizeMarkdownBlock(renderBlockChildren(fragment));
       if (markdown.length > 0) {
         assertUsableMarkdown(markdown, limits);
@@ -575,7 +651,6 @@ export function convertRichClipboardPayload(
     }
   }
 
-  const text = typeof payload.text === 'string' ? payload.text : '';
   if (text.trim().length > 0) {
     const markdown = normalizePlainText(text, limits, payload.plainTextKind ?? 'general');
     return {

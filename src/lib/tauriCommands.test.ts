@@ -11,6 +11,7 @@ import {
   moveWorkspaceEntry,
   openDirectoryDialog,
   openFileDialog,
+  openFileParentDirectory,
   peekOpenIntent,
   persistWorkspaceSession,
   prepareHtmlPreview,
@@ -229,11 +230,21 @@ describe('Tauri command wrappers', () => {
   });
 
   it('asks the backend to append one opaque session-restore intent', async () => {
-    invokeMock.mockResolvedValueOnce(undefined);
+    invokeMock.mockResolvedValueOnce(true);
 
-    await expect(requestSessionRestore()).resolves.toBeUndefined();
+    await expect(requestSessionRestore()).resolves.toBe(true);
 
     expect(invokeMock).toHaveBeenCalledWith('request_session_restore');
+  });
+
+  it('opens the parent workspace for a standalone file with the exact path payload', async () => {
+    invokeMock.mockResolvedValueOnce(workspaceSnapshot);
+
+    await expect(openFileParentDirectory('/outside/notes/current.md')).resolves.toEqual(workspaceSnapshot);
+
+    expect(invokeMock).toHaveBeenCalledWith('open_file_parent_directory', {
+      path: '/outside/notes/current.md',
+    });
   });
 
   it('validates packaged-open config and forwards typed app evidence events', async () => {

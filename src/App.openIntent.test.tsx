@@ -31,7 +31,7 @@ const mocks = vi.hoisted(() => ({
   listeners: new Map<string, (event: { payload: unknown }) => void>(),
   crashOnRecoverDraft: null as null | ((draft: unknown) => Promise<void> | void),
   peekOpenIntent: vi.fn<() => Promise<unknown>>(),
-  requestSessionRestore: vi.fn<() => Promise<void>>(),
+  requestSessionRestore: vi.fn<() => Promise<boolean>>(),
   resolveOpenIntentRequest: vi.fn<(
     id: string,
     targetKind: string,
@@ -270,7 +270,7 @@ describe('App open intent routing', () => {
     mocks.fileSwitchQuitHandler = null;
     mocks.getPackagedOpenE2eConfig.mockReset().mockResolvedValue(null);
     mocks.peekOpenIntent.mockReset();
-    mocks.requestSessionRestore.mockReset().mockResolvedValue(undefined);
+    mocks.requestSessionRestore.mockReset().mockResolvedValue(true);
     mocks.resolveOpenIntentRequest.mockReset().mockResolvedValue('accepted');
     mocks.recordPackagedOpenAppEvent.mockReset().mockResolvedValue(undefined);
     mocks.useDocumentSession.mockReset();
@@ -310,6 +310,27 @@ describe('App open intent routing', () => {
     expect(mocks.discardOpenIntent).not.toHaveBeenCalled();
     expect(mocks.focusMainWindow).toHaveBeenCalledWith(preview.id, false);
     expect(mocks.requestSessionRestore).toHaveBeenCalledOnce();
+  });
+
+  it('settles the startup gate when explicit startup arguments skip session restore', async () => {
+    const preview = {
+      id: 'open-intent-startup-file', source: 'startup_args', displayPath: '/workspace/new.md', targetKind: 'file',
+    };
+    const session = createSession(false);
+    mocks.useDocumentSession.mockReturnValue(session);
+    mocks.peekOpenIntent.mockResolvedValueOnce(preview).mockResolvedValue(null);
+    mocks.requestSessionRestore.mockResolvedValueOnce(false);
+
+    await act(async () => root.render(<App />));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.requestSessionRestore).toHaveBeenCalledOnce();
+    expect(session.settleWorkspaceSessionRestore).toHaveBeenCalledOnce();
+    expect(session.resolveOpenIntentRequest).toHaveBeenCalledWith(preview.id, preview.targetKind);
   });
 
   it('settles startup and reports a restore-request failure through app feedback', async () => {

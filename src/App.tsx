@@ -904,7 +904,8 @@ export default function App() {
         unlisteners.push(...cleanups);
         if (sessionRestoreRequestStateRef.current === 'pending') {
           sessionRestoreRequestStateRef.current = 'requested';
-          void requestSessionRestore().then(() => {
+          void requestSessionRestore().then((restoreRequested) => {
+            if (!restoreRequested) settleWorkspaceSessionRestore();
             if (mountedRef.current) setOpenIntentPollRevision((revision) => revision + 1);
           }).catch((err: unknown) => {
             sessionRestoreRequestStateRef.current = 'failed';

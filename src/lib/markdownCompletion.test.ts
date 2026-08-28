@@ -10,102 +10,34 @@ function completion(source: string, cursor: number, text: string) {
 }
 
 describe('getMarkdownCompletionEdit', () => {
-  it('creates paired Markdown links and image links without duplicating their closers', () => {
-    expect(completion('', 0, '[')).toEqual({
-      from: 0,
-      to: 0,
-      insert: '[]()',
-      selection: { anchor: 1, head: 1 },
-    });
-    expect(completion('!', 1, '[')).toEqual({
-      from: 1,
-      to: 1,
-      insert: '[]()',
-      selection: { anchor: 2, head: 2 },
-    });
-    expect(completion('[]()', 1, ']')).toEqual({
-      from: 1,
-      to: 1,
-      insert: '',
-      selection: { anchor: 2, head: 2 },
-    });
-    expect(completion('[]()', 3, ')')).toEqual({
-      from: 3,
-      to: 3,
-      insert: '',
-      selection: { anchor: 4, head: 4 },
-    });
-    expect(completion(']()', 0, '[')).toBeNull();
+  it('leaves Markdown punctuation untouched so syntax can be typed literally', () => {
+    for (const [source, cursor, text] of [
+      ['', 0, '#'],
+      ['', 0, '>'],
+      ['', 0, '-'],
+      ['', 0, '+'],
+      ['', 0, '*'],
+      ['1', 1, '.'],
+      ['', 0, '['],
+      ['``', 2, '`'],
+      ['> [', 3, '!'],
+      ['word', 4, '_'],
+      ['word', 4, '~'],
+    ] as const) {
+      expect(completion(source, cursor, text)).toBeNull();
+    }
   });
 
-  it('pairs ordinary delimiters and upgrades an empty emphasis pair to a strong pair', () => {
-    expect(completion('', 0, '(')).toEqual({
-      from: 0,
-      to: 0,
-      insert: '()',
-      selection: { anchor: 1, head: 1 },
-    });
-    expect(completion('', 0, '"')).toEqual({
-      from: 0,
-      to: 0,
-      insert: '""',
-      selection: { anchor: 1, head: 1 },
-    });
-    expect(completion('""', 1, '"')).toEqual({
-      from: 1,
-      to: 1,
-      insert: '',
-      selection: { anchor: 2, head: 2 },
-    });
-    expect(completion('word', 4, '*')).toEqual({
-      from: 4,
-      to: 4,
-      insert: '**',
-      selection: { anchor: 5, head: 5 },
-    });
-    expect(completion('**', 1, '*')).toEqual({
-      from: 0,
-      to: 2,
-      insert: '****',
-      selection: { anchor: 2, head: 2 },
-    });
+  it('does not auto-pair ordinary punctuation or skip existing closing punctuation', () => {
+    for (const text of ['(', ')', '{', '}', '"', ']', '`']) {
+      expect(completion('', 0, text)).toBeNull();
+    }
+    expect(completion('""', 1, '"')).toBeNull();
+    expect(completion('[]()', 1, ']')).toBeNull();
   });
 
-  it('creates Markdown headings, block quotes, and list markers only at an otherwise blank line', () => {
-    expect(completion('', 0, '#')).toEqual({
-      from: 0,
-      to: 0,
-      insert: '# ',
-      selection: { anchor: 2, head: 2 },
-    });
-    expect(completion('  ', 2, '>')).toEqual({
-      from: 2,
-      to: 2,
-      insert: '> ',
-      selection: { anchor: 4, head: 4 },
-    });
-    expect(completion('', 0, '-')).toEqual({
-      from: 0,
-      to: 0,
-      insert: '- ',
-      selection: { anchor: 2, head: 2 },
-    });
-    expect(completion('1', 1, '.')).toEqual({
-      from: 1,
-      to: 1,
-      insert: '. ',
-      selection: { anchor: 3, head: 3 },
-    });
-    expect(completion('text', 4, '#')).toBeNull();
-  });
-
-  it('expands a blank-line fence and keeps fenced code free of Markdown completions', () => {
-    expect(completion('``', 2, '`')).toEqual({
-      from: 0,
-      to: 2,
-      insert: '```\n\n```',
-      selection: { anchor: 4, head: 4 },
-    });
+  it('keeps fenced code free of Markdown completions', () => {
+    expect(completion('```\ncode', 8, '\n')).toBeNull();
     expect(completion('```\n', 4, '[')).toBeNull();
     expect(completion('```\ncode\n``', 11, '`')).toBeNull();
     expect(completion('```\ncode\n``` not a close\nbody', 29, '[')).toBeNull();
@@ -135,15 +67,6 @@ describe('getMarkdownCompletionEdit', () => {
       to: 2,
       insert: '\n',
       selection: { anchor: 1, head: 1 },
-    });
-  });
-
-  it('turns the supported alert prefix into an editable alert template', () => {
-    expect(completion('> [', 3, '!')).toEqual({
-      from: 0,
-      to: 3,
-      insert: '> [!TIP]\n> ',
-      selection: { anchor: 4, head: 7 },
     });
   });
 

@@ -148,6 +148,36 @@ describe('EditorPane', () => {
     expect(view.state.doc.toString()).toBe('replace me');
   });
 
+  it('pastes Markdown source without generated escape characters when rich HTML is only a wrapper', () => {
+    const source = '## Heading\n\n**bold** and [link](docs/page.md)';
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="prefix"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={vi.fn<(content: string) => void>()}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.length } }));
+
+    let event: ClipboardEvent | undefined;
+    act(() => {
+      event = dispatchPaste(view, {
+        html: '<div>## Heading</div><div><span>**bold** and [link](docs/page.md)</span></div>',
+        text: source,
+      });
+    });
+
+    expect(event?.defaultPrevented).toBe(true);
+    expect(view.state.doc.toString()).toBe(`prefix${source}`);
+  });
+
   it('persists a clipboard image and inserts the returned Markdown only while the editor is current', async () => {
     let resolveImage: ((markdown: string | null) => void) | undefined;
     const onPasteImage = vi.fn<() => Promise<string | null>>(() => new Promise<string | null>((resolve) => {
@@ -447,12 +477,8 @@ describe('EditorPane', () => {
     expect(onContentChange).not.toHaveBeenCalled();
   });
 
-  it('applies Markdown completion as one undoable editor transaction', () => {
+  it('leaves Markdown punctuation untouched so repeated markers remain literal', () => {
     const onContentChange = vi.fn<(content: string) => void>();
-    const fetch = vi.fn<typeof globalThis.fetch>();
-    const xmlHttpRequest = vi.fn<() => XMLHttpRequest>();
-    vi.stubGlobal('fetch', fetch);
-    vi.stubGlobal('XMLHttpRequest', xmlHttpRequest);
     act(() => {
       root.render(
         <EditorPane
@@ -461,81 +487,6 @@ describe('EditorPane', () => {
           documentEpoch={1}
           documentId="document-notes"
           onContentChange={onContentChange}
-        />,
-      );
-    });
-    const editor = container.querySelector<HTMLElement>('.cm-editor');
-    const view = editor ? EditorView.findFromDOM(editor) : null;
-    if (!view) throw new Error('Expected CodeMirror editor');
-    const runInputHandlers = (from: number, to: number, text: string) => (
-      view.state.facet(EditorView.inputHandler).some((handler) => handler(view, from, to, text, () => view.state.update({
-        changes: { from, to, insert: text },
-        selection: { anchor: from + text.length },
-        userEvent: 'input.type',
-      })))
-    );
-
-    let handled = false;
-    act(() => {
-      handled = runInputHandlers(0, 0, '[');
-    });
-
-    expect(handled).toBe(true);
-    expect(view.state.doc.toString()).toBe('[]()');
-    expect(view.state.selection.main).toMatchObject({ from: 1, to: 1 });
-    expect(onContentChange).toHaveBeenCalledOnce();
-    expect(onContentChange).toHaveBeenCalledWith('[]()');
-    expect(fetch).not.toHaveBeenCalled();
-    expect(xmlHttpRequest).not.toHaveBeenCalled();
-
-    act(() => expect(undo(view)).toBe(true));
-    expect(view.state.doc.toString()).toBe('');
-    expect(view.state.selection.main).toMatchObject({ from: 0, to: 0 });
-  });
-
-  it('applies alert completion as one undoable transaction with its marker selected', () => {
-    const onContentChange = vi.fn<(content: string) => void>();
-    act(() => {
-      root.render(
-        <EditorPane
-          activePath="/workspace/notes.md"
-          content="> ["
-          documentEpoch={1}
-          documentId="document-notes"
-          onContentChange={onContentChange}
-        />,
-      );
-    });
-    const editor = container.querySelector<HTMLElement>('.cm-editor');
-    const view = editor ? EditorView.findFromDOM(editor) : null;
-    if (!view) throw new Error('Expected CodeMirror editor');
-    act(() => view.dispatch({ selection: { anchor: view.state.doc.length } }));
-    const handler = view.state.facet(EditorView.inputHandler).find((inputHandler) => (
-      inputHandler(view, 3, 3, '!', () => view.state.update({
-        changes: { from: 3, insert: '!' },
-        selection: { anchor: 4 },
-        userEvent: 'input.type',
-      }))
-    ));
-
-    expect(handler).toBeDefined();
-    expect(view.state.doc.toString()).toBe('> [!TIP]\n> ');
-    expect(view.state.selection.main).toMatchObject({ from: 4, to: 7 });
-    expect(onContentChange).toHaveBeenCalledOnce();
-    act(() => expect(undo(view)).toBe(true));
-    expect(view.state.doc.toString()).toBe('> [');
-    expect(view.state.selection.main).toMatchObject({ from: 3, to: 3 });
-  });
-
-  it('keeps the cursor after generated markers so normal content and alerts can follow', () => {
-    act(() => {
-      root.render(
-        <EditorPane
-          activePath="/workspace/notes.md"
-          content=""
-          documentEpoch={1}
-          documentId="document-notes"
-          onContentChange={vi.fn<(content: string) => void>()}
         />,
       );
     });
@@ -553,16 +504,56 @@ describe('EditorPane', () => {
         handler(view, from, to, text, insert)
       ));
       if (!handled) view.dispatch(insert());
+      return handled;
     };
 
-    act(() => type('>'));
-    expect(view.state.doc.toString()).toBe('> ');
-    expect(view.state.selection.main).toMatchObject({ from: 2, to: 2 });
-    act(() => type('['));
-    expect(view.state.doc.toString()).toBe('> [');
+    let handled = false;
+    act(() => { handled = type('#'); });
+    expect(handled).toBe(false);
+    act(() => { handled = type('#'); });
+    expect(handled).toBe(false);
+    act(() => { handled = type('#'); });
+    expect(handled).toBe(false);
+    expect(view.state.doc.toString()).toBe('###');
+    expect(view.state.selection.main).toMatchObject({ from: 3, to: 3 });
+    expect(onContentChange).toHaveBeenCalledTimes(3);
+    expect(onContentChange).toHaveBeenLastCalledWith('###');
+  });
+
+  it('leaves alert punctuation literal during normal typing', () => {
+    const onContentChange = vi.fn<(content: string) => void>();
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="> ["
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={onContentChange}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.length } }));
+    const type = (text: string) => {
+      const { from, to } = view.state.selection.main;
+      const insert = () => view.state.update({
+        changes: { from, to, insert: text },
+        selection: { anchor: from + text.length },
+        userEvent: 'input.type',
+      });
+      const handled = view.state.facet(EditorView.inputHandler).some((handler) => (
+        handler(view, from, to, text, insert)
+      ));
+      if (!handled) view.dispatch(insert());
+    };
+
     act(() => type('!'));
-    expect(view.state.doc.toString()).toBe('> [!TIP]\n> ');
-    expect(view.state.selection.main).toMatchObject({ from: 4, to: 7 });
+    expect(view.state.doc.toString()).toBe('> [!');
+    act(() => type('['));
+    expect(view.state.doc.toString()).toBe('> [![');
   });
 
   it('continues lists through the Markdown completion Enter binding and restores them with undo', () => {
@@ -656,8 +647,8 @@ describe('EditorPane', () => {
     act(() => {
       typedHandled = applyInputWithDefault(view.state.doc.length, view.state.doc.length, '[');
     });
-    expect(typedHandled).toBe(true);
-    expect(view.state.doc.toString()).toBe('[[[[]()');
+    expect(typedHandled).toBe(false);
+    expect(view.state.doc.toString()).toBe('[[[[');
 
     const completionHost = document.createElement('div');
     document.body.append(completionHost);
@@ -1415,6 +1406,43 @@ describe('EditorPane', () => {
       .toContain('Error');
   });
 
+  it.each([
+    { code: 'Slash', key: '?', keyCode: 191, shiftKey: false },
+    { code: 'NumpadDivide', key: '/', keyCode: 111, shiftKey: false },
+  ])('opens Markdown formats for alternate Control slash events ($code/$key)', ({ code, key, keyCode, shiftKey }) => {
+    const onContentChange = vi.fn<(content: string) => void>();
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={onContentChange}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    const shortcut = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      code,
+      ctrlKey: true,
+      key,
+      keyCode,
+      shiftKey,
+    });
+    act(() => view.contentDOM.dispatchEvent(shortcut));
+
+    expect(shortcut.defaultPrevented).toBe(true);
+    expect(view.state.doc.toString()).toBe('alpha');
+    expect(onContentChange).not.toHaveBeenCalled();
+    expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
+  });
+
   it('handles Control slash in the CodeMirror keymap before its default binding', () => {
     const onContentChange = vi.fn<(content: string) => void>();
     act(() => {
@@ -1450,6 +1478,45 @@ describe('EditorPane', () => {
     expect(handled).toBe(true);
     expect(view.state.doc.toString()).toBe('alpha beta');
     expect(view.state.selection.main).toMatchObject({ from: 0, to: 5 });
+    expect(onContentChange).not.toHaveBeenCalled();
+    expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
+  });
+
+  it('handles the shifted question-mark variant in the CodeMirror keymap', () => {
+    const onContentChange = vi.fn<(content: string) => void>();
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha beta"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={onContentChange}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    act(() => view.dispatch({ selection: { anchor: 0, head: 5 } }));
+    const shortcut = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      code: 'Slash',
+      ctrlKey: true,
+      key: '?',
+      keyCode: 191,
+      shiftKey: true,
+    });
+
+    let handled = false;
+    act(() => {
+      handled = runScopeHandlers(view, shortcut, 'editor');
+    });
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe('alpha beta');
     expect(onContentChange).not.toHaveBeenCalled();
     expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
   });

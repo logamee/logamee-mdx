@@ -46,6 +46,7 @@ const tauriMocks = vi.hoisted(() => ({
   cancelDocumentOverwriteToken: vi.fn<typeof import('../lib/tauriCommands').cancelDocumentOverwriteToken>(),
   moveWorkspaceEntry: vi.fn<typeof import('../lib/tauriCommands').moveWorkspaceEntry>(),
   openDirectoryDialog: vi.fn<typeof import('../lib/tauriCommands').openDirectoryDialog>(),
+  openFileParentDirectory: vi.fn<typeof import('../lib/tauriCommands').openFileParentDirectory>(),
   openFileDialog: vi.fn<typeof import('../lib/tauriCommands').openFileDialog>(),
   openRecentFile: vi.fn<typeof import('../lib/tauriCommands').openRecentFile>(),
   openWorkspaceFile: vi.fn<typeof import('../lib/tauriCommands').openWorkspaceFile>(),
@@ -281,6 +282,7 @@ describe('useDocumentSession prepared-open authority workflow', () => {
     tauriMocks.cancelDocumentOverwriteToken.mockReset();
     tauriMocks.moveWorkspaceEntry.mockReset();
     tauriMocks.openDirectoryDialog.mockReset();
+    tauriMocks.openFileParentDirectory.mockReset();
     tauriMocks.openFileDialog.mockReset();
     tauriMocks.openRecentFile.mockReset();
     tauriMocks.openWorkspaceFile.mockReset();
@@ -305,6 +307,7 @@ describe('useDocumentSession prepared-open authority workflow', () => {
     tauriMocks.retryDocumentSaveWithToken.mockResolvedValue({ status: 'confirmed_committed', path: '/workspace/notes.md', version: fileVersion });
     tauriMocks.cancelDocumentOverwriteToken.mockResolvedValue(undefined);
     tauriMocks.openFileDialog.mockResolvedValue(null);
+    tauriMocks.openFileParentDirectory.mockResolvedValue(workspaceSnapshot());
     tauriMocks.persistWorkspaceSession.mockResolvedValue(undefined);
     tauriMocks.settleOpenIntentWorkspace.mockResolvedValue('applied');
     tauriMocks.saveAsDialog.mockResolvedValue(null);
@@ -1055,6 +1058,42 @@ describe('useDocumentSession prepared-open authority workflow', () => {
       activePath: opened.file.path,
       authorityStatus: 'committed',
       content: opened.file.content,
+    });
+  });
+
+  it('switches the workspace tree to the parent directory after a resolved standalone file commits', async () => {
+    const opened = preparedOpen('native-open', {
+      kind: 'markdown',
+      path: '/outside/notes/native-open.md',
+      content_mode: 'text',
+      content: '# native-open',
+      file_version: fileVersion,
+    });
+    const parentWorkspace = {
+      ...workspaceSnapshot([{
+        kind: 'markdown',
+        path: opened.file.path,
+        relative_path: 'native-open.md',
+        name: 'native-open.md',
+      }]),
+      workspace_token: 'parent-workspace-token',
+      root: '/outside/notes',
+    };
+    tauriMocks.resolveOpenIntent.mockResolvedValueOnce({ kind: 'file', prepared: opened });
+    tauriMocks.openFileParentDirectory.mockResolvedValueOnce(parentWorkspace);
+
+    act(() => root.render(<SessionHarness />));
+    let outcome!: Awaited<ReturnType<Session['resolveOpenIntentRequest']>>;
+    await act(async () => {
+      outcome = await session().resolveOpenIntentRequest('open-intent-parent-workspace');
+    });
+
+    expect(outcome).toBe('accepted');
+    expect(tauriMocks.openFileParentDirectory).toHaveBeenCalledWith(opened.file.path);
+    expect(session()).toMatchObject({
+      activePath: opened.file.path,
+      workspaceRoot: parentWorkspace.root,
+      workspaceToken: parentWorkspace.workspace_token,
     });
   });
 
