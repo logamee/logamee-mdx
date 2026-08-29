@@ -158,9 +158,10 @@ fn request_session_restore_inner(
     owner: &str,
 ) -> Result<bool, String> {
     validate_main_owner(owner)?;
-    let packaged_open_e2e = cfg!(feature = "packaged-lifecycle-e2e")
-        && std::env::var_os("MMD_PACKAGED_OPEN_E2E_CHALLENGE").is_some();
-    if should_skip_session_restore(coordinator.has_startup_arguments(), packaged_open_e2e) {
+    if should_skip_session_restore(
+        coordinator.has_explicit_open_request(),
+        packaged_open_e2e_challenge_active(),
+    ) {
         return Ok(false);
     }
     let result = coordinator.enqueue_session_restore();
@@ -172,8 +173,13 @@ fn request_session_restore_inner(
     })
 }
 
-fn should_skip_session_restore(has_startup_arguments: bool, packaged_open_e2e: bool) -> bool {
-    has_startup_arguments && !packaged_open_e2e
+fn packaged_open_e2e_challenge_active() -> bool {
+    cfg!(feature = "packaged-lifecycle-e2e")
+        && std::env::var_os("MMD_PACKAGED_OPEN_E2E_CHALLENGE").is_some()
+}
+
+fn should_skip_session_restore(has_explicit_open_request: bool, packaged_open_e2e: bool) -> bool {
+    has_explicit_open_request && !packaged_open_e2e
 }
 
 #[tauri::command]
@@ -373,6 +379,31 @@ fn prepare_session_restore_inner(
     ))
 }
 
+fn resolve_session_restore_response(
+    coordinator: &OpenIntentCoordinator,
+    state: &AppState,
+    owner: &str,
+) -> Result<ResolvedOpenIntentResponse, String> {
+    // The restore request may have been enqueued before an explicit open arrived (for example a
+    // macOS `Opened` event delivered after the webview issued the restore request). If an explicit
+    // open has since arrived, resolve the restore as a no-op so it never displaces the newer file.
+    if should_skip_session_restore(
+        coordinator.has_explicit_open_request(),
+        packaged_open_e2e_challenge_active(),
+    ) {
+        return Ok(ResolvedOpenIntentResponse::SessionRestore {
+            restore: None,
+            workspace_open_receipt: None,
+        });
+    }
+    prepare_session_restore_inner(state, owner).map(
+        |(restore, workspace_open_receipt)| ResolvedOpenIntentResponse::SessionRestore {
+            restore,
+            workspace_open_receipt,
+        },
+    )
+}
+
 #[tauri::command]
 pub(crate) fn peek_open_intent(
     window: WebviewWindow,
@@ -415,13 +446,9 @@ pub(crate) fn resolve_open_intent(
                 workspace_open_receipt,
             })
         }
-        ResolvedOpenIntentInner::SessionRestore => prepare_session_restore_inner(&state, &owner)
-            .map(
-                |(restore, workspace_open_receipt)| ResolvedOpenIntentResponse::SessionRestore {
-                    restore,
-                    workspace_open_receipt,
-                },
-            ),
+        ResolvedOpenIntentInner::SessionRestore => {
+            resolve_session_restore_response(&coordinator, &state, &owner)
+        }
     });
     #[cfg(feature = "packaged-lifecycle-e2e")]
     {
@@ -600,7 +627,7 @@ mod tests {
     }
 
     #[test]
-    fn main_app_restore_request_appends_after_an_existing_native_open() {
+    fn main_app_restore_request_is_skipped_after_an_existing_native_open() {
         let coordinator = OpenIntentCoordinator::default();
         let directory = tempdir().unwrap();
         let association = directory.path().join("association.md");
@@ -608,12 +635,19 @@ mod tests {
             .enqueue_path(association, OpenIntentSource::OpenedEvent)
             .unwrap();
 
-        request_session_restore_inner(&coordinator, "main").unwrap();
+        assert!(!request_session_restore_inner(&coordinator, "main").unwrap());
 
         assert_eq!(
             peek_open_intent_inner(&coordinator).unwrap().source,
             "opened_event"
         );
+        coordinator.consume_matching_head(
+            coordinator
+                .peek_head()
+                .expect("opened intent remains queued")
+                .id(),
+        );
+        assert!(peek_open_intent_inner(&coordinator).is_none());
     }
 
     #[test]
@@ -637,6 +671,31 @@ mod tests {
                 .id(),
         );
         assert!(peek_open_intent_inner(&coordinator).is_none());
+    }
+
+    #[test]
+    fn session_restore_resolution_is_a_noop_after_a_late_explicit_open() {
+        let coordinator = OpenIntentCoordinator::default();
+        // The restore request was issued before any explicit open arrived.
+        coordinator.enqueue_session_restore().unwrap();
+        // A late explicit open (macOS Opened event) then arrives after the request.
+        let directory = tempdir().unwrap();
+        coordinator
+            .enqueue_path(directory.path().join("opened.md"), OpenIntentSource::OpenedEvent)
+            .unwrap();
+
+        let resolved =
+            resolve_session_restore_response(&coordinator, &AppState::default(), "main").unwrap();
+
+        let ResolvedOpenIntentResponse::SessionRestore {
+            restore,
+            workspace_open_receipt,
+        } = resolved
+        else {
+            panic!("expected a session restore response");
+        };
+        assert!(restore.is_none());
+        assert!(workspace_open_receipt.is_none());
     }
 
     #[test]

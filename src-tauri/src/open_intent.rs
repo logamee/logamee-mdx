@@ -174,7 +174,7 @@ impl PendingOpenIntent {
 struct OpenIntentQueue {
     next_id: u64,
     pending: VecDeque<PendingOpenIntent>,
-    startup_arguments_present: bool,
+    explicit_open_requested: bool,
 }
 
 /// A bounded FIFO of untrusted requests to open a single path.
@@ -200,7 +200,7 @@ impl OpenIntentCoordinator {
             queue: Mutex::new(OpenIntentQueue {
                 next_id: 1,
                 pending: VecDeque::new(),
-                startup_arguments_present: false,
+                explicit_open_requested: false,
             }),
         }
     }
@@ -274,9 +274,12 @@ impl OpenIntentCoordinator {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        if source == OpenIntentSource::StartupArguments {
-            queue.startup_arguments_present = true;
-        }
+        // Every explicit open (startup arguments, file association, drag-drop, or a second
+        // instance) takes priority over automatic session restore. Remember that one arrived so
+        // a session-restore request — or an already-enqueued restore intent — can be suppressed,
+        // even when the explicit open is delivered after the restore request (for example the
+        // macOS `Opened` event or a second instance racing the startup restore).
+        queue.explicit_open_requested = true;
 
         if let Some(intent) = queue.pending.iter().find(|intent| {
             matches!(
@@ -311,11 +314,11 @@ impl OpenIntentCoordinator {
             .map(PendingOpenIntent::head)
     }
 
-    pub(crate) fn has_startup_arguments(&self) -> bool {
+    pub(crate) fn has_explicit_open_request(&self) -> bool {
         self.queue
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .startup_arguments_present
+            .explicit_open_requested
     }
 
     pub(crate) fn peek_preview(&self) -> Option<OpenIntentPreview> {
@@ -583,7 +586,7 @@ mod tests {
     }
 
     #[test]
-    fn coordinator_remembers_startup_arguments_after_the_intent_is_consumed() {
+    fn coordinator_remembers_an_explicit_open_request_after_the_intent_is_consumed() {
         let coordinator = OpenIntentCoordinator::default();
         let startup = coordinator
             .enqueue_args(
@@ -594,9 +597,43 @@ mod tests {
             .unwrap()
             .head();
 
-        assert!(coordinator.has_startup_arguments());
+        assert!(coordinator.has_explicit_open_request());
         coordinator.consume_matching_head(startup.id());
-        assert!(coordinator.has_startup_arguments());
+        assert!(coordinator.has_explicit_open_request());
+    }
+
+    #[test]
+    fn coordinator_treats_an_opened_event_as_an_explicit_open_request() {
+        let coordinator = OpenIntentCoordinator::default();
+        let opened = coordinator
+            .enqueue_path(
+                work_root().join("opened.md"),
+                OpenIntentSource::OpenedEvent,
+            )
+            .unwrap()
+            .head();
+
+        assert!(coordinator.has_explicit_open_request());
+        coordinator.consume_matching_head(opened.id());
+        assert!(coordinator.has_explicit_open_request());
+    }
+
+    #[test]
+    fn coordinator_treats_secondary_instance_and_drag_drop_as_explicit_opens() {
+        for source in [
+            OpenIntentSource::SecondaryInstance,
+            OpenIntentSource::DragDrop,
+        ] {
+            let coordinator = OpenIntentCoordinator::default();
+            let intent = coordinator
+                .enqueue_path(work_root().join("explicit.md"), source)
+                .unwrap()
+                .head();
+
+            assert!(coordinator.has_explicit_open_request());
+            coordinator.consume_matching_head(intent.id());
+            assert!(coordinator.has_explicit_open_request());
+        }
     }
 
     #[test]
