@@ -569,9 +569,10 @@ export function useDocumentSession({
   const synchronizeWorkspaceForStandaloneFile = useCallback(async (
     path: string,
     requestedDocumentGeneration: number,
+    intentId: string,
   ) => {
     try {
-      const response = await openFileParentDirectory(path);
+      const response = await openFileParentDirectory(path, intentId);
       if (
         documentGenerationRef.current !== requestedDocumentGeneration
         || !workspaceSessionRestoreMountedRef.current
@@ -1343,6 +1344,7 @@ export function useDocumentSession({
               await synchronizeWorkspaceForStandaloneFile(
                 resolved.prepared.file.path,
                 appliedGeneration,
+                intentId,
               );
             }
             applied = fileApplied;

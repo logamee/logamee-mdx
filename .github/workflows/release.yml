@@ -1,0 +1,435 @@
+name: Release Latest
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-latest
+  cancel-in-progress: true
+
+jobs:
+  source:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release-ready: ${{ steps.release-trust.outputs.ready }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - id: version
+        run: npm run check:release-version -- --github-output
+      - id: release-trust
+        run: node scripts/ci/check-release-trust.mjs --github-output
+        env: &trusted-release-env
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_UPDATER_PUBLIC_KEY: ${{ secrets.TAURI_UPDATER_PUBLIC_KEY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+
+  build-macos-arm64:
+    needs: source
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        with:
+          toolchain: 1.95.0
+          targets: aarch64-apple-darwin
+      - run: npm ci
+      - run: node scripts/ci/check-release-trust.mjs --allow-unsigned --output src-tauri/tauri.release.conf.json
+        env: *trusted-release-env
+      - name: Build signed macOS package
+        if: needs.source.outputs.release-ready == 'true'
+        run: npm run tauri -- build --target aarch64-apple-darwin --bundles dmg --config src-tauri/tauri.release.conf.json --ci
+        env: *trusted-release-env
+      - name: Build unsigned macOS package
+        if: needs.source.outputs.release-ready != 'true'
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+        run: npm run tauri -- build --target aarch64-apple-darwin --bundles dmg --config src-tauri/tauri.release.conf.json --ci
+      - name: Stage macOS arm64 assets
+        run: |
+          mkdir -p release-assets
+          find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -type f -name '*.dmg' -exec cp {} release-assets/mdx_${{ needs.source.outputs.version }}_darwin-aarch64.dmg \;
+          updater=$(find src-tauri/target/aarch64-apple-darwin/release/bundle -maxdepth 2 -type f -name '*.app.tar.gz' -print -quit)
+          if [[ -n "$updater" ]]; then
+            cp "$updater" "release-assets/mdx_${{ needs.source.outputs.version }}_darwin-aarch64.app.tar.gz"
+            test -f "$updater.sig"
+            cp "$updater.sig" "release-assets/mdx_${{ needs.source.outputs.version }}_darwin-aarch64.app.tar.gz.sig"
+          fi
+      - name: Create and verify macOS arm64 artifact manifest
+        run: |
+          payloads=()
+          for file in release-assets/*; do
+            [[ -f "$file" ]] || continue
+            [[ "${file##*/}" == artifact-manifest.json ]] && continue
+            payloads+=("${file##*/}")
+          done
+          test "${#payloads[@]}" -gt 0
+          node scripts/ci/artifact-manifest.mjs create release-assets "${payloads[@]}"
+          node scripts/ci/artifact-manifest.mjs verify release-assets
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-macos-arm64
+          path: release-assets
+          if-no-files-found: error
+
+  build-macos-x64:
+    needs: source
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        with:
+          toolchain: 1.95.0
+          targets: x86_64-apple-darwin
+      - run: npm ci
+      - run: node scripts/ci/check-release-trust.mjs --allow-unsigned --output src-tauri/tauri.release.conf.json
+        env: *trusted-release-env
+      - name: Build signed macOS package
+        if: needs.source.outputs.release-ready == 'true'
+        run: npm run tauri -- build --target x86_64-apple-darwin --bundles dmg --config src-tauri/tauri.release.conf.json --ci
+        env: *trusted-release-env
+      - name: Build unsigned macOS package
+        if: needs.source.outputs.release-ready != 'true'
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+        run: npm run tauri -- build --target x86_64-apple-darwin --bundles dmg --config src-tauri/tauri.release.conf.json --ci
+      - name: Stage macOS x64 assets
+        run: |
+          mkdir -p release-assets
+          find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -maxdepth 1 -type f -name '*.dmg' -exec cp {} release-assets/mdx_${{ needs.source.outputs.version }}_darwin-x86_64.dmg \;
+          updater=$(find src-tauri/target/x86_64-apple-darwin/release/bundle -maxdepth 2 -type f -name '*.app.tar.gz' -print -quit)
+          if [[ -n "$updater" ]]; then
+            cp "$updater" "release-assets/mdx_${{ needs.source.outputs.version }}_darwin-x86_64.app.tar.gz"
+            test -f "$updater.sig"
+            cp "$updater.sig" "release-assets/mdx_${{ needs.source.outputs.version }}_darwin-x86_64.app.tar.gz.sig"
+          fi
+      - name: Create and verify macOS x64 artifact manifest
+        run: |
+          payloads=()
+          for file in release-assets/*; do
+            [[ -f "$file" ]] || continue
+            [[ "${file##*/}" == artifact-manifest.json ]] && continue
+            payloads+=("${file##*/}")
+          done
+          test "${#payloads[@]}" -gt 0
+          node scripts/ci/artifact-manifest.mjs create release-assets "${payloads[@]}"
+          node scripts/ci/artifact-manifest.mjs verify release-assets
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-macos-x64
+          path: release-assets
+          if-no-files-found: error
+
+  build-windows-x64:
+    needs: source
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        with:
+          toolchain: 1.95.0
+          targets: x86_64-pc-windows-msvc
+      - run: npm ci
+      - name: Import and verify Windows signing certificate
+        if: needs.source.outputs.release-ready == 'true'
+        shell: pwsh
+        run: |
+          $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64)
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\\mdx-release.pfx", $bytes)
+        env: *trusted-release-env
+      - run: node scripts/ci/check-release-trust.mjs --allow-unsigned --output src-tauri/tauri.release.conf.json
+        env: *trusted-release-env
+      - name: Build signed Windows package
+        if: needs.source.outputs.release-ready == 'true'
+        run: npm run tauri -- build --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/tauri.release.conf.json --ci
+        env: *trusted-release-env
+      - name: Build unsigned Windows package
+        if: needs.source.outputs.release-ready != 'true'
+        run: npm run tauri -- build --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/tauri.release.conf.json --ci
+      - name: Stage Windows assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory release-assets | Out-Null
+          $installer = @(Get-ChildItem "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis" -Filter '*-setup.exe' -File)
+          if ($installer.Count -ne 1) { throw "Expected one NSIS installer, found $($installer.Count)" }
+          Copy-Item $installer[0].FullName "release-assets/mdx_${{ needs.source.outputs.version }}_windows-x86_64-setup.exe"
+          $updater = @(Get-ChildItem "src-tauri/target/x86_64-pc-windows-msvc/release/bundle" -Recurse -Filter '*.nsis.zip' -File)
+          if ($updater.Count -gt 0) {
+            Copy-Item $updater[0].FullName "release-assets/mdx_${{ needs.source.outputs.version }}_windows-x86_64.nsis.zip"
+            $signature = Get-Item "$($updater[0].FullName).sig" -ErrorAction Stop
+            Copy-Item $signature.FullName "release-assets/mdx_${{ needs.source.outputs.version }}_windows-x86_64.nsis.zip.sig"
+          }
+      - name: Create and verify Windows artifact manifest
+        shell: pwsh
+        run: |
+          $payloads = @(Get-ChildItem -LiteralPath release-assets -File |
+            Where-Object { $_.Name -ne 'artifact-manifest.json' } |
+            Select-Object -ExpandProperty Name)
+          if ($payloads.Count -eq 0) { throw 'No release assets were staged' }
+          node scripts/ci/artifact-manifest.mjs create release-assets @payloads
+          if ($LASTEXITCODE -ne 0) { throw 'Release artifact manifest creation failed' }
+          node scripts/ci/artifact-manifest.mjs verify release-assets
+          if ($LASTEXITCODE -ne 0) { throw 'Release artifact manifest verification failed' }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-windows-x64
+          path: release-assets
+          if-no-files-found: error
+
+  build-linux-x64:
+    needs: source
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        with:
+          toolchain: 1.95.0
+          targets: x86_64-unknown-linux-gnu
+      - run: sudo apt-get update && sudo apt-get install -y build-essential libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - run: npm ci
+      - run: node scripts/ci/check-release-trust.mjs --allow-unsigned --output src-tauri/tauri.release.conf.json
+        env: *trusted-release-env
+      - name: Build signed Linux package
+        if: needs.source.outputs.release-ready == 'true'
+        run: npm run tauri -- build --target x86_64-unknown-linux-gnu --bundles appimage,deb --config src-tauri/tauri.release.conf.json --ci
+        env: *trusted-release-env
+      - name: Build unsigned Linux package
+        if: needs.source.outputs.release-ready != 'true'
+        run: npm run tauri -- build --target x86_64-unknown-linux-gnu --bundles appimage,deb --config src-tauri/tauri.release.conf.json --ci
+      - name: Stage Linux assets
+        run: |
+          mkdir -p release-assets
+          find src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage -maxdepth 1 -type f -name '*.AppImage' -exec cp {} release-assets/mdx_${{ needs.source.outputs.version }}_linux-x86_64.AppImage \;
+          find src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb -maxdepth 1 -type f -name '*.deb' -exec cp {} release-assets/mdx_${{ needs.source.outputs.version }}_linux-x86_64.deb \;
+          updater=$(find src-tauri/target/x86_64-unknown-linux-gnu/release/bundle -maxdepth 2 -type f -name '*.AppImage.tar.gz' -print -quit)
+          if [[ -n "$updater" ]]; then
+            cp "$updater" "release-assets/mdx_${{ needs.source.outputs.version }}_linux-x86_64.AppImage.tar.gz"
+            test -f "$updater.sig"
+            cp "$updater.sig" "release-assets/mdx_${{ needs.source.outputs.version }}_linux-x86_64.AppImage.tar.gz.sig"
+          fi
+      - name: Create and verify Linux artifact manifest
+        run: |
+          payloads=()
+          for file in release-assets/*; do
+            [[ -f "$file" ]] || continue
+            [[ "${file##*/}" == artifact-manifest.json ]] && continue
+            payloads+=("${file##*/}")
+          done
+          test "${#payloads[@]}" -gt 0
+          node scripts/ci/artifact-manifest.mjs create release-assets "${payloads[@]}"
+          node scripts/ci/artifact-manifest.mjs verify release-assets
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-linux-x64
+          path: release-assets
+          if-no-files-found: error
+
+  smoke-release:
+    needs: [source, build-macos-arm64, build-macos-x64, build-windows-x64, build-linux-x64]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            artifact: release-macos-arm64
+            expected_arch: arm64
+            target: aarch64-apple-darwin
+            command: scripts/ci/smoke-macos.sh artifact arm64 aarch64-apple-darwin release
+          - os: macos-15-intel
+            artifact: release-macos-x64
+            expected_arch: x86_64
+            target: x86_64-apple-darwin
+            command: scripts/ci/smoke-macos.sh artifact x86_64 x86_64-apple-darwin release
+          - os: windows-latest
+            artifact: release-windows-x64
+            target: x86_64-pc-windows-msvc
+            command: ./scripts/ci/smoke-windows.ps1 -ArtifactDirectory artifact -Target x86_64-pc-windows-msvc -Mode release
+          - os: ubuntu-22.04
+            artifact: release-linux-x64
+            target: x86_64-unknown-linux-gnu
+            command: scripts/ci/smoke-linux.sh artifact x86_64-unknown-linux-gnu release
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifact
+      - name: Install Linux smoke dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fuse libfuse2 libglib2.0-bin desktop-file-utils openbox x11-utils xdotool xvfb
+      - name: Smoke macOS release package
+        if: runner.os == 'macOS'
+        run: ${{ matrix.command }}
+      - name: Smoke Windows release package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ${{ matrix.command }}
+      - name: Smoke Linux release packages
+        if: runner.os == 'Linux'
+        run: ${{ matrix.command }}
+
+  publish-latest:
+    needs: [source, smoke-release]
+    if: needs.smoke-release.result == 'success'
+    runs-on: ubuntu-22.04
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_READY: ${{ needs.source.outputs.release-ready }}
+      VERSION: ${{ needs.source.outputs.version }}
+      GITHUB_SHA: ${{ github.sha }}
+      TAG: latest
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-*
+          path: release-staging
+          merge-multiple: false
+      - name: Fetch artifact manifest verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error -L \
+            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/scripts/ci/artifact-manifest.mjs" \
+            -o /tmp/artifact-manifest.mjs
+          test -s /tmp/artifact-manifest.mjs
+      - name: Verify and assemble release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          for artifact_name in \
+            release-macos-arm64 \
+            release-macos-x64 \
+            release-windows-x64 \
+            release-linux-x64; do
+            artifact_dir="release-staging/$artifact_name"
+            test -d "$artifact_dir"
+            node /tmp/artifact-manifest.mjs verify "$artifact_dir"
+            while IFS= read -r -d '' payload; do
+              payload_name=$(basename "$payload")
+              destination="release-assets/$payload_name"
+              if [[ -e "$destination" ]]; then
+                echo "Duplicate release payload: $payload_name" >&2
+                exit 1
+              fi
+              cp "$payload" "$destination"
+            done < <(find "$artifact_dir" -maxdepth 1 -type f ! -name artifact-manifest.json -print0)
+          done
+          compgen -G 'release-assets/*' >/dev/null
+      - name: Create, verify, and roll Latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$TAG"
+          retry() {
+            local attempts=0
+            until "$@"; do
+              attempts=$((attempts + 1))
+              if (( attempts >= 5 )); then return 1; fi
+              sleep $((attempts * 2))
+            done
+          }
+          find_candidate_release_id() {
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --slurp |
+              jq -r --arg tag "$tag" 'flatten | map(select(.tag_name == $tag)) | if length == 1 then .[0].id else "" end'
+          }
+          candidate_release_absent() {
+            local found
+            found="$(find_candidate_release_id)"
+            [[ -z "$found" ]]
+          }
+          candidate_release_id=""
+          delete_candidate_release_or_confirm_absent() {
+            if [[ "$candidate_release_id" =~ ^[0-9]+$ ]]; then
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$candidate_release_id"
+              gh release delete "$tag" --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+            fi
+            candidate_release_absent
+          }
+          rollback() {
+            delete_candidate_release_or_confirm_absent || true
+            gh release delete "$tag" --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          }
+          trap rollback ERR
+
+          # Move the stable ref to the exact source commit before gh verifies it.
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" -f sha="$GITHUB_SHA" -F force=true >/dev/null 2>&1 ||
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA" >/dev/null
+
+          candidate_release_id=$(retry find_candidate_release_id)
+          if [[ "$candidate_release_id" =~ ^[0-9]+$ ]]; then
+            candidate_draft=$(gh api "repos/$GITHUB_REPOSITORY/releases/$candidate_release_id" --jq .draft)
+            if [[ "$candidate_draft" == true ]]; then
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$candidate_release_id"
+            else
+              gh release delete "$tag" --yes --repo "$GITHUB_REPOSITORY"
+            fi
+          fi
+
+          if [[ "$RELEASE_READY" == true ]]; then
+            curl --fail --silent --show-error -L "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/scripts/ci/create-update-manifest.mjs" -o /tmp/create-update-manifest.mjs
+            node /tmp/create-update-manifest.mjs release-assets "$VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            latest_manifest_name="latest.json"
+            test -f "release-assets/$latest_manifest_name"
+          fi
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --verify-tag --draft \
+            --title "mdx Latest ($VERSION)" --notes "Latest verified build from main." release-assets/*
+          candidate_release_id=$(retry find_candidate_release_id)
+          [[ "$candidate_release_id" =~ ^[0-9]+$ ]]
+          candidate_draft=$(gh api "repos/$GITHUB_REPOSITORY/releases/$candidate_release_id" --jq .draft)
+          [[ "$candidate_draft" == true ]]
+          retry gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$candidate_release_id" -F draft=false -f make_latest=true >/dev/null
+          trap - ERR
+          echo "Latest release published for $VERSION."

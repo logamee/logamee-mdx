@@ -55,7 +55,9 @@ use crate::{
 };
 
 #[cfg(feature = "packaged-lifecycle-e2e")]
-use crate::packaged_open_e2e::{authorization_state, observe_receipt_settlement};
+use crate::packaged_open_e2e::{
+    authorization_state_locked, observe_receipt_settlement, observe_workspace_published,
+};
 
 #[cfg(test)]
 use crate::path_auth::authorize_workspace_file_inner;
@@ -1638,7 +1640,9 @@ pub(crate) fn commit_recent_open(
     state: State<'_, AppState>,
 ) -> Result<OpenCommitResult, String> {
     #[cfg(feature = "packaged-lifecycle-e2e")]
-    let evidence_before = authorization_state(&state)?;
+    let _evidence_guard = state.packaged_evidence_lock()?;
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    let evidence_before = authorization_state_locked(&state)?;
     let mut asset_scope_error = None;
     let result = state.recent_files()?.commit_open_with_post_commit(
         &open_receipt,
@@ -1650,7 +1654,7 @@ pub(crate) fn commit_recent_open(
     );
     #[cfg(feature = "packaged-lifecycle-e2e")]
     if let Ok(outcome) = &result {
-        let evidence_after = authorization_state(&state)?;
+        let evidence_after = authorization_state_locked(&state)?;
         observe_receipt_settlement(
             &open_receipt,
             match outcome {
@@ -1689,13 +1693,15 @@ pub(crate) fn discard_open_receipt(
     state: State<'_, AppState>,
 ) -> Result<bool, String> {
     #[cfg(feature = "packaged-lifecycle-e2e")]
-    let evidence_before = authorization_state(&state)?;
+    let _evidence_guard = state.packaged_evidence_lock()?;
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    let evidence_before = authorization_state_locked(&state)?;
     let discarded = state
         .recent_files()?
         .discard(window.label(), &open_receipt)?;
     #[cfg(feature = "packaged-lifecycle-e2e")]
     if discarded {
-        let evidence_after = authorization_state(&state)?;
+        let evidence_after = authorization_state_locked(&state)?;
         observe_receipt_settlement(
             &open_receipt,
             "discarded",
@@ -3412,6 +3418,7 @@ pub(crate) async fn open_directory_dialog(
 #[tauri::command]
 pub(crate) fn open_file_parent_directory(
     path: String,
+    intent_id: String,
     app: AppHandle,
     window: WebviewWindow,
     state: State<'_, AppState>,
@@ -3419,9 +3426,26 @@ pub(crate) fn open_file_parent_directory(
     if window.label() != "main" {
         return Err("Only the main window can open a file parent workspace".to_string());
     }
-    open_file_parent_directory_with_ports_inner(&state, path, |root| {
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    let _evidence_guard = state.packaged_evidence_lock()?;
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    let evidence_before = authorization_state_locked(&state)?;
+    let snapshot = open_file_parent_directory_with_ports_inner(&state, path, |root| {
         allow_asset_preview_directory(&app, root)
-    })
+    });
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    if let Ok(snapshot) = &snapshot {
+        let evidence_after = authorization_state_locked(&state)?;
+        observe_workspace_published(
+            &intent_id,
+            &snapshot.root,
+            &evidence_before,
+            &evidence_after,
+        );
+    }
+    #[cfg(not(feature = "packaged-lifecycle-e2e"))]
+    let _ = &intent_id;
+    snapshot
 }
 
 #[tauri::command]

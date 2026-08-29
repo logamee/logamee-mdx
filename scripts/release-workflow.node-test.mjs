@@ -169,6 +169,64 @@ test('release builds fall back to unsigned installers without weakening trusted 
   assert.match(workflow, /"latest\.json"/);
 });
 
+test('every release build publishes a strictly verified artifact manifest', async () => {
+  const workflow = await readFile(workflowPath, 'utf8');
+  const jobs = [
+    'build-macos-arm64',
+    'build-macos-x64',
+    'build-windows-x64',
+    'build-linux-x64',
+  ];
+
+  for (const job of jobs) {
+    const start = workflow.indexOf(`\n  ${job}:`);
+    assert.notEqual(start, -1, `${job} is missing`);
+    const nextJobMatch = /\n  [A-Za-z0-9_-]+:/.exec(workflow.slice(start + 1));
+    const nextJob = nextJobMatch ? start + 1 + nextJobMatch.index : -1;
+    const section = workflow.slice(start, nextJob === -1 ? undefined : nextJob);
+    const create = section.indexOf('artifact-manifest.mjs create release-assets');
+    const verify = section.indexOf('artifact-manifest.mjs verify release-assets');
+    const upload = section.indexOf('actions/upload-artifact@');
+    assert.ok(create >= 0, `${job} does not create an artifact manifest`);
+    assert.ok(verify > create, `${job} does not verify its artifact manifest after creation`);
+    assert.ok(upload > verify, `${job} uploads assets before manifest verification`);
+  }
+
+  assert.match(
+    workflow,
+    /Create and verify Windows artifact manifest[\s\S]*artifact-manifest\.mjs create release-assets @payloads/,
+  );
+});
+
+test('publisher verifies release artifacts in isolated directories before flattening payloads', async () => {
+  const publisher = await readPublisher();
+
+  assert.match(publisher, /pattern: release-\*\n\s+path: release-staging\n\s+merge-multiple: false/);
+  assert.match(
+    publisher,
+    /raw\.githubusercontent\.com\/\$GITHUB_REPOSITORY\/\$GITHUB_SHA\/scripts\/ci\/artifact-manifest\.mjs[\s\S]*test -s \/tmp\/artifact-manifest\.mjs/,
+  );
+  const assemblyStart = publisher.indexOf('      - name: Verify and assemble release assets\n');
+  assert.notEqual(assemblyStart, -1, 'release asset assembly step is missing');
+  const transactionStart = publisher.indexOf('      - name: Create, verify, and roll Latest\n', assemblyStart);
+  assert.ok(transactionStart > assemblyStart, 'release asset assembly must precede publishing');
+  const assembly = publisher.slice(assemblyStart, transactionStart);
+
+  for (const artifact of [
+    'release-macos-arm64',
+    'release-macos-x64',
+    'release-windows-x64',
+    'release-linux-x64',
+  ]) {
+    assert.match(assembly, new RegExp(`\\b${artifact}\\b`));
+  }
+  assert.match(assembly, /node \/tmp\/artifact-manifest\.mjs verify "\$artifact_dir"/);
+  assert.match(assembly, /! -name artifact-manifest\.json/);
+  assert.match(assembly, /Duplicate release payload/);
+  assert.doesNotMatch(assembly, /merge-multiple:\s*true/);
+  assert.match(assembly, /cp "\$payload" "\$destination"/);
+});
+
 test('keeps CI-only lifecycle instrumentation out of release packages', async () => {
   const workflow = await readFile(workflowPath, 'utf8');
 

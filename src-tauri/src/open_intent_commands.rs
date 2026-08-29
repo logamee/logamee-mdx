@@ -21,7 +21,7 @@ use crate::{
 
 #[cfg(feature = "packaged-lifecycle-e2e")]
 use crate::packaged_open_e2e::{
-    authorization_state, observe_backend_prepared, observe_backend_rejected,
+    authorization_state_locked, observe_backend_prepared, observe_backend_rejected,
     observe_focus_requested, observe_intent_discarded, observe_receipt_settlement,
 };
 
@@ -158,7 +158,9 @@ fn request_session_restore_inner(
     owner: &str,
 ) -> Result<bool, String> {
     validate_main_owner(owner)?;
-    if coordinator.has_startup_arguments() {
+    let packaged_open_e2e = cfg!(feature = "packaged-lifecycle-e2e")
+        && std::env::var_os("MMD_PACKAGED_OPEN_E2E_CHALLENGE").is_some();
+    if should_skip_session_restore(coordinator.has_startup_arguments(), packaged_open_e2e) {
         return Ok(false);
     }
     let result = coordinator.enqueue_session_restore();
@@ -168,6 +170,10 @@ fn request_session_restore_inner(
         "Too many files are waiting to be opened. Finish the current request and try again."
             .to_string()
     })
+}
+
+fn should_skip_session_restore(has_startup_arguments: bool, packaged_open_e2e: bool) -> bool {
+    has_startup_arguments && !packaged_open_e2e
 }
 
 #[tauri::command]
@@ -385,7 +391,9 @@ pub(crate) fn resolve_open_intent(
 ) -> Result<ResolvedOpenIntentResponse, String> {
     let owner = window.label().to_string();
     #[cfg(feature = "packaged-lifecycle-e2e")]
-    let evidence_before = authorization_state(&state)?;
+    let _evidence_guard = state.packaged_evidence_lock()?;
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    let evidence_before = authorization_state_locked(&state)?;
     let result = resolve_open_intent_with_ports_inner(
         &coordinator,
         &owner,
@@ -417,7 +425,7 @@ pub(crate) fn resolve_open_intent(
     });
     #[cfg(feature = "packaged-lifecycle-e2e")]
     {
-        let evidence_after = authorization_state(&state)?;
+        let evidence_after = authorization_state_locked(&state)?;
         match &result {
             Ok(response) => {
                 let evidence = prepared_resolution_evidence(response);
@@ -448,7 +456,9 @@ pub(crate) fn settle_open_intent_workspace(
 ) -> Result<WorkspaceOpenSettlementResponse, String> {
     validate_main_owner(window.label())?;
     #[cfg(feature = "packaged-lifecycle-e2e")]
-    let evidence_before = authorization_state(&state)?;
+    let _evidence_guard = state.packaged_evidence_lock()?;
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    let evidence_before = authorization_state_locked(&state)?;
     let settlement = state.file_authorization().settle_workspace_authorization(
         window.label(),
         &workspace_open_receipt,
@@ -457,7 +467,7 @@ pub(crate) fn settle_open_intent_workspace(
     );
     #[cfg(feature = "packaged-lifecycle-e2e")]
     {
-        let evidence_after = authorization_state(&state)?;
+        let evidence_after = authorization_state_locked(&state)?;
         observe_receipt_settlement(
             &workspace_open_receipt,
             match &settlement {
@@ -510,6 +520,9 @@ mod tests {
         path_auth::resolve_authorized_workspace_root_for_token_inner,
         workspace_session::WorkspaceSessionRecord,
     };
+
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    use crate::packaged_open_e2e::authorization_state;
 
     use super::*;
 
@@ -624,6 +637,13 @@ mod tests {
                 .id(),
         );
         assert!(peek_open_intent_inner(&coordinator).is_none());
+    }
+
+    #[test]
+    fn packaged_open_harness_keeps_restore_challenge_with_startup_arguments() {
+        assert!(!should_skip_session_restore(false, false));
+        assert!(!should_skip_session_restore(true, true));
+        assert!(should_skip_session_restore(true, false));
     }
 
     #[test]
@@ -882,5 +902,45 @@ mod tests {
         assert_eq!(evidence.target, "session_restore");
         assert_eq!(evidence.target_kind, "session_restore");
         assert!(evidence.receipts.is_empty());
+    }
+
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    #[test]
+    fn session_restore_snapshot_contains_workspace_and_file_receipts() {
+        let storage = tempdir().unwrap();
+        let directory = tempdir().unwrap();
+        let canonical_root = directory.path().canonicalize().unwrap();
+        let active_file = canonical_root.join("active.md");
+        fs::write(&active_file, "active").unwrap();
+        let state = AppState::default();
+        state
+            .initialize_recent_files(storage.path().to_path_buf())
+            .unwrap();
+        state
+            .initialize_workspace_session(storage.path().to_path_buf())
+            .unwrap();
+        state
+            .workspace_session()
+            .unwrap()
+            .save(&WorkspaceSessionRecord::new(
+                canonical_root.to_string_lossy().into_owned(),
+                Some(active_file.to_string_lossy().into_owned()),
+            ))
+            .unwrap();
+
+        let (restore, workspace_receipt) = prepare_session_restore_inner(&state, "main").unwrap();
+        let restore = restore.expect("the saved workspace should be restored");
+        let workspace_receipt = workspace_receipt.expect("workspace receipt should be prepared");
+        let active_file_receipt = restore
+            .active_file
+            .as_ref()
+            .expect("the saved active file should be prepared")
+            .open_receipt
+            .clone();
+        let evidence = authorization_state(&state).unwrap();
+
+        assert_eq!(evidence.pending_workspace_receipts, 1);
+        assert_eq!(evidence.pending_file_receipts, 1);
+        assert_ne!(workspace_receipt, active_file_receipt);
     }
 }

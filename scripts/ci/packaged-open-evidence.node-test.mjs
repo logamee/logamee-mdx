@@ -144,7 +144,7 @@ function normalizeAuthorization(receipt) {
         index += 1;
       }
       producerGroups.push(group);
-    } else if (['backend_rejected', 'backend_receipt_settled'].includes(event.type)) {
+    } else if (['backend_rejected', 'backend_receipt_settled', 'backend_workspace_published'].includes(event.type)) {
       producerGroups.push([event]);
     }
   }
@@ -184,6 +184,20 @@ function normalizeAuthorization(receipt) {
         added.push(updated);
       }
       generation += 1;
+    } else if (event.type === 'backend_workspace_published') {
+      const desired = [
+        grant('directory_read', event.target, 'workspace'),
+        grant('internal_asset', event.target, 'workspace'),
+      ];
+      for (const next of desired) {
+        const key = grantKey(next);
+        const prior = grants.get(key);
+        if (prior) removed.push(prior);
+        const updated = { ...next, count: (prior?.count ?? 0) + 1 };
+        grants.set(key, updated);
+        added.push(updated);
+      }
+      generation += 2;
     }
     const authorizationDelta = {
       ...before,
@@ -419,6 +433,47 @@ test('accepts app-applied file/workspace evidence with exact Rust authorization 
   assert.equal(verified.scope.cliOpen, true);
   assert.equal(verified.scope.exactAuthorization, true);
   assert.equal(verified.scope.realWebviewSpellcheckAttribute, true);
+});
+
+test('accepts a standalone file parent-workspace publication after file commit', async (t) => {
+  const { challengePath, challenge } = await issueChallenge(t);
+  const receipt = applyReceipt(challenge);
+  const appliedIndex = receipt.events.findIndex((event) => (
+    event.type === 'app_applied' && event.intentId === 'open-intent-1' && event.step === 'cli-primary'
+  ));
+  assert.notEqual(appliedIndex, -1, 'cli-primary applied event is missing');
+  receipt.events.splice(appliedIndex, 0, {
+    actor: 'backend', type: 'backend_workspace_published', intentId: 'open-intent-1', step: 'cli-primary',
+    target: path.dirname(challenge.scenario.paths.primaryFile),
+    authorizationDelta: delta([], {}),
+  });
+  resequence(receipt);
+  const { result, outputPath } = await verifyReceipt(
+    t, challengePath, challenge, normalizeAuthorization(receipt),
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const verified = JSON.parse(await readFile(outputPath, 'utf8'));
+  assert.equal(verified.scope.exactAuthorization, true);
+});
+
+test('rejects a parent-workspace publication bound to a directory intent', async (t) => {
+  const { challengePath, challenge } = await issueChallenge(t);
+  const receipt = applyReceipt(challenge);
+  const appliedIndex = receipt.events.findIndex((event) => (
+    event.type === 'app_applied' && event.intentId === 'open-intent-4' && event.step === 'cli-directory'
+  ));
+  assert.notEqual(appliedIndex, -1, 'cli-directory applied event is missing');
+  receipt.events.splice(appliedIndex, 0, {
+    actor: 'backend', type: 'backend_workspace_published', intentId: 'open-intent-4', step: 'cli-directory',
+    target: challenge.scenario.paths.workspaceDirectory,
+    authorizationDelta: delta([], {}),
+  });
+  resequence(receipt);
+  const { result } = await verifyReceipt(
+    t, challengePath, challenge, normalizeAuthorization(receipt),
+  );
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /workspace publication binding is invalid/);
 });
 
 test('accepts Windows receipt identity without weakening exact target spelling', {

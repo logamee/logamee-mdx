@@ -1089,7 +1089,10 @@ describe('useDocumentSession prepared-open authority workflow', () => {
     });
 
     expect(outcome).toBe('accepted');
-    expect(tauriMocks.openFileParentDirectory).toHaveBeenCalledWith(opened.file.path);
+    expect(tauriMocks.openFileParentDirectory).toHaveBeenCalledWith(
+      opened.file.path,
+      'open-intent-parent-workspace',
+    );
     expect(session()).toMatchObject({
       activePath: opened.file.path,
       workspaceRoot: parentWorkspace.root,

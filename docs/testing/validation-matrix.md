@@ -84,14 +84,15 @@ npm run perf:gate
   安装包。基础产物只有在对应平台完成安装、启动、文件关联和生命周期冒烟
   验证后，才会以 `-verified` 名称再次上传；工作流权限保持只读且不发布
   GitHub Release。
-- 当前仍未包含 `.github/workflows/release.yml`，因此签名、更新清单和 GitHub
-  Release 发布不属于现有自动化能力。本地工作流契约通过也不能替代远端
-  GitHub Actions 的真实四平台运行结果。
-- 截至 2026-08-18，`node --test scripts/ci/*.node-test.mjs` 为 122 项通过、
+- `.github/workflows/release.yml` 在主线 push 或手动触发时构建四个平台，先执行
+  非 instrumented 安装包冒烟，再以 `Latest` Release 发布。缺少完整生产信任
+  秘钥时会明确回退到 unsigned 安装包并关闭 updater；配置齐全时才生成签名
+  产物和 `latest.json`。本地工作流契约通过也不能替代远端 GitHub Actions 的
+  真实四平台运行结果。
+- 截至 2026-08-28，`node --test scripts/ci/*.node-test.mjs` 为 122 项通过、
   5 项按平台跳过，平台工作流专项契约为 17 项通过。`npm run test:perf` 仍为
-  41 项通过、1 项失败，`npm run test:release-tools` 为 110 项通过、7 项失败、
-  5 项跳过；失败项均属于尚未落地的 `.github/workflows/release.yml` 契约，
-  不得把这两条完整发布门禁标为通过。
+  41 项通过、1 项失败，`npm run test:release-tools` 为 117 项通过、5 项跳过；
+  这些本地契约测试不能替代远端四平台构建、冒烟和发布结果。
 - 需要真实 Tauri 窗口、文件关联或视觉验收时，记录操作系统、窗口尺寸、
   Rust 工具链、是否启用 `packaged-lifecycle-e2e`，以及人工检查结果。
 - 不使用未经项目约定的浏览器自动化或 CDP 作为唯一安全/桌面生命周期证据；

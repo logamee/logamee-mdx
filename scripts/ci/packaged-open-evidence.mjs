@@ -163,6 +163,7 @@ function nativeDeliveryEvents(events) {
 const LIFECYCLE_TYPES = new Set([
   'app_activated', 'dirty_modal_opened', 'dirty_decision', 'backend_reobserved',
   'backend_prepared', 'backend_rejected', 'backend_receipt_settled',
+  'backend_workspace_published',
   'app_applied', 'app_settled',
 ]);
 
@@ -463,7 +464,7 @@ function validateIntentLifecycle(start, events, platform) {
     if (!sessionRestore || dirty.decision !== 'cancel'
       || intentEvents.some((event) => [
         'backend_reobserved', 'backend_prepared', 'backend_rejected',
-        'backend_receipt_settled', 'app_applied',
+        'backend_receipt_settled', 'backend_workspace_published', 'app_applied',
       ].includes(event.type))) {
       throw new Error(`${identity} cancelled lifecycle is invalid`);
     }
@@ -482,6 +483,7 @@ function validateIntentLifecycle(start, events, platform) {
       || eventsOfType(intentEvents, 'backend_reobserved').length !== 0
       || eventsOfType(intentEvents, 'backend_prepared').length !== 0
       || eventsOfType(intentEvents, 'backend_receipt_settled').length !== 0
+      || eventsOfType(intentEvents, 'backend_workspace_published').length !== 0
       || eventsOfType(intentEvents, 'app_applied').length !== 0) {
       throw new Error(`${identity} rejected lifecycle contains contradictory events`);
     }
@@ -504,7 +506,12 @@ function validateIntentLifecycle(start, events, platform) {
   const reobserved = exactlyOne(intentEvents, 'backend_reobserved', identity);
   const prepared = eventsOfType(intentEvents, 'backend_prepared');
   const receiptSettlements = eventsOfType(intentEvents, 'backend_receipt_settled');
+  const workspacePublished = eventsOfType(intentEvents, 'backend_workspace_published');
   const applied = exactlyOne(intentEvents, 'app_applied', identity);
+  if ((workspacePublished.length > 0 && reobserved.targetKind !== 'file')
+    || workspacePublished.length > 1) {
+    throw new Error(`${identity} workspace publication binding is invalid`);
+  }
   const expectedTarget = start.target ?? reobserved.target;
   if ((sessionRestore && reobserved.targetKind !== 'session_restore')
     || (!sessionRestore && reobserved.targetKind === 'session_restore')
@@ -525,7 +532,9 @@ function validateIntentLifecycle(start, events, platform) {
     ? sessionRestoreTargetMatches(reobserved, prepared, platform)
     : sameEvidenceTarget(reobserved.target, expectedTarget, platform);
   if (!targetMatches) throw new Error(`${identity} applied lifecycle binding is invalid`);
-  assertOrder(identity, [...prefix, reobserved, ...prepared, ...receiptSettlements, applied, settled]);
+  assertOrder(identity, [
+    ...prefix, reobserved, ...prepared, ...receiptSettlements, ...workspacePublished, applied, settled,
+  ]);
   return {
     kind: 'applied',
     targetKind: reobserved.targetKind,
@@ -533,7 +542,11 @@ function validateIntentLifecycle(start, events, platform) {
     activationSeq: activated.seq,
     terminalSeq: settled.seq,
     receiptCount: receiptFacts.receiptCount,
-    authorizationProducers: [prepared, ...receiptSettlements.map((event) => [event])],
+    authorizationProducers: [
+      prepared,
+      ...receiptSettlements.map((event) => [event]),
+      ...workspacePublished.map((event) => [event]),
+    ],
   };
 }
 
@@ -710,6 +723,16 @@ function validateProducerTransition(group, before, ledger) {
     }
     validateSettlementAuthorization(event, event.receiptKind === 'file' ? 'file' : 'directory');
     expected.generation = eventAfter.generation;
+  } else if (event.type === 'backend_workspace_published') {
+    if (eventAfter.pendingFile !== eventBefore.pendingFile
+      || eventAfter.pendingWorkspace !== eventBefore.pendingWorkspace) {
+      throw new Error(`${description} workspace publication changed pending receipts`);
+    }
+    if (eventAfter.generation <= eventBefore.generation) {
+      throw new Error(`${description} did not advance authorization generation`);
+    }
+    validateSettlementAuthorization(event, 'directory');
+    expected.generation = eventAfter.generation;
   }
 
   if (event.type === 'backend_rejected') {
@@ -717,7 +740,9 @@ function validateProducerTransition(group, before, ledger) {
       throw new Error(`${description} rejection changed authorization grants`);
     }
   }
-  if (event.type !== 'backend_receipt_settled') expected.generation = eventBefore.generation;
+  if (event.type !== 'backend_receipt_settled' && event.type !== 'backend_workspace_published') {
+    expected.generation = eventBefore.generation;
+  }
   if (!sameAuthorizationState(expected, eventAfter)) {
     throw new Error(`${description} authorization transition is invalid`);
   }
@@ -767,6 +792,7 @@ function validateAuthorizationEvidence(receipt, lifecycleFacts, platform) {
     .sort((left, right) => left[0].seq - right[0].seq);
   const producerEventCount = receipt.events.filter((event) => [
     'backend_prepared', 'backend_rejected', 'backend_receipt_settled',
+    'backend_workspace_published',
   ].includes(event.type)).length;
   if (groups.reduce((count, group) => count + group.length, 0) !== producerEventCount) {
     throw new Error('authorization producer event is not bound to an intent lifecycle');

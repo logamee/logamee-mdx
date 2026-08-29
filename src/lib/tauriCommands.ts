@@ -469,8 +469,11 @@ export async function openDirectoryDialog(): Promise<WorkspaceSnapshot | null> {
   return response === null ? null : decodeWorkspaceSnapshot(response);
 }
 
-export async function openFileParentDirectory(path: string): Promise<WorkspaceSnapshot> {
-  return decodeWorkspaceSnapshot(await invoke<unknown>('open_file_parent_directory', { path }));
+export async function openFileParentDirectory(
+  path: string,
+  intentId: string,
+): Promise<WorkspaceSnapshot> {
+  return decodeWorkspaceSnapshot(await invoke<unknown>('open_file_parent_directory', { path, intentId }));
 }
 
 export async function authorizeResourceDirectory(): Promise<ResourceDirectoryAuthorization | null> {

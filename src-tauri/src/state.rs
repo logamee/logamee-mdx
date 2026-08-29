@@ -3,6 +3,9 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
+#[cfg(feature = "packaged-lifecycle-e2e")]
+use std::sync::MutexGuard;
+
 use crate::{
     active_document_watch::ActiveDocumentWatchState,
     crash_draft_store::{DurableDraftWriter, ProductionCrashDraftStore, SystemDraftClock},
@@ -21,6 +24,8 @@ pub(crate) struct AppState {
     active_document_watch: ActiveDocumentWatchState,
     document_save: DocumentSaveCoordinator,
     file_authorization: FileAuthorizationSession,
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    packaged_evidence: Mutex<()>,
     native_menu: Mutex<NativeMenuState>,
     recent_files: OnceLock<RecentFilesState>,
     settings: OnceLock<SettingsStore>,
@@ -67,6 +72,13 @@ impl AppState {
 
     pub(crate) fn file_authorization(&self) -> &FileAuthorizationSession {
         &self.file_authorization
+    }
+
+    #[cfg(feature = "packaged-lifecycle-e2e")]
+    pub(crate) fn packaged_evidence_lock(&self) -> Result<MutexGuard<'_, ()>, String> {
+        self.packaged_evidence
+            .lock()
+            .map_err(|_| "Packaged evidence state is poisoned".to_string())
     }
 
     pub(crate) fn document_save(&self) -> &DocumentSaveCoordinator {

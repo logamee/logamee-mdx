@@ -28,10 +28,10 @@ static OBSERVER: OnceLock<Option<PackagedOpenObserver>> = OnceLock::new();
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct EvidenceAuthorizationState {
-    generation: u64,
-    pending_file_receipts: usize,
-    pending_workspace_receipts: usize,
-    grants: Vec<AuthorizationEvidenceGrant>,
+    pub(crate) generation: u64,
+    pub(crate) pending_file_receipts: usize,
+    pub(crate) pending_workspace_receipts: usize,
+    pub(crate) grants: Vec<AuthorizationEvidenceGrant>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -93,7 +93,16 @@ fn sort_grants(grants: &mut [AuthorizationEvidenceGrant]) {
     });
 }
 
+/// Reads the complete producer state while holding the shared evidence boundary.
 pub(crate) fn authorization_state(state: &AppState) -> Result<EvidenceAuthorizationState, String> {
+    let _evidence_guard = state.packaged_evidence_lock()?;
+    authorization_state_locked(state)
+}
+
+/// Reads the complete producer state for a caller that already owns the boundary lock.
+pub(crate) fn authorization_state_locked(
+    state: &AppState,
+) -> Result<EvidenceAuthorizationState, String> {
     let AuthorizationEvidenceSnapshot {
         generation,
         pending_workspace_receipts,
@@ -632,6 +641,38 @@ impl PackagedOpenObserver {
         let _ = self.write_receipt(&state, "collecting");
     }
 
+    fn record_workspace_published(
+        &self,
+        intent_id: &str,
+        target: &str,
+        before: &EvidenceAuthorizationState,
+        after: &EvidenceAuthorizationState,
+    ) {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if state.terminal {
+            return;
+        }
+        let (step, _) = self.step_and_target(&state, intent_id);
+        if step == "unknown" {
+            return;
+        }
+        self.append_event(
+            &mut state,
+            "backend",
+            "backend_workspace_published",
+            intent_id,
+            &step,
+            json!({
+                "target": target,
+                "authorizationDelta": AuthorizationDelta::between(before, after),
+            }),
+        );
+        let _ = self.write_receipt(&state, "collecting");
+    }
+
     fn record_focus_requested(&self, intent_id: &str, focus_type: &str) {
         let mut state = self
             .state
@@ -907,6 +948,17 @@ pub(crate) fn observe_receipt_settlement(
     }
 }
 
+pub(crate) fn observe_workspace_published(
+    intent_id: &str,
+    target: &str,
+    before: &EvidenceAuthorizationState,
+    after: &EvidenceAuthorizationState,
+) {
+    if let Some(observer) = observer() {
+        observer.record_workspace_published(intent_id, target, before, after);
+    }
+}
+
 pub(crate) fn observe_focus_requested(intent_id: &str, coalesced: bool) {
     if let Some(observer) = observer() {
         observer.record_focus_requested(
@@ -949,13 +1001,40 @@ pub(crate) fn record_packaged_open_app_event(
     let Some(observer) = observer() else {
         return Ok(());
     };
-    let authorization = authorization_state(&state)?;
+    let _evidence_guard = state.packaged_evidence_lock()?;
+    let authorization = authorization_state_locked(&state)?;
     observer.record_app_event(event, coordinator.peek_head().is_none(), &authorization)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::mpsc;
+
     use super::*;
+
+    #[test]
+    fn packaged_evidence_transition_lock_is_exclusive() {
+        let state = std::sync::Arc::new(AppState::default());
+        let first = state.packaged_evidence_lock().unwrap();
+        let (acquired_sender, acquired_receiver) = mpsc::channel();
+        let other_state = std::sync::Arc::clone(&state);
+        let worker = std::thread::spawn(move || {
+            let _guard = other_state.packaged_evidence_lock().unwrap();
+            acquired_sender.send(()).unwrap();
+        });
+
+        assert!(
+            acquired_receiver
+                .recv_timeout(Duration::from_millis(50))
+                .is_err(),
+            "a second packaged evidence transition entered while the first was active"
+        );
+        drop(first);
+        acquired_receiver
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the second packaged evidence transition should proceed after release");
+        worker.join().unwrap();
+    }
 
     #[test]
     fn matches_only_the_equivalent_windows_verbatim_drive_root() {
@@ -1119,6 +1198,64 @@ mod tests {
         assert_eq!(settled["authorizationDelta"]["pendingFileBefore"], 1);
         assert_eq!(settled["authorizationDelta"]["pendingFileAfter"], 0);
         assert_ne!(settled["receiptDigest"], "aabbcc");
+    }
+
+    #[test]
+    fn workspace_publication_records_generation_and_grants_delta_for_a_file_intent() {
+        let directory = tempfile::tempdir().unwrap();
+        let observer = test_observer(directory.path(), "deb", "apply-reobserve");
+        let coordinator = OpenIntentCoordinator::default();
+        let result = coordinator.enqueue_path(
+            observer.primary_file.clone(),
+            OpenIntentSource::StartupArguments,
+        );
+        let intent_id = result.as_ref().unwrap().head().id().to_wire();
+        observer.record_enqueue(&coordinator, &result);
+        let parent = observer
+            .primary_file
+            .parent()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let before = empty_authorization();
+        let mut after = before.clone();
+        after.generation = 2;
+        after.grants = vec![
+            AuthorizationEvidenceGrant {
+                kind: "directory_read",
+                path: parent.clone(),
+                origin: "workspace",
+                status: "active",
+                count: 1,
+            },
+            AuthorizationEvidenceGrant {
+                kind: "internal_asset",
+                path: parent.clone(),
+                origin: "workspace",
+                status: "active",
+                count: 1,
+            },
+        ];
+        observer.record_workspace_published(&intent_id, &parent, &before, &after);
+
+        let state = observer.state.lock().unwrap();
+        let published = state
+            .events
+            .iter()
+            .find(|event| event["type"] == "backend_workspace_published")
+            .unwrap();
+        assert_eq!(published["intentId"], intent_id.as_str());
+        assert_eq!(published["step"], "cli-primary");
+        assert_eq!(published["target"], parent.as_str());
+        assert_eq!(published["authorizationDelta"]["generationBefore"], 0);
+        assert_eq!(published["authorizationDelta"]["generationAfter"], 2);
+        assert_eq!(published["authorizationDelta"]["pendingFileBefore"], 0);
+        assert_eq!(published["authorizationDelta"]["pendingFileAfter"], 0);
+        assert_eq!(published["authorizationDelta"]["added"].as_array().unwrap().len(), 2);
+        assert!(published["authorizationDelta"]["removed"]
+            .as_array()
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

@@ -240,10 +240,12 @@ describe('Tauri command wrappers', () => {
   it('opens the parent workspace for a standalone file with the exact path payload', async () => {
     invokeMock.mockResolvedValueOnce(workspaceSnapshot);
 
-    await expect(openFileParentDirectory('/outside/notes/current.md')).resolves.toEqual(workspaceSnapshot);
+    await expect(openFileParentDirectory('/outside/notes/current.md', 'open-intent-7'))
+      .resolves.toEqual(workspaceSnapshot);
 
     expect(invokeMock).toHaveBeenCalledWith('open_file_parent_directory', {
       path: '/outside/notes/current.md',
+      intentId: 'open-intent-7',
     });
   });
 
