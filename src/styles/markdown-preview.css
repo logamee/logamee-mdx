@@ -200,6 +200,10 @@
   color: var(--danger);
   font-size: 0.9em;
 }
+.mmd-video-export-fallback { display: block; margin: 1.2rem 0; color: var(--text-muted); font-size: 0.9em; }
+.jinxiu-markdown-video { display: block; width: min(100%, 720px); max-height: min(70vh, 540px); margin: 1.2rem auto; border-radius: 8px; background: var(--media-stage); }
+.media-error,
+.markdown-video-status { display: block; width: fit-content; margin: 1.2rem auto; color: var(--text-muted); font-size: 0.9em; }
 .jinxiu-adaptive-reading-image { display: block; max-width: min(100%, 720px); height: auto; margin: 1.2rem auto; border-radius: 8px; }
 .jinxiu-adaptive-reading-image[data-jinxiu-image-size="icon"] { max-width: min(100%, 220px); }
 .jinxiu-adaptive-reading-image[data-jinxiu-image-size="tall"] { max-width: min(100%, 360px); }

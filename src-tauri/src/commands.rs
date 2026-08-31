@@ -27,7 +27,10 @@ use crate::{
     docx_preflight::{preflight_docx_zip, DOCX_SOURCE_LIMIT_BYTES},
     durable_write::FileVersion,
     excalidraw_scene::{default_excalidraw_scene, validate_excalidraw_scene},
-    image_resolver::{resolve_relative_excalidraw_path_inner, resolve_relative_image_path_inner},
+    image_resolver::{
+        resolve_relative_excalidraw_path_inner, resolve_relative_image_path_inner,
+        resolve_relative_media_path_inner,
+    },
     models::{
         DeleteWorkspaceEntryResponse, DocumentSaveResponse, MutationCommitReceipt, MutationOutcome,
         OpenCommitResult, OpenCommitStatus, OpenFileResponse, OverwriteTokenResponse,
@@ -3590,6 +3593,40 @@ pub(crate) fn resolve_markdown_image(
     Ok(path.to_string_lossy().to_string())
 }
 
+fn resolve_markdown_media_inner(
+    state: &AppState,
+    current_file_path: &str,
+    workspace_root: Option<&str>,
+    media_src: &str,
+) -> Result<std::path::PathBuf, String> {
+    let path =
+        resolve_relative_media_path_inner(state, current_file_path, workspace_root, media_src)?;
+    if crate::workspace_file_kind::WorkspaceFileKind::classify(&path)
+        != Some(crate::workspace_file_kind::WorkspaceFileKind::Video)
+    {
+        return Err("Markdown media source is not a supported video".into());
+    }
+    Ok(path)
+}
+
+#[tauri::command]
+pub(crate) fn resolve_markdown_media(
+    current_file_path: String,
+    workspace_root: Option<String>,
+    media_src: String,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let path = resolve_markdown_media_inner(
+        &state,
+        &current_file_path,
+        workspace_root.as_deref(),
+        &media_src,
+    )?;
+    allow_asset_preview_file_with_retry(&app, &path)?;
+    Ok(path.to_string_lossy().to_string())
+}
+
 pub(crate) fn read_markdown_excalidraw_inner(
     state: &AppState,
     current_file_path: &str,
@@ -4597,6 +4634,40 @@ mod tests {
         assert_eq!(response.kind, WorkspaceFileKind::Image);
         assert_eq!(response.content, None);
         assert_eq!(response.mime_type.as_deref(), Some("image/png"));
+    }
+
+    #[test]
+    fn markdown_media_resolution_accepts_authorized_video_and_rejects_other_files() {
+        let dir = tempdir().unwrap();
+        let document = dir.path().join("guide.md");
+        let video = dir.path().join("clip.m2ts");
+        let image = dir.path().join("cover.png");
+        fs::write(&document, "# guide").unwrap();
+        fs::write(&video, b"video").unwrap();
+        fs::write(&image, b"image").unwrap();
+        let state = AppState::default();
+        authorize_directory_root_inner(&state, dir.path().to_path_buf()).unwrap();
+
+        assert_eq!(
+            resolve_markdown_media_inner(
+                &state,
+                document.to_str().unwrap(),
+                Some(dir.path().to_str().unwrap()),
+                "clip.m2ts",
+            )
+            .unwrap(),
+            video.canonicalize().unwrap(),
+        );
+        assert_eq!(
+            resolve_markdown_media_inner(
+                &state,
+                document.to_str().unwrap(),
+                Some(dir.path().to_str().unwrap()),
+                "cover.png",
+            )
+            .unwrap_err(),
+            "Markdown media source is not a supported video",
+        );
     }
 
     #[test]

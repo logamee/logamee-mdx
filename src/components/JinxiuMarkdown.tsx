@@ -15,6 +15,7 @@ import type { ExcalidrawAssetSyncOptions } from '../lib/excalidrawAssetSync';
 import { preprocessMarkdown } from '../lib/markdownPreprocess';
 import { isLocalMarkdownHtmlEmbedSource, rehypeMarkdownHtmlEmbeds } from '../lib/markdownHtmlEmbed';
 import AdaptiveMarkdownImage from './AdaptiveMarkdownImage';
+import { isMarkdownVideoSource, MarkdownVideo } from './MarkdownVideo';
 import { MarkdownExcalidrawPreview } from './MarkdownExcalidrawPreview';
 import { MarkdownHtmlFrame } from './MarkdownHtmlFrame';
 import { CodeBlock } from './markdown/CodeBlock';
@@ -129,7 +130,11 @@ export default function JinxiuMarkdown({
       const external = typeof href === 'string' && (/^https?:\/\//i.test(href) || href.startsWith('//'));
       return <a href={href} title={title} {...props} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{c}</a>;
     },
-    img: ({ src, alt, title, ...props }) => <AdaptiveMarkdownImage {...props} src={src} alt={alt ?? ''} title={title} currentFilePath={deferredCurrentFilePath} localAssetsEnabled={deferredLocalAssetsEnabled} workspaceRoot={deferredWorkspaceRoot} />,
+    img: ({ src, alt, title, ...props }) => (
+      (typeof src === 'string' && isMarkdownVideoSource(src))
+        ? <MarkdownVideo alt={alt ?? ''} className={typeof props.className === 'string' ? props.className : undefined} currentFilePath={deferredCurrentFilePath} localAssetsEnabled={deferredLocalAssetsEnabled} src={src ?? ''} title={title} workspaceRoot={deferredWorkspaceRoot} />
+        : <AdaptiveMarkdownImage {...props} src={src} alt={alt ?? ''} title={title} currentFilePath={deferredCurrentFilePath} localAssetsEnabled={deferredLocalAssetsEnabled} workspaceRoot={deferredWorkspaceRoot} />
+    ),
     iframe: ({ src, title }) => (
       <MarkdownHtmlFrame
         currentFilePath={deferredCurrentFilePath}

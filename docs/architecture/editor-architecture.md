@@ -130,10 +130,11 @@ Markdown HTML 嵌入所有者；主窗口销毁时还会停止文件监视器。
 
 - PDF、DOCX、Excalidraw 预览保持动态导入，并通过 `LazyPreviewBoundary`
   提供稳定加载和失败回退。
-- Markdown 正文音视频内嵌属于未来计划，当前实现只有音视频文件的独立只读
-  预览和音频普通链接插入。后续实现应归属现有 Markdown 渲染管线，复用带
-  作用域的资源命令、当前文档身份和预览修订号，不得由渲染组件直接读取任意
-  路径或建立第二套媒体授权协议。
+- Markdown 正文视频内嵌归属现有 Markdown 渲染管线：按视频扩展名识别，
+  资源通过 `resolve_markdown_media` 和带作用域的 `asset:` URL 读取；渲染组件
+  不得直接读取任意路径或建立第二套授权协议。
+  音频正文内嵌仍未交付，当前音频插入保持普通链接。视频播放复用共享播放器，
+  原生格式使用 `<video>`，FLV/MPEG-TS 使用 `mpegts.js`。
 - Markdown 图片、媒体和 Excalidraw 配对资源走授权资源命令，不直接暴露任意
   `file://` URL；HTML 文件和 Markdown HTML 嵌入走本地预览服务、授权作用域
   与 iframe 沙箱。Markdown 嵌入的沙箱只允许脚本、同源和表单；独立 HTML

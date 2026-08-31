@@ -12,7 +12,8 @@ const HTML_EXTENSIONS: &[&str] = &["html", "htm", "xhtml"];
 const EXCALIDRAW_EXTENSIONS: &[&str] = &["excalidraw"];
 const IMAGE_EXTENSIONS: &[&str] = &["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"];
 const VIDEO_EXTENSIONS: &[&str] = &[
-    "avi", "flv", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ogv", "webm",
+    "3g2", "3gp", "asf", "avi", "flv", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ogv",
+    "vob", "webm", "wmv",
 ];
 const AUDIO_EXTENSIONS: &[&str] = &[
     "aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav", "weba",
@@ -228,7 +229,8 @@ mod tests {
             kind: WorkspaceFileKind::Video,
             wire_value: "video",
             extensions: &[
-                "avi", "flv", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ogv", "webm",
+                "3g2", "3gp", "asf", "avi", "flv", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg",
+                "mpg", "ogv", "vob", "webm", "wmv",
             ],
             content_mode: ContentMode::Binary,
             editable: false,
@@ -361,6 +363,14 @@ mod tests {
 
         assert_eq!(WorkspaceFileKind::classify(Path::new("file.txt")), None);
         assert_eq!(WorkspaceFileKind::classify(Path::new("README")), None);
+        assert_ne!(
+            WorkspaceFileKind::classify(Path::new("source.ts")),
+            Some(WorkspaceFileKind::Video)
+        );
+        assert_ne!(
+            WorkspaceFileKind::classify(Path::new("module.mts")),
+            Some(WorkspaceFileKind::Video)
+        );
         assert_eq!(
             WorkspaceFileKind::all_extensions(),
             EXPECTED_POLICIES

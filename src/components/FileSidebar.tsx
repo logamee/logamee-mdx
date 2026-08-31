@@ -466,13 +466,13 @@ export function FileSidebar({
     if (
       !onInsertWorkspaceAssetRef.current
       || source.kind !== 'file'
-      || (source.fileKind !== 'image' && source.fileKind !== 'audio')
+      || (source.fileKind !== 'image' && source.fileKind !== 'audio' && source.fileKind !== 'video')
       || typeof document.elementFromPoint !== 'function'
     ) return null;
     const hit = document.elementFromPoint(clientX, clientY);
     if (!(hit instanceof Element) || !hit.closest('[data-markdown-media-drop-target]')) return null;
     const asset = findWorkspaceFileEntry(fileTreeRef.current, source.path);
-    return asset?.kind === 'image' || asset?.kind === 'audio' ? asset : null;
+    return asset?.kind === 'image' || asset?.kind === 'audio' || asset?.kind === 'video' ? asset : null;
   }, []);
 
   const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {

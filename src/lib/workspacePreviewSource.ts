@@ -1,13 +1,20 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 
-interface MarkdownImagePreviewInput {
+export interface MarkdownImagePreviewInput {
   currentFilePath: string;
   imageSrc: string;
   workspaceRoot: string | null;
 }
 
+export interface MarkdownMediaPreviewInput {
+  currentFilePath: string;
+  mediaSrc: string;
+  workspaceRoot: string | null;
+}
+
 const MAX_IMAGE_PREVIEW_CACHE_ENTRIES = 128;
 const imagePreviewCache = new Map<string, Promise<string>>();
+const mediaPreviewCache = new Map<string, Promise<string>>();
 
 export function getWorkspacePreviewUrl(path: string, previewRevision?: number): string {
   const assetUrl = convertFileSrc(path);
@@ -27,6 +34,7 @@ export function getWorkspacePreviewUrl(path: string, previewRevision?: number): 
 
 export function resetImagePreviewCache(): void {
   imagePreviewCache.clear();
+  mediaPreviewCache.clear();
 }
 
 export function getMarkdownImagePreviewUrl(input: MarkdownImagePreviewInput): Promise<string> {
@@ -48,6 +56,29 @@ export function getMarkdownImagePreviewUrl(input: MarkdownImagePreviewInput): Pr
   if (imagePreviewCache.size > MAX_IMAGE_PREVIEW_CACHE_ENTRIES) {
     const oldest = imagePreviewCache.keys().next().value;
     if (oldest !== undefined) imagePreviewCache.delete(oldest);
+  }
+  return pending;
+}
+
+export function getMarkdownMediaPreviewUrl(input: MarkdownMediaPreviewInput): Promise<string> {
+  const cacheKey = JSON.stringify([input.currentFilePath, input.workspaceRoot, input.mediaSrc]);
+  const cached = mediaPreviewCache.get(cacheKey);
+  if (cached) return cached;
+
+  const pending = invoke<string>('resolve_markdown_media', {
+    currentFilePath: input.currentFilePath,
+    mediaSrc: input.mediaSrc,
+    workspaceRoot: input.workspaceRoot,
+  })
+    .then(getWorkspacePreviewUrl)
+    .catch((error: unknown) => {
+      mediaPreviewCache.delete(cacheKey);
+      throw error;
+    });
+  mediaPreviewCache.set(cacheKey, pending);
+  if (mediaPreviewCache.size > MAX_IMAGE_PREVIEW_CACHE_ENTRIES) {
+    const oldest = mediaPreviewCache.keys().next().value;
+    if (oldest !== undefined) mediaPreviewCache.delete(oldest);
   }
   return pending;
 }

@@ -40,6 +40,9 @@ describe('WorkspaceMediaPreview', () => {
     expect(getMediaPlaybackMode('/workspace/clip.flv')).toBe('flv');
     expect(getMediaPlaybackMode('/workspace/CLIP.FLV')).toBe('flv');
     expect(getMediaPlaybackMode('/workspace/clip.mp4')).toBe('native');
+    expect(getMediaPlaybackMode('/workspace/clip.m2ts')).toBe('mpegts');
+    expect(getMediaPlaybackMode('/workspace/clip.mts?mmdRevision=1')).toBe('native');
+    expect(getMediaPlaybackMode('/workspace/clip.ts?mmdRevision=1')).toBe('native');
     expect(getMediaPlaybackMode('/workspace/song.mp3')).toBe('native');
   });
 

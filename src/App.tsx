@@ -1964,19 +1964,24 @@ export default function App() {
         if (!preview) throw new Error('Export preview is unavailable');
         let bytes: Uint8Array;
         if (exportValue.format === 'html') {
-          const [module, assets] = await Promise.all([
+          const [module, assetModule] = await Promise.all([
             import('./lib/offlineHtmlExport'),
-            import('./lib/exportAssetInlining').then((assetModule) => assetModule.collectOfflineExportAssets(preview)),
+            import('./lib/exportAssetInlining'),
           ]);
-          const html = module.buildOfflineHtml({ title: baseName, bodyHtml: preview.innerHTML, themeCss: assets.css, theme: appearanceForExport, skin: skinForExport, assetDataUrls: assets.assetDataUrls });
+          const exportPreview = preview.cloneNode(true) as HTMLElement;
+          assetModule.replaceVideoElementsWithExportFallback(exportPreview, locale === 'zh-CN' ? '视频预览不会内嵌到离线导出。' : 'Video preview is not embedded in offline export.');
+          const assets = await assetModule.collectOfflineExportAssets(exportPreview);
+          const html = module.buildOfflineHtml({ title: baseName, bodyHtml: exportPreview.innerHTML, themeCss: assets.css, theme: appearanceForExport, skin: skinForExport, assetDataUrls: assets.assetDataUrls });
           bytes = new TextEncoder().encode(html);
         } else {
-          const [module, assets] = await Promise.all([
+          const [module, assetModule] = await Promise.all([
             import('./lib/longPngExport'),
-            import('./lib/exportAssetInlining').then((assetModule) => assetModule.collectOfflineExportAssets(preview)),
+            import('./lib/exportAssetInlining'),
           ]);
           const sourceRect = preview.getBoundingClientRect();
           const clone = preview.cloneNode(true) as HTMLElement;
+          assetModule.replaceVideoElementsWithExportFallback(clone, locale === 'zh-CN' ? '视频预览不会内嵌到离线导出。' : 'Video preview is not embedded in offline export.');
+          const assets = await assetModule.collectOfflineExportAssets(clone);
           for (const image of Array.from(clone.querySelectorAll<HTMLImageElement>('img'))) {
             const source = image.getAttribute('src') ?? '';
             if (assets.assetDataUrls[source]) image.setAttribute('src', assets.assetDataUrls[source]);

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_FEEDBACK_ERROR_EVENT } from '../lib/appFeedback';
 import { resetImagePreviewCache } from '../lib/workspacePreviewSource';
 import JinxiuMarkdown from './JinxiuMarkdown';
+import { isMarkdownVideoSource } from './MarkdownVideo';
 
 const tauriMocks = vi.hoisted(() => ({
   convertFileSrc: vi.fn<(path: string) => string>((path) => `asset://localhost/${encodeURIComponent(path)}`),
@@ -63,6 +64,16 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
+
+describe('Markdown video source detection', () => {
+  it.each(['clip.mp4', 'clip.FLV', 'clip.m2ts', 'clip.webm', 'clip.mkv'])('accepts common video container %s', (src) => {
+    expect(isMarkdownVideoSource(src)).toBe(true);
+  });
+
+  it.each(['cover.png', 'track.mp3', 'clip.mts', 'clip.ts', 'https://example.test/clip.mp4?x=1'])('does not treat unsafe or non-video source %s as a local video', (src) => {
+    expect(isMarkdownVideoSource(src)).toBe(src.startsWith('https://'));
+  });
+});
 
 describe('JinxiuMarkdown document transitions', () => {
   let container: HTMLDivElement;
@@ -143,6 +154,32 @@ describe('JinxiuMarkdown document transitions', () => {
       imageSrc: 'new-image.png',
       workspaceRoot: '/workspace',
     });
+  });
+
+  it('renders a local Markdown video using the scoped media resolver', async () => {
+    tauriMocks.invoke.mockImplementation(async (command) => {
+      if (command === 'resolve_markdown_media') {
+        return '/workspace/videos/clip.mp4';
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    await act(async () => root.render(
+      <JinxiuMarkdown currentFilePath="/workspace/guide.md" workspaceRoot="/workspace">
+        {'![clip.mp4](videos/clip.mp4)'}
+      </JinxiuMarkdown>,
+    ));
+    await act(async () => Promise.resolve());
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith('resolve_markdown_media', {
+      currentFilePath: '/workspace/guide.md',
+      mediaSrc: 'videos/clip.mp4',
+      workspaceRoot: '/workspace',
+    });
+    const video = container.querySelector<HTMLVideoElement>('video');
+    expect(video).not.toBeNull();
+    expect(video?.controls).toBe(true);
+    expect(video?.src).toContain('clip.mp4');
   });
 
   it('keeps each rendered heading linked to its Markdown source line', async () => {

@@ -244,6 +244,7 @@ describe('FileSidebar native workspace interactions', () => {
   });
 
   it.each([
+    ['video', 'clip.mp4'],
     ['html', 'demo.html'],
     ['excalidraw', 'diagram.excalidraw'],
   ] as const)('inserts a context-menu %s file at the current editor cursor', (fileKind, name) => {
@@ -372,6 +373,7 @@ describe('FileSidebar native workspace interactions', () => {
   it.each([
     ['image', 'cover.png', 'assets/cover.png'],
     ['audio', 'intro.mp3', 'audio/intro.mp3'],
+    ['video', 'clip.mp4', 'videos/clip.mp4'],
   ] as const)('sends a workspace %s dropped on the Markdown editor to the insert callback', (fileKind, name, relativePath) => {
     const onInsertWorkspaceAsset = vi.fn<(
       asset: WorkspaceFileEntry,

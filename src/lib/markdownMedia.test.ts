@@ -49,6 +49,14 @@ describe('Markdown media references', () => {
     })).toBe('![cover.png](../assets/cover.png)');
   });
 
+  it('creates an image-style Markdown reference for a video asset', () => {
+    expect(createMarkdownMediaReference({
+      kind: 'video',
+      name: 'demo clip.flv',
+      relative_path: 'videos/demo clip.flv',
+    }, markdownDocument)).toBe('![demo clip.flv](videos/demo%20clip.flv)');
+  });
+
   it('creates a portable Markdown link for an audio asset', () => {
     expect(createMarkdownMediaReference({
       kind: 'audio',
@@ -119,11 +127,6 @@ describe('Markdown media references', () => {
   });
 
   it('rejects unsupported assets and unsafe workspace paths', () => {
-    expect(createMarkdownMediaReference({
-      kind: 'video',
-      name: 'clip.mp4',
-      relative_path: 'media/clip.mp4',
-    }, markdownDocument)).toBeNull();
     expect(createMarkdownMediaReference({
       kind: 'image',
       name: 'private.png',
@@ -214,7 +217,6 @@ describe('Markdown media references', () => {
 
   it.each([
     { asset: { kind: 'html', name: 'demo.html', relative_path: '../demo.html' }, documentRelativePath: 'docs/guide.md', documentEpoch: 3, documentId: 'pane-document:3', popoutInstanceId: 'popout-instance:3', requestId: 9 },
-    { asset: { kind: 'video', name: 'demo.mp4', relative_path: 'demos/demo.mp4' }, documentRelativePath: 'docs/guide.md', documentEpoch: 3, documentId: 'pane-document:3', popoutInstanceId: 'popout-instance:3', requestId: 9 },
     { asset: { kind: 'html', name: '', relative_path: 'demos/demo.html' }, documentRelativePath: 'docs/guide.md', documentEpoch: 3, documentId: 'pane-document:3', popoutInstanceId: 'popout-instance:3', requestId: 9 },
     { asset: { kind: 'html', name: 'demo.html', relative_path: 'demos/demo.html' }, documentRelativePath: '../guide.md', documentEpoch: 3, documentId: 'pane-document:3', popoutInstanceId: 'popout-instance:3', requestId: 9 },
     { asset: { kind: 'html', name: 'demo.html', relative_path: 'demos/demo.html' }, documentRelativePath: 'docs/guide.md', documentEpoch: 3, documentId: 'pane document', popoutInstanceId: 'popout-instance:3', requestId: 9 },

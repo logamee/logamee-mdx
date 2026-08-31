@@ -19,6 +19,10 @@ const IMAGE_LABELS: RelativeAssetLabels = RelativeAssetLabels {
     lower: "image",
     title: "Image",
 };
+const MEDIA_LABELS: RelativeAssetLabels = RelativeAssetLabels {
+    lower: "media",
+    title: "Media",
+};
 const EXCALIDRAW_LABELS: RelativeAssetLabels = RelativeAssetLabels {
     lower: "Excalidraw embed",
     title: "Excalidraw embed",
@@ -148,6 +152,21 @@ pub(crate) fn resolve_relative_image_path_inner(
         workspace_root,
         image_src,
         IMAGE_LABELS,
+    )
+}
+
+pub(crate) fn resolve_relative_media_path_inner(
+    state: &AppState,
+    current_file_path: &str,
+    workspace_root: Option<&str>,
+    media_src: &str,
+) -> Result<PathBuf, String> {
+    resolve_relative_preview_asset_path_inner(
+        state,
+        current_file_path,
+        workspace_root,
+        media_src,
+        MEDIA_LABELS,
     )
 }
 

@@ -59,3 +59,16 @@ export async function collectOfflineExportAssets(root: HTMLElement, fetcher: Exp
   }
   return { assetDataUrls, css: blocks.join('\n') };
 }
+
+export function replaceVideoElementsWithExportFallback(
+  root: HTMLElement,
+  fallbackText = 'Video preview is not embedded in offline export.',
+): void {
+  for (const video of Array.from(root.querySelectorAll<HTMLVideoElement>('video'))) {
+    const replacement = root.ownerDocument.createElement('span');
+    replacement.className = 'mmd-video-export-fallback';
+    const label = video.getAttribute('aria-label')?.trim();
+    replacement.textContent = label ? `${label}: ${fallbackText}` : fallbackText;
+    video.replaceWith(replacement);
+  }
+}

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMarkdownImagePreviewUrl, getWorkspacePreviewUrl, resetImagePreviewCache } from './workspacePreviewSource';
+import { getMarkdownImagePreviewUrl, getMarkdownMediaPreviewUrl, getWorkspacePreviewUrl, resetImagePreviewCache } from './workspacePreviewSource';
 
 const convertFileSrcMock = vi.hoisted(() => vi.fn<(path: string) => string>());
 const invokeMock = vi.hoisted(() => vi.fn<(command: string, payload?: unknown) => Promise<string>>());
@@ -49,4 +49,21 @@ describe('workspace preview sources', () => {
     expect(invokeMock).toHaveBeenCalledTimes(1);
     expect(invokeMock).toHaveBeenCalledWith('resolve_markdown_image', input);
   });
+
+  it('resolves Markdown video resources through the scoped media command', async () => {
+    invokeMock.mockResolvedValue('/workspace/assets/clip.flv');
+    const input = {
+      currentFilePath: '/workspace/readme.md',
+      mediaSrc: 'assets/clip.flv',
+      workspaceRoot: '/workspace',
+    };
+
+    await expect(getMarkdownMediaPreviewUrl(input)).resolves.toBe('asset://localhost/%2Fworkspace%2Fassets%2Fclip.flv');
+    expect(invokeMock).toHaveBeenCalledWith('resolve_markdown_media', {
+      currentFilePath: input.currentFilePath,
+      mediaSrc: input.mediaSrc,
+      workspaceRoot: input.workspaceRoot,
+    });
+  });
+
 });

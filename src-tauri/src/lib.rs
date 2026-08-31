@@ -48,9 +48,9 @@ use commands::{
     open_file_parent_directory, open_recent_file, open_workspace_file, persist_workspace_session,
     read_file, read_markdown_excalidraw, read_workspace_image, refresh_directory,
     remove_recent_file, rename_workspace_entry, reset_settings, resolve_markdown_image,
-    resolve_workspace_media, retry_document_save_with_token, save_as_dialog,
-    set_native_locale_preference, set_native_save_menu_enabled, set_native_theme_preference,
-    update_settings, write_file,
+    resolve_markdown_media, resolve_workspace_media, retry_document_save_with_token,
+    save_as_dialog, set_native_locale_preference, set_native_save_menu_enabled,
+    set_native_theme_preference, update_settings, write_file,
 };
 use crash_draft_commands::{
     discard_crash_draft, list_crash_drafts, recover_crash_draft, reset_crash_draft_overflow_batch,
@@ -118,6 +118,7 @@ macro_rules! app_invoke_handler {
             move_workspace_entry,
             delete_workspace_entry,
             resolve_markdown_image,
+            resolve_markdown_media,
             read_markdown_excalidraw,
             read_workspace_image,
             resolve_workspace_media,

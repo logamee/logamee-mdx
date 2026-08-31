@@ -6,6 +6,7 @@ import { resolveWorkspaceMedia } from '../lib/tauriCommands';
 import { getWorkspacePreviewUrl } from '../lib/workspacePreviewSource';
 import { PaneHeader } from './PaneHeader';
 import { useI18n } from '../lib/i18n';
+import { VideoPlayer } from './VideoPlayer';
 
 interface WorkspaceMediaPreviewProps {
   enabled?: boolean;
@@ -19,18 +20,14 @@ interface WorkspaceMediaPreviewProps {
   previewRevision: number;
 }
 
-export function getMediaPlaybackMode(path: string): 'flv' | 'native' {
-  return path.toLowerCase().endsWith('.flv') ? 'flv' : 'native';
-}
+export { getMediaPlaybackMode } from './VideoPlayer';
 
 export function WorkspaceMediaPreview({ enabled = true, kind, mimeType, onPopout, paneRef, path, popout = false, popoutButton, previewRevision }: WorkspaceMediaPreviewProps) {
   const { locale, t } = useI18n();
   const audioRef = useRef<HTMLAudioElement>(null);
-  const mediaRef = useRef<HTMLVideoElement>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const playbackMode = getMediaPlaybackMode(path);
 
   useEffect(() => {
     setFailed(false);
@@ -52,59 +49,6 @@ export function WorkspaceMediaPreview({ enabled = true, kind, mimeType, onPopout
     };
   }, [enabled, locale, mimeType, path, previewRevision]);
 
-  useEffect(() => {
-    if (!enabled || playbackMode !== 'native' || !sourceUrl) return;
-    const mediaElement = kind === 'audio' ? audioRef.current : mediaRef.current;
-    mediaElement?.load();
-  }, [enabled, kind, playbackMode, sourceUrl]);
-
-  useEffect(() => {
-    if (!enabled || kind !== 'video' || playbackMode !== 'flv' || !mediaRef.current || !sourceUrl) return undefined;
-    let disposed = false;
-    let destroyPlayer: (() => void) | undefined;
-
-    void import('mpegts.js')
-      .then(({ default: mpegts }) => {
-        if (disposed) return;
-        if (!mpegts.isSupported()) {
-          setFailed(true);
-          emitAppFeedbackError('Media playback is not supported by this WebView');
-          return;
-        }
-
-        const player = mpegts.createPlayer({ type: 'flv', url: sourceUrl, cors: true });
-        const handleError = () => {
-          if (disposed) return;
-          setFailed(true);
-          emitAppFeedbackError('Failed to play media');
-        };
-        const handleMediaInfo = () => {
-          if (!disposed) setLoaded(true);
-        };
-        player.on(mpegts.Events.ERROR, handleError);
-        player.on(mpegts.Events.MEDIA_INFO, handleMediaInfo);
-        player.attachMediaElement(mediaRef.current!);
-        player.load();
-        destroyPlayer = () => {
-          player.off(mpegts.Events.ERROR, handleError);
-          player.off(mpegts.Events.MEDIA_INFO, handleMediaInfo);
-          player.unload();
-          player.detachMediaElement();
-          player.destroy();
-        };
-      })
-      .catch((error: unknown) => {
-        if (disposed) return;
-        setFailed(true);
-        emitAppFeedbackError(error);
-      });
-
-    return () => {
-      disposed = true;
-      destroyPlayer?.();
-    };
-  }, [enabled, kind, locale, playbackMode, sourceUrl]);
-
   const handlePlaybackError = () => {
     setFailed(true);
     emitAppFeedbackError('Failed to play media');
@@ -121,16 +65,12 @@ export function WorkspaceMediaPreview({ enabled = true, kind, mimeType, onPopout
           <audio ref={audioRef} className="workspace-audio" controls preload="metadata" src={sourceUrl} onLoadedMetadata={() => setLoaded(true)} onError={handlePlaybackError} />
         )}
         {enabled && !failed && kind === 'video' && sourceUrl && (
-          /* oxlint-disable-next-line jsx-a11y/media-has-caption -- Arbitrary local video files do not have a guaranteed caption track. */
-          <video
-            ref={mediaRef}
+          <VideoPlayer
             className={loaded ? 'workspace-video is-loaded' : 'workspace-video'}
-            controls
-            playsInline
-            preload="metadata"
-            src={playbackMode === 'native' ? sourceUrl : undefined}
-            onLoadedMetadata={() => setLoaded(true)}
-            onError={playbackMode === 'native' ? handlePlaybackError : undefined}
+            onError={handlePlaybackError}
+            onLoaded={() => setLoaded(true)}
+            path={path}
+            sourceUrl={sourceUrl}
           />
         )}
       </div>

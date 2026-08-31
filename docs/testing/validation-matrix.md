@@ -63,9 +63,9 @@ npm run perf:gate
 
 - Markdown 围栏代码、GFM 表格、数学、引用块、Mermaid 和代码复制；
 - 相对图片/媒体/Excalidraw 资源的作用域、失败回退和插入握手；
-- 未来交付 Markdown 音视频内嵌时，补充兼容语法、文档身份与资源授权、
-  支持/不支持格式、加载失败、键盘与字幕/文本替代、离线与导出降级，以及
-  Linux/macOS/Windows 播放回归；路线图条目本身不计为能力通过；
+- Markdown 视频内嵌的图片样式语法、文档身份与资源授权、支持格式矩阵、
+  FLV/MPEG-TS 播放路径、加载失败、键盘控制、离线与导出回退；真实
+  Linux/macOS/Windows 播放回归仍需平台机器证据；音频正文内嵌仍属计划；
 - HTML iframe 沙箱/本地预览服务、离线 HTML DOMPurify、DOCX 白名单、
   PDF 页面/缩放；
 - 导出预检、资源内联、目标冲突和取消不改变当前保存状态。

@@ -80,6 +80,7 @@ function isProtocolId(value: unknown): value is string {
 
 export function isMarkdownWorkspaceReferenceKind(kind: WorkspaceFileKind): boolean {
   return kind === 'image'
+    || kind === 'video'
     || kind === 'audio'
     || kind === 'html'
     || kind === 'excalidraw';
@@ -331,6 +332,7 @@ export function createMarkdownMediaReference(
   if (!destination) return null;
   const label = escapeMarkdownLabel(asset.name);
   if (asset.kind === 'image') return `![${label}](${destination})`;
+  if (asset.kind === 'video') return `![${label}](${destination})`;
   if (asset.kind === 'html' || asset.kind === 'excalidraw') {
     return `[${label}](${destination} "mmd:embed")`;
   }
