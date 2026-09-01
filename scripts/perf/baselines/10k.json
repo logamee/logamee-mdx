@@ -7,7 +7,7 @@
   },
   "app": {
     "name": "logamee-mdx",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "build": {
     "profile": "release",

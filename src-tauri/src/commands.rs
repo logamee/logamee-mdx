@@ -3576,6 +3576,59 @@ pub(crate) fn resolve_workspace_media(
 }
 
 #[tauri::command]
+pub(crate) fn prepare_workspace_media_preview(
+    path: String,
+    webview_window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<crate::html_preview_server::MediaPreviewHandle, String> {
+    crate::html_preview_server::prepare_media_preview_inner(&state, path, webview_window.label())
+}
+
+#[tauri::command]
+pub(crate) fn prepare_markdown_media_preview(
+    current_file_path: String,
+    workspace_root: Option<String>,
+    media_src: String,
+    webview_window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<crate::html_preview_server::MediaPreviewHandle, String> {
+    let workspace_root = workspace_root.filter(|root| !root.trim().is_empty());
+    let path = resolve_relative_media_path_inner(
+        &state,
+        &current_file_path,
+        workspace_root.as_deref(),
+        &media_src,
+    )?;
+    if WorkspaceFileKind::classify(&path) != Some(WorkspaceFileKind::Video) {
+        return Err("Markdown media source is not a supported video".into());
+    }
+    let scope = crate::path_auth::preview_scope_for_anchored_file_with_root_inner(
+        &state,
+        &current_file_path,
+        &path,
+        workspace_root.as_deref().map(Path::new),
+    )?;
+    crate::html_preview_server::prepare_media_preview_with_scope_inner(
+        &state,
+        scope,
+        webview_window.label(),
+    )
+}
+
+#[tauri::command]
+pub(crate) fn release_media_preview(
+    owner_id: u64,
+    webview_window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    crate::html_preview_server::release_media_preview_inner(
+        &state,
+        owner_id,
+        webview_window.label(),
+    )
+}
+
+#[tauri::command]
 pub(crate) fn resolve_markdown_image(
     current_file_path: String,
     workspace_root: Option<String>,

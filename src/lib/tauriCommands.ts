@@ -636,6 +636,31 @@ export function readMarkdownExcalidraw(
   });
 }
 
+export interface MediaPreviewHandle {
+  url: string;
+  ownerId: number;
+}
+
+export function prepareWorkspaceMediaPreview(path: string): Promise<MediaPreviewHandle> {
+  return invoke<MediaPreviewHandle>('prepare_workspace_media_preview', { path });
+}
+
+export function prepareMarkdownMediaPreview(
+  currentFilePath: string,
+  mediaSrc: string,
+  workspaceRoot: string | null,
+): Promise<MediaPreviewHandle> {
+  return invoke<MediaPreviewHandle>('prepare_markdown_media_preview', {
+    currentFilePath,
+    mediaSrc,
+    workspaceRoot,
+  });
+}
+
+export function releaseMediaPreview(ownerId: number): Promise<void> {
+  return invoke<void>('release_media_preview', { ownerId });
+}
+
 export function resolveWorkspaceMedia(path: string): Promise<string> {
   return invoke<string>('resolve_workspace_media', { path });
 }

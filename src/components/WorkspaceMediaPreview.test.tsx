@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { getMediaPlaybackMode, WorkspaceMediaPreview } from './WorkspaceMediaPreview';
+import { VideoPlayer } from './VideoPlayer';
 
 interface MockMpegtsPlayer {
   attachMediaElement: (mediaElement: HTMLMediaElement) => void;
@@ -17,7 +18,8 @@ interface MockMpegtsPlayer {
 }
 
 const commandMocks = vi.hoisted(() => ({
-  resolveWorkspaceMedia: vi.fn<(path: string) => Promise<string>>(),
+  prepareWorkspaceMediaPreview: vi.fn<(path: string) => Promise<{ url: string; ownerId: number }>>(),
+  releaseMediaPreview: vi.fn<(ownerId: number) => Promise<void>>(async () => undefined),
 }));
 const mpegtsMocks = vi.hoisted(() => ({
   Events: { ERROR: 'error', MEDIA_INFO: 'media-info' },
@@ -26,7 +28,8 @@ const mpegtsMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../lib/tauriCommands', () => ({
-  resolveWorkspaceMedia: commandMocks.resolveWorkspaceMedia,
+  prepareWorkspaceMediaPreview: commandMocks.prepareWorkspaceMediaPreview,
+  releaseMediaPreview: commandMocks.releaseMediaPreview,
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -34,6 +37,21 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn<typeof import('@tauri-apps/api/core').invoke>(),
 }));
 vi.mock('mpegts.js', () => ({ default: mpegtsMocks }));
+describe('VideoPlayer', () => {
+  it('keeps audio enabled for native video playback', () => {
+    const html = renderToStaticMarkup(
+      <VideoPlayer
+        onError={() => undefined}
+        onLoaded={() => undefined}
+        path="/workspace/media/clip.mp4"
+        sourceUrl="http://127.0.0.1:1234/clip.mp4"
+      />,
+    );
+
+    expect(html).not.toContain('muted');
+    expect(html).toContain('controls');
+  });
+});
 
 describe('WorkspaceMediaPreview', () => {
   it('routes FLV through the dedicated player and browser formats through native playback', () => {
@@ -75,8 +93,8 @@ describe('WorkspaceMediaPreview', () => {
 
   it('reloads native media when the same path receives a newer preview revision', async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-    commandMocks.resolveWorkspaceMedia.mockReset();
-    commandMocks.resolveWorkspaceMedia.mockResolvedValue('/workspace/media/clip.mp4');
+    commandMocks.prepareWorkspaceMediaPreview.mockReset();
+    commandMocks.prepareWorkspaceMediaPreview.mockResolvedValue({ url: 'http://127.0.0.1:1234/clip.mp4', ownerId: 1 });
     const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
     const container = document.createElement('div');
     document.body.append(container);
@@ -106,7 +124,7 @@ describe('WorkspaceMediaPreview', () => {
         />,
       ));
 
-      expect(commandMocks.resolveWorkspaceMedia).toHaveBeenCalledTimes(2);
+      expect(commandMocks.prepareWorkspaceMediaPreview).toHaveBeenCalledTimes(2);
       expect(container.querySelector<HTMLVideoElement>('video')?.src).toContain('mmdRevision=2');
       expect(container.querySelector('.workspace-media-viewport')?.getAttribute('aria-busy')).toBe('true');
       expect(load.mock.calls.length).toBeGreaterThan(initialLoadCalls);
@@ -119,8 +137,8 @@ describe('WorkspaceMediaPreview', () => {
 
   it('tears down the old FLV player before creating one for a newer preview revision', async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-    commandMocks.resolveWorkspaceMedia.mockReset();
-    commandMocks.resolveWorkspaceMedia.mockResolvedValue('/workspace/media/clip.flv');
+    commandMocks.prepareWorkspaceMediaPreview.mockReset();
+    commandMocks.prepareWorkspaceMediaPreview.mockResolvedValue({ url: 'http://127.0.0.1:1234/clip.flv', ownerId: 1 });
     mpegtsMocks.createPlayer.mockReset();
     mpegtsMocks.isSupported.mockReset();
     mpegtsMocks.isSupported.mockReturnValue(true);

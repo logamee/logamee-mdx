@@ -28,8 +28,9 @@ describe('Tauri capabilities', () => {
 
   it('enables local preview streaming with an empty default asset scope', () => {
     expect(tauriConfig.app.security.assetProtocol).toEqual({ enable: true, scope: [] });
-    expect(tauriConfig.app.security.csp).toContain("media-src 'self' asset: http://asset.localhost");
+    expect(tauriConfig.app.security.csp).toContain("media-src 'self' asset: http://asset.localhost http://127.0.0.1:*");
     expect(tauriConfig.app.security.csp).toContain("frame-src 'self' asset: http://asset.localhost http://127.0.0.1:*");
+    expect(tauriConfig.app.security.csp).toContain("connect-src 'self' asset: http://asset.localhost http://127.0.0.1:*");
   });
 
   it('packages the generated desktop icon set on every supported platform', () => {

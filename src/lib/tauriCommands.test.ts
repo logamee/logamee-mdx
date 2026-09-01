@@ -24,6 +24,9 @@ import {
   renameWorkspaceEntry,
   retryDocumentSaveWithToken,
   resolveWorkspaceMedia,
+  prepareWorkspaceMediaPreview,
+  prepareMarkdownMediaPreview,
+  releaseMediaPreview,
   resolveOpenIntent,
   discardOpenIntent,
   focusMainWindow,
@@ -860,6 +863,30 @@ describe('Tauri command wrappers', () => {
     expect(invokeMock).toHaveBeenCalledWith('resolve_workspace_media', {
       path: '/workspace/media/clip.mp4',
     });
+  });
+
+  it('prepares and releases media on the authorized loopback preview server', async () => {
+    invokeMock.mockResolvedValueOnce({ url: 'http://127.0.0.1:43127/media/clip.mp4', ownerId: 41 });
+    await expect(prepareWorkspaceMediaPreview('/workspace/media/clip.mp4')).resolves.toEqual({
+      url: 'http://127.0.0.1:43127/media/clip.mp4',
+      ownerId: 41,
+    });
+    expect(invokeMock).toHaveBeenCalledWith('prepare_workspace_media_preview', {
+      path: '/workspace/media/clip.mp4',
+    });
+
+    invokeMock.mockResolvedValueOnce({ url: 'http://127.0.0.1:43127/media/clip.mp4', ownerId: 42 });
+    await expect(prepareMarkdownMediaPreview('/workspace/readme.md', 'media/clip.mp4', '/workspace'))
+      .resolves.toEqual({ url: 'http://127.0.0.1:43127/media/clip.mp4', ownerId: 42 });
+    expect(invokeMock).toHaveBeenCalledWith('prepare_markdown_media_preview', {
+      currentFilePath: '/workspace/readme.md',
+      mediaSrc: 'media/clip.mp4',
+      workspaceRoot: '/workspace',
+    });
+
+    invokeMock.mockResolvedValueOnce(undefined);
+    await expect(releaseMediaPreview(42)).resolves.toBeUndefined();
+    expect(invokeMock).toHaveBeenCalledWith('release_media_preview', { ownerId: 42 });
   });
 
   it('prepares live HTML content on the loopback preview server', async () => {

@@ -31,6 +31,7 @@ use crate::{
 const PREVIEW_WORKERS: usize = 4;
 const MAX_PREVIEW_SITES: usize = 8;
 const MAX_EMBED_OWNER_ID: u64 = 9_007_199_254_740_991;
+const MEDIA_ACCESS_TOKEN_QUERY: &str = "mmdMediaToken";
 const POISONED_PREVIEW_SITES_ERROR: &str =
     "HTML preview server state was poisoned; all preview sites were stopped";
 const PREVIEW_AUTHORIZATION_CHANGED_ERROR: &str =
@@ -183,21 +184,26 @@ struct HtmlEmbedSiteKey {
     document: PathBuf,
 }
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct MediaPreviewSiteKey(PathBuf);
+
 #[derive(Default)]
 struct HtmlPreviewSites {
     drafts: HashMap<PathBuf, HtmlPreviewSite>,
     embeds: HashMap<HtmlEmbedSiteKey, EmbeddedPreviewSite>,
+    media: HashMap<MediaPreviewSiteKey, EmbeddedPreviewSite>,
     next_embed_owner_id: u64,
 }
 
 impl HtmlPreviewSites {
     fn len_all(&self) -> usize {
-        self.drafts.len() + self.embeds.len()
+        self.drafts.len() + self.embeds.len() + self.media.len()
     }
 
     fn clear_all(&mut self) {
         self.drafts.clear();
         self.embeds.clear();
+        self.media.clear();
     }
 
     fn drain_leases(&mut self) -> HashSet<PreviewLeaseId> {
@@ -205,6 +211,7 @@ impl HtmlPreviewSites {
             .drain()
             .map(|(_, site)| site.lease.clone())
             .chain(self.embeds.drain().map(|(_, site)| site.lease.clone()))
+            .chain(self.media.drain().map(|(_, site)| site.lease.clone()))
             .collect()
     }
 
@@ -237,6 +244,14 @@ impl DerefMut for HtmlPreviewSites {
 struct HtmlPreviewCommit {
     document: PathBuf,
     url: String,
+    active_lease: PreviewLeaseId,
+    retired_leases: HashSet<PreviewLeaseId>,
+}
+
+struct MediaPreviewCommit {
+    key: MediaPreviewSiteKey,
+    url: String,
+    owner_id: u64,
     active_lease: PreviewLeaseId,
     retired_leases: HashSet<PreviewLeaseId>,
 }
@@ -357,6 +372,7 @@ impl HtmlPreviewServerState {
         let mut sites = self.lock_sites()?;
         sites.retain(|_, site| !leases.contains(&site.lease));
         sites.embeds.retain(|_, site| !leases.contains(&site.lease));
+        sites.media.retain(|_, site| !leases.contains(&site.lease));
         Ok(())
     }
 
@@ -403,6 +419,39 @@ impl HtmlPreviewServerState {
         Ok(if should_remove {
             sites
                 .embeds
+                .remove(key)
+                .map(|site| HashSet::from([site.lease.clone()]))
+                .unwrap_or_default()
+        } else {
+            HashSet::new()
+        })
+    }
+
+    fn rollback_committed_media_owner(
+        &self,
+        key: &MediaPreviewSiteKey,
+        owner_id: u64,
+        active_lease: &PreviewLeaseId,
+        remove_generation: bool,
+    ) -> Result<HashSet<PreviewLeaseId>, HtmlPreviewSitesRecoveryError> {
+        let mut sites = self.lock_sites()?;
+        let should_remove = if let Some(site) = sites
+            .media
+            .get_mut(key)
+            .filter(|site| &site.lease == active_lease)
+        {
+            if remove_generation {
+                true
+            } else {
+                site.owners.remove(&owner_id);
+                site.owners.is_empty()
+            }
+        } else {
+            false
+        };
+        Ok(if should_remove {
+            sites
+                .media
                 .remove(key)
                 .map(|site| HashSet::from([site.lease.clone()]))
                 .unwrap_or_default()
@@ -561,7 +610,13 @@ fn requested_byte_range(request: &Request, length: usize) -> Result<Option<(usiz
     Ok(Some((start, end)))
 }
 
-fn respond_file(request: Request, mime_type: &str, mut file: File, length: usize) {
+fn respond_file(
+    request: Request,
+    mime_type: &str,
+    mut file: File,
+    length: usize,
+    allow_cors: bool,
+) {
     match requested_byte_range(&request, length) {
         Ok(Some((start, end))) => {
             if file.seek(SeekFrom::Start(start as u64)).is_err() {
@@ -574,15 +629,20 @@ fn respond_file(request: Request, mime_type: &str, mut file: File, length: usize
                 return;
             }
             let range_length = end - start + 1;
+            let mut headers = vec![
+                header(b"Content-Type", mime_type),
+                header(b"Content-Range", format!("bytes {start}-{end}/{length}")),
+                header(b"Accept-Ranges", b"bytes"),
+            ];
+            if allow_cors {
+                headers.push(header(b"Access-Control-Allow-Origin", b"*"));
+                headers.push(header(b"Access-Control-Expose-Headers", b"Content-Range"));
+            }
+            headers.push(header(b"Cache-Control", b"no-store"));
+            headers.push(header(b"X-Content-Type-Options", b"nosniff"));
             let response = Response::new(
                 StatusCode(206),
-                vec![
-                    header(b"Content-Type", mime_type),
-                    header(b"Content-Range", format!("bytes {start}-{end}/{length}")),
-                    header(b"Accept-Ranges", b"bytes"),
-                    header(b"Cache-Control", b"no-store"),
-                    header(b"X-Content-Type-Options", b"nosniff"),
-                ],
+                headers,
                 file.take(range_length as u64),
                 Some(range_length),
                 None,
@@ -590,18 +650,17 @@ fn respond_file(request: Request, mime_type: &str, mut file: File, length: usize
             let _ = request.respond(response);
         }
         Ok(None) => {
-            let response = Response::new(
-                StatusCode(200),
-                vec![
-                    header(b"Content-Type", mime_type),
-                    header(b"Accept-Ranges", b"bytes"),
-                    header(b"Cache-Control", b"no-store"),
-                    header(b"X-Content-Type-Options", b"nosniff"),
-                ],
-                file,
-                Some(length),
-                None,
-            );
+            let mut headers = vec![
+                header(b"Content-Type", mime_type),
+                header(b"Accept-Ranges", b"bytes"),
+            ];
+            if allow_cors {
+                headers.push(header(b"Access-Control-Allow-Origin", b"*"));
+                headers.push(header(b"Access-Control-Expose-Headers", b"Content-Range"));
+            }
+            headers.push(header(b"Cache-Control", b"no-store"));
+            headers.push(header(b"X-Content-Type-Options", b"nosniff"));
+            let response = Response::new(StatusCode(200), headers, file, Some(length), None);
             let _ = request.respond(response);
         }
         Err(()) => {
@@ -740,6 +799,7 @@ fn route_request(
     root: &Path,
     document: &Path,
     content: &HtmlPreviewContent,
+    media_access_token: Option<&str>,
 ) {
     if !request_is_local(&request, authority) {
         respond_bytes(
@@ -749,6 +809,24 @@ fn route_request(
             b"Misdirected request".to_vec(),
         );
         return;
+    }
+    if let Some(expected_token) = media_access_token {
+        let authorized = request.url().split_once('?').is_some_and(|(_, query)| {
+            query.split('&').any(|parameter| {
+                parameter.split_once('=').is_some_and(|(name, value)| {
+                    name == MEDIA_ACCESS_TOKEN_QUERY && value == expected_token
+                })
+            })
+        });
+        if !authorized {
+            respond_bytes(
+                request,
+                403,
+                "text/plain; charset=utf-8",
+                b"Forbidden".to_vec(),
+            );
+            return;
+        }
     }
     if !matches!(request.method(), Method::Get | Method::Head) {
         let response = Response::new(
@@ -839,7 +917,18 @@ fn route_request(
     }
 
     let mime = mime_guess::from_path(&canonical).first_or_octet_stream();
-    respond_file(request, mime.as_ref(), file, metadata.len() as usize);
+    let allow_media_cors = canonical == document
+        && matches!(
+            WorkspaceFileKind::classify(document),
+            Some(WorkspaceFileKind::Video | WorkspaceFileKind::Audio)
+        );
+    respond_file(
+        request,
+        mime.as_ref(),
+        file,
+        metadata.len() as usize,
+        allow_media_cors,
+    );
 }
 
 fn encoded_relative_path(root: &Path, document: &Path) -> Result<String, String> {
@@ -858,6 +947,20 @@ fn encoded_relative_path(root: &Path, document: &Path) -> Result<String, String>
         .collect::<Result<Vec<_>, _>>()
         .map(|segments| segments.join("/"))
 }
+fn new_media_access_token(document: &Path) -> Result<Option<String>, String> {
+    if !matches!(
+        WorkspaceFileKind::classify(document),
+        Some(WorkspaceFileKind::Video | WorkspaceFileKind::Audio)
+    ) {
+        return Ok(None);
+    }
+    let mut bytes = [0_u8; 16];
+    getrandom::fill(&mut bytes)
+        .map_err(|error| format!("Cannot generate media access token: {error}"))?;
+    Ok(Some(
+        bytes.iter().map(|byte| format!("{byte:02x}")).collect(),
+    ))
+}
 
 impl HtmlPreviewSite {
     fn start(scope: AuthorizedPreviewScope, content: HtmlPreviewContent) -> Result<Self, String> {
@@ -871,6 +974,7 @@ impl HtmlPreviewSite {
         lease: PreviewLeaseId,
         content: HtmlPreviewContent,
     ) -> Result<Self, String> {
+        let media_access_token = new_media_access_token(&document)?;
         let encoded_path = encoded_relative_path(&root, &document)?;
         #[cfg(test)]
         site_start_test_probe::loopback_bind_attempted();
@@ -892,6 +996,7 @@ impl HtmlPreviewSite {
             let worker_content = content.clone();
             let worker_stop = Arc::clone(&stop);
             let worker_authority = authority.clone();
+            let worker_media_access_token = media_access_token.clone();
             let worker_builder =
                 thread::Builder::new().name(format!("mmd-html-preview-{worker_index}"));
             #[cfg(test)]
@@ -905,6 +1010,7 @@ impl HtmlPreviewSite {
                             &worker_root,
                             &worker_document,
                             &worker_content,
+                            worker_media_access_token.as_deref(),
                         ),
                         Ok(None) => {}
                         Err(_) if worker_stop.load(Ordering::Acquire) => break,
@@ -922,7 +1028,12 @@ impl HtmlPreviewSite {
         }
 
         Ok(Self {
-            url: format!("http://{address}/{encoded_path}"),
+            url: match media_access_token.as_deref() {
+                Some(token) => {
+                    format!("http://{address}/{encoded_path}?{MEDIA_ACCESS_TOKEN_QUERY}={token}")
+                }
+                None => format!("http://{address}/{encoded_path}"),
+            },
             root,
             content,
             server,
@@ -1290,6 +1401,218 @@ fn prepare_html_embed_with_scope_inner(
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MediaPreviewHandle {
+    pub(crate) url: String,
+    pub(crate) owner_id: u64,
+}
+
+pub(crate) fn prepare_media_preview_inner(
+    state: &AppState,
+    path: impl AsRef<Path>,
+    owner_window: &str,
+) -> Result<MediaPreviewHandle, String> {
+    let scope = preview_scope_for_file_inner(state, path)?;
+    if !matches!(
+        WorkspaceFileKind::classify(scope.document()),
+        Some(WorkspaceFileKind::Video | WorkspaceFileKind::Audio)
+    ) {
+        return Err("Media preview requires an audio or video file".into());
+    }
+    prepare_media_preview_with_scope_inner(state, scope, owner_window)
+}
+
+pub(crate) fn prepare_media_preview_with_scope_inner(
+    state: &AppState,
+    scope: AuthorizedPreviewScope,
+    owner_window: &str,
+) -> Result<MediaPreviewHandle, String> {
+    let reserved_lease = scope.lease().clone();
+    let key = MediaPreviewSiteKey(scope.document().to_path_buf());
+    #[cfg(test)]
+    preview_commit_test_probe::run(state, &reserved_lease);
+    let site_transaction: Result<MediaPreviewCommit, HtmlPreviewSiteTransactionError> = (|| {
+        let mut sites = state
+            .html_preview_server
+            .lock_sites()
+            .map_err(HtmlPreviewSiteTransactionError::SitesRecovery)?;
+        let owner_id = sites
+            .allocate_embed_owner_id()
+            .map_err(HtmlPreviewSiteTransactionError::Operation)?;
+        let (url, active_lease, retired_leases) = if let Some(site) = sites.media.get_mut(&key) {
+            if site.root.as_path() != scope.root() {
+                return Err(HtmlPreviewSiteTransactionError::Operation(
+                    "Media preview scope changed while the site was active".to_string(),
+                ));
+            }
+            site.owners.insert(owner_id, owner_window.to_string());
+            (
+                site.url.clone(),
+                site.lease.clone(),
+                HashSet::from([reserved_lease.clone()]),
+            )
+        } else {
+            if sites.len_all() >= MAX_PREVIEW_SITES {
+                return Err(HtmlPreviewSiteTransactionError::Operation(
+                    "Too many active preview sites".to_string(),
+                ));
+            }
+            let site = state
+                .html_preview_server
+                .start_disk_site(scope)
+                .map_err(HtmlPreviewSiteTransactionError::Operation)?;
+            let url = site.url.clone();
+            sites.media.insert(
+                key.clone(),
+                EmbeddedPreviewSite::new(site, owner_id, owner_window),
+            );
+            (url, reserved_lease.clone(), HashSet::new())
+        };
+        Ok(MediaPreviewCommit {
+            key,
+            url,
+            owner_id,
+            active_lease,
+            retired_leases,
+        })
+    })();
+    let commit = match site_transaction {
+        Ok(committed) => committed,
+        Err(HtmlPreviewSiteTransactionError::Operation(error)) => {
+            match retire_preview_lease_inner(state, &reserved_lease) {
+                Ok(()) => return Err(error),
+                Err(PreviewRetirementError::AuthorizationUnavailable(error)) => {
+                    let _ = state.html_preview_server.stop_all_sites();
+                    return Err(error);
+                }
+                #[cfg(test)]
+                Err(PreviewRetirementError::Recoverable(error)) => return Err(error),
+            }
+        }
+        Err(HtmlPreviewSiteTransactionError::SitesRecovery(recovery)) => {
+            let (error, mut rollback_leases) = recovery.into_parts();
+            rollback_leases.insert(reserved_lease.clone());
+            retire_preview_leases_inner(state, &rollback_leases)
+                .map_err(PreviewRetirementError::into_message)?;
+            return Err(error);
+        }
+    };
+    let MediaPreviewCommit {
+        key,
+        url,
+        owner_id,
+        active_lease,
+        retired_leases,
+    } = commit;
+    let lease_statuses =
+        match preview_lease_support_statuses_inner(state, &[&reserved_lease, &active_lease]) {
+            Ok(statuses) => statuses,
+            Err(error) => {
+                let mut rollback_leases = retired_leases;
+                rollback_leases.insert(reserved_lease);
+                match state.html_preview_server.rollback_committed_media_owner(
+                    &key,
+                    owner_id,
+                    &active_lease,
+                    true,
+                ) {
+                    Ok(removed_leases) => rollback_leases.extend(removed_leases),
+                    Err(recovery) => {
+                        let (_, drained_leases) = recovery.into_parts();
+                        rollback_leases.extend(drained_leases);
+                    }
+                }
+                retire_rollback_leases(state, &rollback_leases)?;
+                return Err(error);
+            }
+        };
+    if !lease_statuses[0] || !lease_statuses[1] {
+        let mut rollback_leases = retired_leases;
+        rollback_leases.insert(reserved_lease);
+        let rollback_error = match state.html_preview_server.rollback_committed_media_owner(
+            &key,
+            owner_id,
+            &active_lease,
+            !lease_statuses[1],
+        ) {
+            Ok(removed_leases) => {
+                rollback_leases.extend(removed_leases);
+                None
+            }
+            Err(recovery) => {
+                let (error, drained_leases) = recovery.into_parts();
+                rollback_leases.extend(drained_leases);
+                Some(error)
+            }
+        };
+        retire_rollback_leases(state, &rollback_leases)?;
+        return Err(
+            rollback_error.unwrap_or_else(|| PREVIEW_AUTHORIZATION_CHANGED_ERROR.to_string())
+        );
+    }
+    match retire_preview_leases_inner(state, &retired_leases) {
+        Ok(()) => Ok(MediaPreviewHandle { url, owner_id }),
+        Err(PreviewRetirementError::AuthorizationUnavailable(error)) => {
+            let _ = state.html_preview_server.stop_all_sites();
+            Err(error)
+        }
+        #[cfg(test)]
+        Err(PreviewRetirementError::Recoverable(error)) => {
+            let mut rollback_leases = retired_leases;
+            let rollback_error = match state.html_preview_server.rollback_committed_media_owner(
+                &key,
+                owner_id,
+                &active_lease,
+                false,
+            ) {
+                Ok(removed_leases) => {
+                    rollback_leases.extend(removed_leases);
+                    None
+                }
+                Err(recovery) => {
+                    let (error, drained_leases) = recovery.into_parts();
+                    rollback_leases.extend(drained_leases);
+                    Some(error)
+                }
+            };
+            retire_preview_leases_inner(state, &rollback_leases)
+                .map_err(PreviewRetirementError::into_message)?;
+            if let Some(rollback_error) = rollback_error {
+                return Err(rollback_error);
+            }
+            Err(error)
+        }
+    }
+}
+
+pub(crate) fn release_media_preview_inner(
+    state: &AppState,
+    owner_id: u64,
+    owner_window: &str,
+) -> Result<(), String> {
+    let retired_leases = {
+        let mut sites = state
+            .html_preview_server
+            .lock_sites()
+            .map_err(HtmlPreviewSitesRecoveryError::into_message)?;
+        sites.media.iter_mut().for_each(|(_, site)| {
+            site.owners
+                .retain(|id, window| !(*id == owner_id && window == owner_window));
+        });
+        let empty_sites = sites
+            .media
+            .iter()
+            .filter_map(|(key, site)| site.owners.is_empty().then_some(key.clone()))
+            .collect::<Vec<_>>();
+        empty_sites
+            .into_iter()
+            .filter_map(|key| sites.media.remove(&key).map(|site| site.lease.clone()))
+            .collect::<HashSet<_>>()
+    };
+    retire_released_embed_leases(state, &retired_leases)
+}
+
 fn decode_embed_path(input: &str) -> Result<String, String> {
     let bytes = input.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());
@@ -1508,15 +1831,29 @@ pub(crate) fn release_markdown_html_embed_window_inner(
         for site in sites.embeds.values_mut() {
             site.owners.retain(|_, window| window != owner_window);
         }
-        let empty_sites = sites
+        for site in sites.media.values_mut() {
+            site.owners.retain(|_, window| window != owner_window);
+        }
+        let empty_embed_sites = sites
             .embeds
             .iter()
             .filter_map(|(key, site)| site.owners.is_empty().then_some(key.clone()))
             .collect::<Vec<_>>();
-        empty_sites
+        let empty_media_sites = sites
+            .media
+            .iter()
+            .filter_map(|(key, site)| site.owners.is_empty().then_some(key.clone()))
+            .collect::<Vec<_>>();
+        let mut retired_leases = empty_embed_sites
             .into_iter()
             .filter_map(|key| sites.embeds.remove(&key).map(|site| site.lease.clone()))
-            .collect::<HashSet<_>>()
+            .collect::<HashSet<_>>();
+        retired_leases.extend(
+            empty_media_sites
+                .into_iter()
+                .filter_map(|key| sites.media.remove(&key).map(|site| site.lease.clone())),
+        );
+        retired_leases
     };
 
     retire_released_embed_leases(state, &retired_leases)
@@ -1587,8 +1924,8 @@ mod tests {
     use super::{
         acquire_markdown_html_embed_inner, prepare_html_preview_inner,
         prepare_markdown_html_embed_in_workspace_inner, prepare_markdown_html_embed_inner,
-        release_markdown_html_embed_inner, release_markdown_html_embed_window_inner,
-        MAX_PREVIEW_SITES,
+        prepare_media_preview_inner, release_markdown_html_embed_inner,
+        release_markdown_html_embed_window_inner, release_media_preview_inner, MAX_PREVIEW_SITES,
     };
 
     fn http_request(url: &str, method: &str, headers: &[(&str, &str)]) -> Vec<u8> {
@@ -1632,6 +1969,66 @@ mod tests {
     }
 
     #[test]
+    fn serves_authorized_media_with_range_support_over_loopback_http() {
+        let dir = tempdir().unwrap();
+        let video = dir.path().join("clip.mp4");
+        let bytes = b"synthetic media bytes";
+        fs::write(&video, bytes).unwrap();
+        let state = AppState::default();
+        authorize_directory_root_inner(&state, dir.path().to_path_buf()).unwrap();
+
+        let handle = prepare_media_preview_inner(&state, &video, "main").unwrap();
+        let response = http_request(&handle.url, "GET", &[]);
+        assert!(String::from_utf8_lossy(&response).starts_with("HTTP/1.1 200"));
+        assert!(String::from_utf8_lossy(&response).contains("Content-Type: video/mp4"));
+        assert!(String::from_utf8_lossy(&response).contains("Access-Control-Allow-Origin: *"));
+        assert_eq!(response_body(&response), bytes);
+
+        let ranged = http_request(&handle.url, "GET", &[("Range", "bytes=2-6")]);
+        assert!(String::from_utf8_lossy(&ranged).starts_with("HTTP/1.1 206"));
+        assert_eq!(response_body(&ranged), b"nthet");
+        let address = handle
+            .url
+            .strip_prefix("http://")
+            .unwrap()
+            .split_once('/')
+            .unwrap()
+            .0;
+        let unauthorized = http_request_with_host(address, "clip.mp4", "GET", address, &[]);
+        assert!(String::from_utf8_lossy(&unauthorized).starts_with("HTTP/1.1 403"));
+
+        release_media_preview_inner(&state, handle.owner_id, "main").unwrap();
+    }
+    #[test]
+    fn media_preview_does_not_commit_a_revoked_lease() {
+        let workspace = tempdir().unwrap();
+        let video = workspace.path().join("clip.mp4");
+        fs::write(&video, b"synthetic media bytes").unwrap();
+        let state = AppState::default();
+        authorize_directory_root_inner(&state, workspace.path().to_path_buf()).unwrap();
+        let canonical_root = normalize_existing_path(workspace.path()).unwrap();
+
+        super::preview_commit_test_probe::before_next_commit(move |state, _lease| {
+            revoke_authorized_path_prefix_inner(state, &canonical_root).unwrap();
+        });
+
+        let error = prepare_media_preview_inner(&state, &video, "main")
+            .expect_err("a revoked media lease must not be committed");
+
+        assert_eq!(error, super::PREVIEW_AUTHORIZATION_CHANGED_ERROR);
+        assert!(state
+            .html_preview_server
+            .site_lease_snapshot()
+            .unwrap()
+            .is_empty());
+        assert!(state
+            .file_authorization()
+            .preview_lease_snapshot()
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
     fn serves_live_html_and_relative_assets_over_loopback_http() {
         let dir = tempdir().unwrap();
         let site = dir.path().join("site");
@@ -1661,6 +2058,9 @@ mod tests {
         let asset_response = http_get(&asset_url);
         assert!(asset_response.starts_with("HTTP/1.1 200"));
         assert!(asset_response.contains("window.previewLoaded = true;"));
+        assert!(!asset_response
+            .to_ascii_lowercase()
+            .contains("access-control-allow-origin"));
 
         let updated_url =
             prepare_html_preview_inner(&state, &html, "<h1>Updated again</h1>").unwrap();

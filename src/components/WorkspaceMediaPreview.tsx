@@ -2,8 +2,7 @@ import { useEffect, useRef, useState, type Ref } from 'react';
 import type { PanePopoutButtonState } from '../lib/paneLayout';
 import { emitAppFeedbackError } from '../lib/appFeedback';
 import { displayName } from '../lib/documentNames';
-import { resolveWorkspaceMedia } from '../lib/tauriCommands';
-import { getWorkspacePreviewUrl } from '../lib/workspacePreviewSource';
+import { prepareWorkspaceMediaPreview, releaseMediaPreview } from '../lib/tauriCommands';
 import { PaneHeader } from './PaneHeader';
 import { useI18n } from '../lib/i18n';
 import { VideoPlayer } from './VideoPlayer';
@@ -28,6 +27,7 @@ export function WorkspaceMediaPreview({ enabled = true, kind, mimeType, onPopout
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const ownerIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     setFailed(false);
@@ -35,9 +35,14 @@ export function WorkspaceMediaPreview({ enabled = true, kind, mimeType, onPopout
     setSourceUrl(null);
     if (!enabled) return undefined;
     let cancelled = false;
-    resolveWorkspaceMedia(path)
-      .then((resolvedPath) => {
-        if (!cancelled) setSourceUrl(getWorkspacePreviewUrl(resolvedPath, previewRevision));
+    prepareWorkspaceMediaPreview(path)
+      .then((lease) => {
+        if (cancelled) {
+          void releaseMediaPreview(lease.ownerId).catch(() => undefined);
+          return;
+        }
+        ownerIdRef.current = lease.ownerId;
+        setSourceUrl(`${lease.url}${lease.url.includes('?') ? '&' : '?'}mmdRevision=${previewRevision}`);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -46,6 +51,9 @@ export function WorkspaceMediaPreview({ enabled = true, kind, mimeType, onPopout
       });
     return () => {
       cancelled = true;
+      const ownerId = ownerIdRef.current;
+      ownerIdRef.current = null;
+      if (ownerId !== null) void releaseMediaPreview(ownerId).catch(() => undefined);
     };
   }, [enabled, locale, mimeType, path, previewRevision]);
 

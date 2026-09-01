@@ -158,8 +158,8 @@ describe('JinxiuMarkdown document transitions', () => {
 
   it('renders a local Markdown video using the scoped media resolver', async () => {
     tauriMocks.invoke.mockImplementation(async (command) => {
-      if (command === 'resolve_markdown_media') {
-        return '/workspace/videos/clip.mp4';
+      if (command === 'prepare_markdown_media_preview') {
+        return { url: 'http://127.0.0.1:1234/videos/clip.mp4', ownerId: 1 };
       }
       throw new Error(`Unexpected command: ${command}`);
     });
@@ -171,7 +171,7 @@ describe('JinxiuMarkdown document transitions', () => {
     ));
     await act(async () => Promise.resolve());
 
-    expect(tauriMocks.invoke).toHaveBeenCalledWith('resolve_markdown_media', {
+    expect(tauriMocks.invoke).toHaveBeenCalledWith('prepare_markdown_media_preview', {
       currentFilePath: '/workspace/guide.md',
       mediaSrc: 'videos/clip.mp4',
       workspaceRoot: '/workspace',
@@ -181,6 +181,19 @@ describe('JinxiuMarkdown document transitions', () => {
     expect(video?.controls).toBe(true);
     expect(video?.src).toContain('clip.mp4');
   });
+  it('does not load arbitrary loopback Markdown video URLs', async () => {
+    await act(async () => root.render(
+      <JinxiuMarkdown currentFilePath="/workspace/guide.md" workspaceRoot="/workspace">
+        {'![clip.flv](http://127.0.0.1:9999/private.flv)'}
+      </JinxiuMarkdown>,
+    ));
+    await act(async () => Promise.resolve());
+
+    expect(tauriMocks.invoke).not.toHaveBeenCalledWith('prepare_markdown_media_preview', expect.anything());
+    expect(container.querySelector('video')).toBeNull();
+    expect(container.querySelector('.media-error')).not.toBeNull();
+  });
+
 
   it('keeps each rendered heading linked to its Markdown source line', async () => {
     await act(async () => root.render(
