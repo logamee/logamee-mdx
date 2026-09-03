@@ -53,6 +53,7 @@ export function VideoPlayer({ ariaLabel, className, onError, onLoaded, path, sou
         player.on(mpegts.Events.MEDIA_INFO, handleMediaInfo);
         player.attachMediaElement(mediaRef.current!);
         player.load();
+        void Promise.resolve(player.play()).catch(() => undefined);
         destroyPlayer = () => {
           player.off(mpegts.Events.ERROR, handleError);
           player.off(mpegts.Events.MEDIA_INFO, handleMediaInfo);

@@ -6,7 +6,7 @@
 
 ## 开始前必读
 
-- 项目规则索引：`.codex/rules/project-rules.md`
+- 项目规则索引：`docs/project-rules.md`
 - 产品与视觉契约：`DESIGN.md`
 - 文档索引：`docs/README.md`
 - 架构边界：`docs/architecture/editor-architecture.md`

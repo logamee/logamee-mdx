@@ -18,7 +18,6 @@ export default defineConfig({
     maxWorkers: 2,
     exclude: [
       ...configDefaults.exclude,
-      '.omx/**',
       'scripts/check-release-version.test.mjs',
       'scripts/ci/artifact-manifest.test.mjs',
       'scripts/project-metadata.test.mjs',

@@ -14,7 +14,7 @@ use crate::{
     workspace_index::CancellationToken,
 };
 
-pub(crate) const EXCLUDED_WALK_DIRS: &[&str] = &[".git", ".omx", "node_modules", "target", "dist"];
+pub(crate) const EXCLUDED_WALK_DIRS: &[&str] = &[".git", "node_modules", "target", "dist"];
 pub(crate) const MAX_WORKSPACE_INDEX_WALK_ENTRIES: usize = 200_000;
 
 pub(crate) enum WorkspaceIndexSnapshotCapture {
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn excluded_directories_are_not_traversed() {
         let workspace = tempdir().unwrap();
-        for excluded in [".git", ".omx", "node_modules", "target", "dist"] {
+        for excluded in [".git", "node_modules", "target", "dist"] {
             let nested = workspace.path().join(excluded).join("nested");
             fs::create_dir_all(&nested).unwrap();
             fs::write(nested.join("hidden.md"), "# hidden").unwrap();

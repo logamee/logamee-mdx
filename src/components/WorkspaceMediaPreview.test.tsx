@@ -14,6 +14,7 @@ interface MockMpegtsPlayer {
   load: () => void;
   off: (event: string, listener: (...args: unknown[]) => void) => void;
   on: (event: string, listener: (...args: unknown[]) => void) => void;
+  play: () => Promise<void> | void;
   unload: () => void;
 }
 
@@ -50,6 +51,49 @@ describe('VideoPlayer', () => {
 
     expect(html).not.toContain('muted');
     expect(html).toContain('controls');
+  });
+  it('starts MSE playback after loading and keeps autoplay rejection recoverable', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    commandMocks.prepareWorkspaceMediaPreview.mockReset();
+    commandMocks.prepareWorkspaceMediaPreview.mockResolvedValue({ url: 'http://127.0.0.1:1234/clip.flv', ownerId: 1 });
+    mpegtsMocks.createPlayer.mockReset();
+    mpegtsMocks.isSupported.mockReturnValue(true);
+    const lifecycle: string[] = [];
+    const play = vi.fn<() => Promise<void>>().mockRejectedValue(new DOMException('User gesture required', 'NotAllowedError'));
+    mpegtsMocks.createPlayer.mockReturnValue({
+      attachMediaElement: vi.fn<(mediaElement: HTMLMediaElement) => void>(),
+      destroy: vi.fn<() => void>(),
+      detachMediaElement: vi.fn<() => void>(),
+      load: vi.fn<() => void>(() => lifecycle.push('load')),
+      off: vi.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
+      on: vi.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
+      play: () => {
+        lifecycle.push('play');
+        return play();
+      },
+      unload: vi.fn<() => void>(),
+    });
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+
+    try {
+      await act(async () => root.render(
+        <WorkspaceMediaPreview
+          kind="video"
+          mimeType="video/x-flv"
+          path="/workspace/media/clip.flv"
+          previewRevision={1}
+        />,
+      ));
+      await act(async () => Promise.resolve());
+
+      expect(lifecycle).toEqual(['load', 'play']);
+      expect(play).toHaveBeenCalledOnce();
+    } finally {
+      act(() => root.unmount());
+      container.remove();
+    }
   });
 });
 
@@ -163,6 +207,7 @@ describe('WorkspaceMediaPreview', () => {
         }),
         off: vi.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
         on: vi.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
+        play: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
         unload: vi.fn<() => void>(() => {
           lifecycle.push(`${playerId}:unload`);
         }),
