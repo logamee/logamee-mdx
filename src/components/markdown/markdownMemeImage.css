@@ -1,0 +1,30 @@
+.jinxiu-meme-image-wrap {
+  display: block;
+  margin: 0.75rem 0;
+  text-align: center;
+}
+
+.typora-jinxiu .jinxiu-meme-image {
+  display: block;
+  width: auto;
+  max-width: min(40%, 260px) !important;
+  height: auto;
+  max-height: 260px;
+  margin: 0 auto !important;
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--preview-bg) 80%, transparent);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--shadow) 45%, transparent);
+  object-fit: contain;
+  cursor: default;
+}
+
+:root[data-appearance="dark"] .typora-jinxiu .jinxiu-meme-image {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typora-jinxiu .jinxiu-meme-image {
+    transition: none;
+  }
+}

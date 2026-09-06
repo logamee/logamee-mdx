@@ -181,6 +181,60 @@ describe('JinxiuMarkdown document transitions', () => {
     expect(video?.controls).toBe(true);
     expect(video?.src).toContain('clip.mp4');
   });
+
+  it('renders an enabled mmd:meme image as a compact card without leaking the marker', async () => {
+    await act(async () => root.render(
+      <JinxiuMarkdown
+        currentFilePath="/workspace/guide.md"
+        memeImagesEnabled
+        workspaceRoot="/workspace"
+      >
+        {'![猫猫震惊](images/cat.png "  MMD:MEME  ")'}
+      </JinxiuMarkdown>,
+    ));
+    await act(async () => {
+      await vi.waitFor(() => expect(tauriMocks.invoke).toHaveBeenCalledWith('resolve_markdown_image', {
+        currentFilePath: '/workspace/guide.md',
+        imageSrc: 'images/cat.png',
+        workspaceRoot: '/workspace',
+      }));
+    });
+
+    const wrap = container.querySelector<HTMLElement>('[data-jinxiu-meme-image="true"]');
+    const image = wrap?.querySelector<HTMLImageElement>('img');
+    expect(wrap).not.toBeNull();
+    expect(image?.alt).toBe('猫猫震惊');
+    expect(image?.title).toBe('');
+    expect(image?.className).toContain('jinxiu-meme-image');
+    expect(image?.getAttribute('loading')).toBe('lazy');
+    expect(image?.getAttribute('decoding')).toBe('async');
+    expect(image?.getAttribute('draggable')).toBe('false');
+    expect(container.querySelector('.jinxiu-adaptive-reading-image')).not.toBeNull();
+  });
+
+  it('uses the meme alt fallback when an enabled marker has no description', async () => {
+    await act(async () => root.render(
+      <JinxiuMarkdown currentFilePath="/workspace/guide.md" memeImagesEnabled workspaceRoot="/workspace">
+        {'![](cat.png "mmd:meme")'}
+      </JinxiuMarkdown>,
+    ));
+    await act(async () => Promise.resolve());
+
+    expect(container.querySelector('[data-jinxiu-meme-image="true"] img')?.getAttribute('alt')).toBe('梗图');
+  });
+
+  it('keeps mmd:meme images on the ordinary renderer when disabled', async () => {
+    await act(async () => root.render(
+      <JinxiuMarkdown currentFilePath="/workspace/guide.md" workspaceRoot="/workspace">
+        {'![ordinary](cat.png "mmd:meme")'}
+      </JinxiuMarkdown>,
+    ));
+    await act(async () => Promise.resolve());
+
+    expect(container.querySelector('[data-jinxiu-meme-image="true"]')).toBeNull();
+    expect(container.querySelector('img[title="mmd:meme"]')).not.toBeNull();
+  });
+
   it('does not load arbitrary loopback Markdown video URLs', async () => {
     await act(async () => root.render(
       <JinxiuMarkdown currentFilePath="/workspace/guide.md" workspaceRoot="/workspace">

@@ -2311,6 +2311,7 @@ export default function App() {
                   documentRelativePath={activeWorkspaceMarkdownFile?.relative_path ?? null}
                   excalidrawAssetSync={excalidrawAssetSync}
                   localAssetsEnabled={documentAssetsEnabled}
+                  memeImagesEnabled
                   workspaceRoot={workspaceRoot}
                 >{content}</JinxiuMarkdown>}
             </PreviewPane>
@@ -2611,6 +2612,7 @@ export default function App() {
                   documentRelativePath={activeWorkspaceMarkdownFile?.relative_path ?? null}
                   excalidrawAssetSync={excalidrawAssetSync}
                   localAssetsEnabled={documentAssetsEnabled}
+                  memeImagesEnabled
                   workspaceRoot={workspaceRoot}
                 >{content}</JinxiuMarkdown>}
             </PreviewPane>

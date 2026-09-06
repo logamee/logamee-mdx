@@ -12,6 +12,7 @@ import 'katex/dist/katex.min.css';
 import { mapH2ChildrenWrapHeadingSymbols } from '../lib/headingPunct';
 import { isLocalMarkdownExcalidrawEmbedSource } from '../lib/markdownExcalidrawEmbed';
 import type { ExcalidrawAssetSyncOptions } from '../lib/excalidrawAssetSync';
+import { isMemeMarkdownImageTitle } from '../lib/markdownMemeImage';
 import { preprocessMarkdown } from '../lib/markdownPreprocess';
 import { isLocalMarkdownHtmlEmbedSource, rehypeMarkdownHtmlEmbeds } from '../lib/markdownHtmlEmbed';
 import AdaptiveMarkdownImage from './AdaptiveMarkdownImage';
@@ -19,6 +20,7 @@ import { isMarkdownVideoSource, MarkdownVideo } from './MarkdownVideo';
 import { MarkdownExcalidrawPreview } from './MarkdownExcalidrawPreview';
 import { MarkdownHtmlFrame } from './MarkdownHtmlFrame';
 import { CodeBlock } from './markdown/CodeBlock';
+import { MemeImage } from './markdown/MemeImage';
 import { MermaidDiagram } from './markdown/MermaidDiagram';
 import { classNameToString, normalizeFenceLanguage, parseFenceLangTokenFromClasses } from './markdown/markdownLanguage';
 import {
@@ -37,6 +39,7 @@ interface Props {
   documentRelativePath?: string | null;
   excalidrawAssetSync?: ExcalidrawAssetSyncOptions | null;
   localAssetsEnabled?: boolean;
+  memeImagesEnabled?: boolean;
   workspaceRoot: string | null;
 }
 
@@ -58,6 +61,7 @@ export default function JinxiuMarkdown({
   documentRelativePath = null,
   excalidrawAssetSync = null,
   localAssetsEnabled = true,
+  memeImagesEnabled = false,
   workspaceRoot,
 }: Props) {
   const document = useMemo(() => ({
@@ -66,14 +70,16 @@ export default function JinxiuMarkdown({
     documentRelativePath,
     excalidrawAssetSync,
     localAssetsEnabled,
+    memeImagesEnabled,
     workspaceRoot,
-  }), [children, currentFilePath, documentRelativePath, excalidrawAssetSync, localAssetsEnabled, workspaceRoot]);
+  }), [children, currentFilePath, documentRelativePath, excalidrawAssetSync, localAssetsEnabled, memeImagesEnabled, workspaceRoot]);
   const deferredDocument = useDeferredValue(document);
   const source = useMemo(() => preprocessMarkdown(deferredDocument.children), [deferredDocument.children]);
   const deferredCurrentFilePath = deferredDocument.currentFilePath;
   const deferredDocumentRelativePath = deferredDocument.documentRelativePath;
   const deferredExcalidrawAssetSync = deferredDocument.excalidrawAssetSync;
   const deferredLocalAssetsEnabled = deferredDocument.localAssetsEnabled;
+  const deferredMemeImagesEnabled = deferredDocument.memeImagesEnabled;
   const deferredWorkspaceRoot = deferredDocument.workspaceRoot;
   const components = useMemo<Components>(() => ({
     h1: ({ children: c, node, ...props }) => <h1 {...props} {...headingAttributes(c, node)}>{c}</h1>,
@@ -130,11 +136,15 @@ export default function JinxiuMarkdown({
       const external = typeof href === 'string' && (/^https?:\/\//i.test(href) || href.startsWith('//'));
       return <a href={href} title={title} {...props} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{c}</a>;
     },
-    img: ({ src, alt, title, ...props }) => (
-      (typeof src === 'string' && isMarkdownVideoSource(src))
-        ? <MarkdownVideo alt={alt ?? ''} className={typeof props.className === 'string' ? props.className : undefined} currentFilePath={deferredCurrentFilePath} localAssetsEnabled={deferredLocalAssetsEnabled} src={src ?? ''} title={title} workspaceRoot={deferredWorkspaceRoot} />
-        : <AdaptiveMarkdownImage {...props} src={src} alt={alt ?? ''} title={title} currentFilePath={deferredCurrentFilePath} localAssetsEnabled={deferredLocalAssetsEnabled} workspaceRoot={deferredWorkspaceRoot} />
-    ),
+    img: ({ src, alt, title, ...props }) => {
+      if (typeof src === 'string' && isMarkdownVideoSource(src)) {
+        return <MarkdownVideo alt={alt ?? ''} className={typeof props.className === 'string' ? props.className : undefined} currentFilePath={deferredCurrentFilePath} localAssetsEnabled={deferredLocalAssetsEnabled} src={src} title={title} workspaceRoot={deferredWorkspaceRoot} />;
+      }
+      if (deferredMemeImagesEnabled && isMemeMarkdownImageTitle(title)) {
+        return <MemeImage {...props} src={src} alt={alt ?? ''} currentFilePath={deferredCurrentFilePath} localAssetsEnabled={deferredLocalAssetsEnabled} workspaceRoot={deferredWorkspaceRoot} />;
+      }
+      return <AdaptiveMarkdownImage {...props} src={src} alt={alt ?? ''} title={title} currentFilePath={deferredCurrentFilePath} localAssetsEnabled={deferredLocalAssetsEnabled} workspaceRoot={deferredWorkspaceRoot} />;
+    },
     iframe: ({ src, title }) => (
       <MarkdownHtmlFrame
         currentFilePath={deferredCurrentFilePath}
@@ -159,7 +169,7 @@ export default function JinxiuMarkdown({
         ? <MermaidDiagram code={body} />
         : <CodeBlock code={body} language={language} />;
     },
-  }), [deferredCurrentFilePath, deferredDocumentRelativePath, deferredExcalidrawAssetSync, deferredLocalAssetsEnabled, deferredWorkspaceRoot]);
+  }), [deferredCurrentFilePath, deferredDocumentRelativePath, deferredExcalidrawAssetSync, deferredLocalAssetsEnabled, deferredMemeImagesEnabled, deferredWorkspaceRoot]);
 
   return (
     <div className="typora-jinxiu mmd-preview-content">

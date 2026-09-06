@@ -45,7 +45,7 @@ Tauri 命令 + AppState
 
 正式项目名已改为 `logamee-mdx`，产品显示名和 GUI 主程序名为
 `mdx`。既有 `mmd-*` 事件名、`mmd.*` 存储键、`.mmd-*` CSS 类、
-`mmd:embed` / `mmd:source` 格式标记、Excalidraw 场景来源值、崩溃草稿
+`mmd:embed` / `mmd:source` / `mmd:meme` 格式标记、Excalidraw 场景来源值、崩溃草稿
 完整性域、工作区索引实现/结构标识、`MMD_*` 环境变量以及
 `local.mmd.editor` 应用标识符仍是跨版本兼容契约。历史 Rust 库名
 `mmd_lib` 和辅助基准程序 `mmd_bench` 是保留的内部构建标识，不是产品
@@ -142,6 +142,9 @@ Markdown HTML 嵌入所有者；主窗口销毁时还会停止文件监视器。
   `file://` URL；HTML 文件和 Markdown HTML 嵌入走本地预览服务、授权作用域
   与 iframe 沙箱。Markdown 嵌入的沙箱只允许脚本、同源和表单；独立 HTML
   预览另允许模态窗口、弹窗、弹窗逃逸沙箱和下载。两者都不是 HTML 净化器。
+- Markdown 图片 title 为 `mmd:meme`（忽略大小写和首尾空白）时，渲染器改用
+  紧凑梗图小卡并剥离该内部标记；图片本身仍复用普通 Markdown 图片的授权解析、
+  加载失败反馈和懒加载路径，不得直接使用未经授权的本地路径。
 - 导出当前实现为离线 HTML、长图 PNG 和 Excalidraw 三件套。前端生成内容、
   预检资源，再交给 Rust 对话框和持久写入流程保存；PDF 目前是只读预览，
   不是导出格式。导出失败不得改变当前文档的已保存状态。
