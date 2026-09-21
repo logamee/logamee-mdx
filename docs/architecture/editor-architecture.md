@@ -59,7 +59,7 @@ Tauri 命令 + AppState
 |---|---|---|
 | 应用编排、当前文档和弹窗协调 | `src/App.tsx`、`src/hooks/` | 处理世代编号/身份过期结果；不绕过领域工具函数 |
 | 文件树、大纲和工作区交互 | `FileSidebar`、`FileTreeRows`、`src/lib/fileTree*` | 仅使用工作区快照和变更回执更新视图 |
-| 编辑表面 | `EditorPane`、CodeMirror 工具函数 | 文本编辑不直接承担保存授权或文件系统访问 |
+| 编辑表面 | `EditorPane`、CodeMirror 工具函数 | 文本编辑不直接承担保存授权或文件系统访问；长按左 Ctrl 打开格式面板（其他按键/松开/点击即取消）；Ctrl 加斜杠组合被吞掉且不得把斜杠（含全角）落入文档正文 |
 | Markdown 渲染 | `JinxiuMarkdown`、`src/lib/markdown*`、`markdown/` | 预处理只在代码围栏外生效；渲染策略要有格式测试 |
 | 其他预览 | `Workspace*Preview`、`PdfPreview`、`DocxPreview`、`ExcalidrawPane` | 重模块懒加载；资源读取必须有授权和大小边界 |
 | 反馈和分支决策 | `src/lib/appFeedback.ts` 与各对话框 | 应用级反馈使用模态对话框；不把错误当作普通状态标签 |

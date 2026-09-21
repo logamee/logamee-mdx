@@ -4,7 +4,7 @@ import { html } from '@codemirror/lang-html';
 import { markdown } from '@codemirror/lang-markdown';
 import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { search, searchKeymap } from '@codemirror/search';
-import { Annotation, Compartment, countColumn, EditorState, Prec, Transaction, type ChangeDesc, type Extension } from '@codemirror/state';
+import { Annotation, Compartment, countColumn, EditorState, Transaction, type ChangeDesc, type Extension } from '@codemirror/state';
 import { drawSelection, EditorView, keymap, lineNumbers } from '@codemirror/view';
 import { tagHighlighter, tags } from '@lezer/highlight';
 import { vim } from '@replit/codemirror-vim';
@@ -51,6 +51,30 @@ export interface ClipboardImagePasteRequest {
 }
 
 const externalSyncAnnotation = Annotation.define<boolean>();
+
+// 格式面板快捷键是长按左 Ctrl：避免斜杠组合在 macOS WKWebView 下被中文输入法
+// 绕过 preventDefault 把 '/' 或全角 '／' 提交进编辑器。Ctrl 加斜杠组合不再打开
+// 面板，仅被吞掉；吞掉后的短时间内仅插入斜杠（含全角）的事务视为输入法残留并
+// 直接丢弃。
+const FORMAT_PALETTE_HOLD_MS = 600;
+const FORMAT_SHORTCUT_INPUT_GUARD_MS = 400;
+const FORMAT_SHORTCUT_COMMIT_SLASH_PATTERN = /^[/／?？]{1,2}$/;
+
+function isFormatShortcutSlashCommit(transaction: Transaction): boolean {
+  let changedRanges = 0;
+  let slashCommit = false;
+  transaction.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    changedRanges += 1;
+    if (
+      changedRanges === 1
+      && fromA === toA
+      && FORMAT_SHORTCUT_COMMIT_SLASH_PATTERN.test(inserted.toString())
+    ) {
+      slashCommit = true;
+    }
+  });
+  return changedRanges === 1 && slashCommit;
+}
 
 interface EditorStatus extends EditorDocumentStats {
   column: number;
@@ -276,6 +300,7 @@ function isMarkdownFormatShortcut(event: KeyboardEvent): boolean {
   const isSlashKey = event.code === 'Slash'
     || event.code === 'NumpadDivide'
     || event.key === '/'
+    || event.key === '／'
     || event.key === '?'
     || event.keyCode === 191
     || event.keyCode === 111;
@@ -320,6 +345,7 @@ export function EditorPane({ activePath, content, documentEpoch, documentId, edi
   const pendingClipboardPasteRef = useRef<PendingClipboardPaste | null>(null);
   const clipboardPasteIdRef = useRef(0);
   const formatTargetRef = useRef<MarkdownFormatTarget | null>(null);
+  const formatShortcutGuardUntilRef = useRef(0);
   contentRef.current = content;
   editableRef.current = editable;
   fileKindRef.current = fileKind;
@@ -344,14 +370,67 @@ export function EditorPane({ activePath, content, documentEpoch, documentId, edi
     setFormatDialogOpen(true);
     return true;
   }, [documentEpoch, documentId]);
+  const openMarkdownFormatDialogRef = useRef(openMarkdownFormatDialog);
+  openMarkdownFormatDialogRef.current = openMarkdownFormatDialog;
+
+  // 长按左 Ctrl 打开格式面板：按住期间出现任何其他按键、松开、点击或窗口失焦
+  // 都会取消，避免干扰 Ctrl 组合键。
+  useEffect(() => {
+    let holdTimer: number | null = null;
+    const cancelHold = () => {
+      if (holdTimer === null) return;
+      window.clearTimeout(holdTimer);
+      holdTimer = null;
+    };
+    const isLeftControlKeyDown = (event: KeyboardEvent) => (
+      event.key === 'Control'
+      && event.code === 'ControlLeft'
+      && !event.altKey
+      && !event.metaKey
+      && !event.shiftKey
+    );
+    const canOpenPalette = (view: EditorView | null): view is EditorView => (
+      Boolean(view)
+      && view!.hasFocus
+      && editableRef.current
+      && fileKindRef.current === 'markdown'
+    );
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isLeftControlKeyDown(event)) {
+        cancelHold();
+        return;
+      }
+      if (event.repeat || holdTimer !== null) return;
+      const view = editorViewRef.current;
+      if (!canOpenPalette(view)) return;
+      holdTimer = window.setTimeout(() => {
+        holdTimer = null;
+        const currentView = editorViewRef.current;
+        if (canOpenPalette(currentView)) openMarkdownFormatDialogRef.current(currentView);
+      }, FORMAT_PALETTE_HOLD_MS);
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === 'Control') cancelHold();
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp, true);
+    window.addEventListener('pointerdown', cancelHold, true);
+    window.addEventListener('blur', cancelHold);
+    return () => {
+      cancelHold();
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keyup', handleKeyUp, true);
+      window.removeEventListener('pointerdown', cancelHold, true);
+      window.removeEventListener('blur', cancelHold);
+    };
+  }, []);
 
   const handleEditorKeyDownCapture = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!isMarkdownFormatShortcut(event.nativeEvent)) return;
-    const view = editorViewRef.current;
-    if (!view || !openMarkdownFormatDialog(view)) return;
     event.preventDefault();
     event.stopPropagation();
     event.nativeEvent.stopImmediatePropagation();
+    formatShortcutGuardUntilRef.current = Date.now() + FORMAT_SHORTCUT_INPUT_GUARD_MS;
   };
 
   const handleEditorContextMenuCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -581,17 +660,6 @@ export function EditorPane({ activePath, content, documentEpoch, documentId, edi
               return true;
             },
           }),
-          Prec.highest(keymap.of([{
-            key: 'Ctrl-/',
-            run: openMarkdownFormatDialog,
-            shift: openMarkdownFormatDialog,
-            stopPropagation: true,
-          }, {
-            key: 'Ctrl-?',
-            run: openMarkdownFormatDialog,
-            shift: openMarkdownFormatDialog,
-            stopPropagation: true,
-          }])),
           keymap.of([
             ...defaultKeymap,
             ...historyKeymap,
@@ -608,11 +676,23 @@ export function EditorPane({ activePath, content, documentEpoch, documentId, edi
           accessCompartment.of(editorAccessConfiguration(initialEditable)),
           EditorState.transactionFilter.of((transaction) => (
             transaction.docChanged
-              && transaction.startState.facet(EditorState.readOnly)
-              && !transaction.annotation(externalSyncAnnotation)
-              ? []
-              : transaction
+            && transaction.startState.facet(EditorState.readOnly)
+            && !transaction.annotation(externalSyncAnnotation)
+            ? []
+            : transaction
           )),
+          EditorState.transactionFilter.of((transaction) => {
+            const formatShortcutGuardUntil = formatShortcutGuardUntilRef.current;
+            if (
+              formatShortcutGuardUntil === 0
+              || Date.now() > formatShortcutGuardUntil
+              || !transaction.docChanged
+              || transaction.annotation(externalSyncAnnotation)
+              || !isFormatShortcutSlashCommit(transaction)
+            ) return transaction;
+            formatShortcutGuardUntilRef.current = 0;
+            return [];
+          }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged || update.selectionSet) {
               syncEditorCursorStatus(update.state);

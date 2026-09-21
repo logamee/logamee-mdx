@@ -101,6 +101,40 @@ describe('EditorPane', () => {
     return event;
   }
 
+  const FORMAT_PALETTE_HOLD_MS = 600;
+
+  function holdLeftControlKeydown(repeat = false): KeyboardEvent {
+    return new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      code: 'ControlLeft',
+      ctrlKey: true,
+      key: 'Control',
+      keyCode: 17,
+      repeat,
+    });
+  }
+
+  function releaseLeftControl(): KeyboardEvent {
+    return new KeyboardEvent('keyup', {
+      bubbles: true,
+      cancelable: true,
+      code: 'ControlLeft',
+      key: 'Control',
+      keyCode: 17,
+    });
+  }
+
+  function openFormatPaletteByHoldingControl(view: EditorView): void {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now());
+    act(() => view.focus());
+    window.dispatchEvent(holdLeftControlKeydown());
+    act(() => {
+      vi.advanceTimersByTime(FORMAT_PALETTE_HOLD_MS);
+    });
+  }
+
   it.each([
     {
       expected: '**Rich**',
@@ -1361,7 +1395,7 @@ describe('EditorPane', () => {
     expect(container.querySelector('[data-editor-context-menu="true"]')).toBeNull();
   });
 
-  it('opens the Markdown format command dialog with Control slash', () => {
+  it('opens the Markdown format palette after holding Left Control', () => {
     const onContentChange = vi.fn<(content: string) => void>();
     act(() => {
       root.render(
@@ -1379,19 +1413,8 @@ describe('EditorPane', () => {
     if (!view) throw new Error('Expected CodeMirror editor');
 
     act(() => view.dispatch({ selection: { anchor: 0, head: 5 } }));
-    const shortcut = new KeyboardEvent('keydown', {
-      bubbles: true,
-      cancelable: true,
-      code: 'Slash',
-      ctrlKey: true,
-      key: '/',
-      keyCode: 191,
-    });
-    act(() => {
-      view.contentDOM.dispatchEvent(shortcut);
-    });
+    openFormatPaletteByHoldingControl(view);
 
-    expect(shortcut.defaultPrevented).toBe(true);
     expect(view.state.doc.toString()).toBe('alpha');
     expect(view.state.selection.main).toMatchObject({ from: 0, to: 5 });
     expect(onContentChange).not.toHaveBeenCalled();
@@ -1406,11 +1429,122 @@ describe('EditorPane', () => {
       .toContain('Error');
   });
 
+  it('does not open the palette when Left Control is released before the hold completes', () => {
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={vi.fn<(content: string) => void>()}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now());
+    act(() => view.focus());
+    window.dispatchEvent(holdLeftControlKeydown());
+    act(() => {
+      vi.advanceTimersByTime(FORMAT_PALETTE_HOLD_MS - 100);
+    });
+    window.dispatchEvent(releaseLeftControl());
+    act(() => {
+      vi.advanceTimersByTime(FORMAT_PALETTE_HOLD_MS);
+    });
+
+    expect(container.querySelector('.markdown-format-dialog')).toBeNull();
+  });
+
+  it('does not open the palette when another key interrupts the Left Control hold', () => {
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={vi.fn<(content: string) => void>()}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now());
+    act(() => view.focus());
+    window.dispatchEvent(holdLeftControlKeydown());
+    window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'z' }));
+    act(() => {
+      vi.advanceTimersByTime(FORMAT_PALETTE_HOLD_MS);
+    });
+
+    expect(container.querySelector('.markdown-format-dialog')).toBeNull();
+  });
+
+  it('does not open the palette when the editor has no focus', () => {
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={vi.fn<(content: string) => void>()}
+        />,
+      );
+    });
+    if (!document.querySelector('.cm-editor')) throw new Error('Expected CodeMirror editor');
+
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now());
+    window.dispatchEvent(holdLeftControlKeydown());
+    act(() => {
+      vi.advanceTimersByTime(FORMAT_PALETTE_HOLD_MS);
+    });
+
+    expect(container.querySelector('.markdown-format-dialog')).toBeNull();
+  });
+
   it.each([
-    { code: 'Slash', key: '?', keyCode: 191, shiftKey: false },
-    { code: 'NumpadDivide', key: '/', keyCode: 111, shiftKey: false },
-  ])('opens Markdown formats for alternate Control slash events ($code/$key)', ({ code, key, keyCode, shiftKey }) => {
-    const onContentChange = vi.fn<(content: string) => void>();
+    { editable: false, fileKind: 'markdown' as const },
+    { editable: true, fileKind: 'html' as const },
+  ])('does not open the palette from a Left Control hold for $fileKind when editable=$editable', ({ editable, fileKind }) => {
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath={fileKind === 'html' ? '/workspace/index.html' : '/workspace/notes.md'}
+          content="alpha"
+          documentEpoch={1}
+          documentId="document-notes"
+          editable={editable}
+          fileKind={fileKind}
+          onContentChange={vi.fn<(content: string) => void>()}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now());
+    act(() => view.focus());
+    window.dispatchEvent(holdLeftControlKeydown());
+    act(() => {
+      vi.advanceTimersByTime(FORMAT_PALETTE_HOLD_MS);
+    });
+
+    expect(container.querySelector('.markdown-format-dialog')).toBeNull();
+  });
+
+  it('does not reopen the palette from Left Control auto-repeat events', () => {
     act(() => {
       root.render(
         <EditorPane
@@ -1418,7 +1552,7 @@ describe('EditorPane', () => {
           content="alpha"
           documentEpoch={1}
           documentId="document-notes"
-          onContentChange={onContentChange}
+          onContentChange={vi.fn<(content: string) => void>()}
         />,
       );
     });
@@ -1426,102 +1560,19 @@ describe('EditorPane', () => {
     const view = editor ? EditorView.findFromDOM(editor) : null;
     if (!view) throw new Error('Expected CodeMirror editor');
 
-    const shortcut = new KeyboardEvent('keydown', {
-      bubbles: true,
-      cancelable: true,
-      code,
-      ctrlKey: true,
-      key,
-      keyCode,
-      shiftKey,
-    });
-    act(() => view.contentDOM.dispatchEvent(shortcut));
+    openFormatPaletteByHoldingControl(view);
+    expect(container.querySelectorAll('.markdown-format-dialog')).toHaveLength(1);
 
-    expect(shortcut.defaultPrevented).toBe(true);
-    expect(view.state.doc.toString()).toBe('alpha');
-    expect(onContentChange).not.toHaveBeenCalled();
-    expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
+    act(() => {
+      window.dispatchEvent(holdLeftControlKeydown(true));
+    });
+    act(() => {
+      vi.advanceTimersByTime(FORMAT_PALETTE_HOLD_MS);
+    });
+    expect(container.querySelectorAll('.markdown-format-dialog')).toHaveLength(1);
   });
 
-  it('handles Control slash in the CodeMirror keymap before its default binding', () => {
-    const onContentChange = vi.fn<(content: string) => void>();
-    act(() => {
-      root.render(
-        <EditorPane
-          activePath="/workspace/notes.md"
-          content="alpha beta"
-          documentEpoch={1}
-          documentId="document-notes"
-          onContentChange={onContentChange}
-        />,
-      );
-    });
-    const editor = container.querySelector<HTMLElement>('.cm-editor');
-    const view = editor ? EditorView.findFromDOM(editor) : null;
-    if (!view) throw new Error('Expected CodeMirror editor');
-
-    act(() => view.dispatch({ selection: { anchor: 0, head: 5 } }));
-    const shortcut = new KeyboardEvent('keydown', {
-      bubbles: true,
-      cancelable: true,
-      code: 'Slash',
-      ctrlKey: true,
-      key: '/',
-      keyCode: 191,
-    });
-
-    let handled = false;
-    act(() => {
-      handled = runScopeHandlers(view, shortcut, 'editor');
-    });
-
-    expect(handled).toBe(true);
-    expect(view.state.doc.toString()).toBe('alpha beta');
-    expect(view.state.selection.main).toMatchObject({ from: 0, to: 5 });
-    expect(onContentChange).not.toHaveBeenCalled();
-    expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
-  });
-
-  it('handles the shifted question-mark variant in the CodeMirror keymap', () => {
-    const onContentChange = vi.fn<(content: string) => void>();
-    act(() => {
-      root.render(
-        <EditorPane
-          activePath="/workspace/notes.md"
-          content="alpha beta"
-          documentEpoch={1}
-          documentId="document-notes"
-          onContentChange={onContentChange}
-        />,
-      );
-    });
-    const editor = container.querySelector<HTMLElement>('.cm-editor');
-    const view = editor ? EditorView.findFromDOM(editor) : null;
-    if (!view) throw new Error('Expected CodeMirror editor');
-
-    act(() => view.dispatch({ selection: { anchor: 0, head: 5 } }));
-    const shortcut = new KeyboardEvent('keydown', {
-      bubbles: true,
-      cancelable: true,
-      code: 'Slash',
-      ctrlKey: true,
-      key: '?',
-      keyCode: 191,
-      shiftKey: true,
-    });
-
-    let handled = false;
-    act(() => {
-      handled = runScopeHandlers(view, shortcut, 'editor');
-    });
-
-    expect(handled).toBe(true);
-    expect(view.state.doc.toString()).toBe('alpha beta');
-    expect(onContentChange).not.toHaveBeenCalled();
-    expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
-  });
-
-  it('consumes Control slash during composition without inserting a slash', () => {
+  it('swallows Control slash without opening the palette or inserting text', () => {
     const onContentChange = vi.fn<(content: string) => void>();
     act(() => {
       root.render(
@@ -1543,6 +1594,7 @@ describe('EditorPane', () => {
       code: 'Slash',
       ctrlKey: true,
       key: '/',
+      keyCode: 191,
     });
     const leakedKeydown = vi.fn<(event: KeyboardEvent) => void>();
     container.addEventListener('keydown', leakedKeydown);
@@ -1554,12 +1606,127 @@ describe('EditorPane', () => {
 
     expect(shortcut.defaultPrevented).toBe(true);
     expect(leakedKeydown).not.toHaveBeenCalled();
-    expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
+    expect(container.querySelector('.markdown-format-dialog')).toBeNull();
     expect(view.state.doc.toString()).toBe('alpha');
     expect(onContentChange).not.toHaveBeenCalled();
   });
 
-  it('wraps the selection active when the physical Slash key opens Markdown formats', () => {
+  it('drops an input-method slash commit while the Control slash swallow guard is active', () => {
+    const onContentChange = vi.fn<(content: string) => void>();
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha beta"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={onContentChange}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    act(() => {
+      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        code: 'Slash',
+        ctrlKey: true,
+        key: '/',
+        keyCode: 191,
+      }));
+      view.contentDOM.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+      view.dispatch({
+        changes: { from: 0, insert: '/' },
+        userEvent: 'input.type.compose',
+      });
+    });
+
+    expect(view.state.doc.toString()).toBe('alpha beta');
+    expect(onContentChange).not.toHaveBeenCalled();
+    expect(container.querySelector('.markdown-format-dialog')).toBeNull();
+  });
+
+  it('drops a fullwidth input-method slash commit while the swallow guard is active', () => {
+    const onContentChange = vi.fn<(content: string) => void>();
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha beta"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={onContentChange}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    act(() => {
+      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        code: 'Slash',
+        ctrlKey: true,
+        key: '/',
+        keyCode: 191,
+      }));
+      view.contentDOM.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+      view.dispatch({
+        changes: { from: 0, insert: '／' },
+        userEvent: 'input.type.compose',
+      });
+    });
+
+    expect(view.state.doc.toString()).toBe('alpha beta');
+    expect(onContentChange).not.toHaveBeenCalled();
+  });
+
+  it('keeps a regular slash typed after the swallow guard window expires', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now());
+    const onContentChange = vi.fn<(content: string) => void>();
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha beta"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={onContentChange}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    act(() => {
+      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        code: 'Slash',
+        ctrlKey: true,
+        key: '/',
+        keyCode: 191,
+      }));
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    act(() => {
+      view.dispatch({ changes: { from: 5, insert: '/' } });
+    });
+
+    expect(view.state.doc.toString()).toBe('alpha/ beta');
+    expect(onContentChange).toHaveBeenLastCalledWith('alpha/ beta');
+  });
+
+  it('wraps the selection active when a Left Control hold opens Markdown formats', () => {
     const onContentChange = vi.fn<(content: string) => void>();
     act(() => {
       root.render(
@@ -1577,20 +1744,8 @@ describe('EditorPane', () => {
     if (!view) throw new Error('Expected CodeMirror editor');
 
     act(() => view.dispatch({ selection: { anchor: 0, head: 5 } }));
-    const shortcut = new KeyboardEvent('keydown', {
-      bubbles: true,
-      cancelable: true,
-      code: 'Slash',
-      ctrlKey: true,
-      key: '?',
-      keyCode: 191,
-      shiftKey: true,
-    });
-    act(() => {
-      view.contentDOM.dispatchEvent(shortcut);
-    });
+    openFormatPaletteByHoldingControl(view);
 
-    expect(shortcut.defaultPrevented).toBe(true);
     expect(view.state.doc.toString()).toBe('alpha beta');
     expect(view.state.selection.main).toMatchObject({ from: 0, to: 5 });
     expect(onContentChange).not.toHaveBeenCalled();
@@ -1623,13 +1778,7 @@ describe('EditorPane', () => {
     const view = editor ? EditorView.findFromDOM(editor) : null;
     if (!view) throw new Error('Expected CodeMirror editor');
 
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     const search = container.querySelector<HTMLInputElement>('[role="combobox"]');
     act(() => {
       search?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown' }));
@@ -1659,15 +1808,7 @@ describe('EditorPane', () => {
     const view = editor ? EditorView.findFromDOM(editor) : null;
     if (!view) throw new Error('Expected CodeMirror editor');
 
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        cancelable: true,
-        code: 'Slash',
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     const search = container.querySelector<HTMLInputElement>('[role="combobox"]');
     const lastCommand = container.querySelector<HTMLElement>('[data-command-id="alert-error"]');
     const scrollIntoView = vi.fn<(options?: boolean | ScrollIntoViewOptions) => void>();
@@ -1702,13 +1843,7 @@ describe('EditorPane', () => {
     if (!view) throw new Error('Expected CodeMirror editor');
 
     act(() => view.dispatch({ selection: { anchor: 0, head: 5 } }));
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     act(() => {
       container.querySelector<HTMLButtonElement>('[data-command-id="bold"]')?.click();
     });
@@ -1739,15 +1874,7 @@ describe('EditorPane', () => {
     if (!view) throw new Error('Expected CodeMirror editor');
 
     act(() => view.dispatch({ selection: { anchor: 0, head: 5 } }));
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        cancelable: true,
-        code: 'Slash',
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     act(() => view.dispatch({ selection: { anchor: 6, head: 10 } }));
     act(() => {
       container.querySelector<HTMLButtonElement>('[data-command-id="bold"]')?.click();
@@ -1777,15 +1904,7 @@ describe('EditorPane', () => {
     if (!view) throw new Error('Expected CodeMirror editor');
 
     act(() => view.dispatch({ selection: { anchor: 0, head: 5 } }));
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        cancelable: true,
-        code: 'Slash',
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
 
     expect(document.activeElement).toBe(container.querySelector('[role="combobox"]'));
     expect(view.state.selection.main).toMatchObject({ from: 0, to: 5 });
@@ -1810,13 +1929,7 @@ describe('EditorPane', () => {
     if (!view) throw new Error('Expected CodeMirror editor');
 
     act(() => view.dispatch({ selection: { anchor: 7 } }));
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     act(() => {
       container.querySelector<HTMLButtonElement>('[data-command-id="alert-tip"]')?.click();
     });
@@ -1843,13 +1956,7 @@ describe('EditorPane', () => {
     const view = editor ? EditorView.findFromDOM(editor) : null;
     if (!view) throw new Error('Expected CodeMirror editor');
 
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     const search = container.querySelector<HTMLInputElement>('[role="combobox"]');
     act(() => {
       search?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }));
@@ -1876,15 +1983,7 @@ describe('EditorPane', () => {
     const view = editor ? EditorView.findFromDOM(editor) : null;
     if (!view) throw new Error('Expected CodeMirror editor');
 
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        cancelable: true,
-        code: 'Slash',
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     const closeButton = container.querySelector<HTMLButtonElement>(
       '.markdown-format-dialog button[aria-label="Cancel"]',
     );
@@ -1912,15 +2011,7 @@ describe('EditorPane', () => {
     const view = editor ? EditorView.findFromDOM(editor) : null;
     if (!view) throw new Error('Expected CodeMirror editor');
 
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        cancelable: true,
-        code: 'Slash',
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
     expect(document.activeElement).toBe(container.querySelector('[role="combobox"]'));
 
@@ -1949,15 +2040,7 @@ describe('EditorPane', () => {
     );
     if (!view || !vimButton) throw new Error('Expected editor and Vim button');
 
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        cancelable: true,
-        code: 'Slash',
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
 
     act(() => vimButton.focus());
@@ -1983,15 +2066,7 @@ describe('EditorPane', () => {
     const firstView = firstEditor ? EditorView.findFromDOM(firstEditor) : null;
     if (!firstView) throw new Error('Expected first CodeMirror editor');
 
-    act(() => {
-      firstView.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        cancelable: true,
-        code: 'Slash',
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(firstView);
     expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
 
     act(() => {
@@ -2029,15 +2104,7 @@ describe('EditorPane', () => {
     const view = editor ? EditorView.findFromDOM(editor) : null;
     if (!view) throw new Error('Expected CodeMirror editor');
 
-    act(() => {
-      view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
-        bubbles: true,
-        cancelable: true,
-        code: 'Slash',
-        ctrlKey: true,
-        key: '/',
-      }));
-    });
+    openFormatPaletteByHoldingControl(view);
     expect(container.querySelector('.markdown-format-dialog')).not.toBeNull();
 
     act(() => root.render(renderEditor('external update')));
