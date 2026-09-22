@@ -2,9 +2,11 @@ import {
   Bold,
   CircleX,
   Code2,
+  Globe,
   Heading1,
   Heading2,
   Heading3,
+  Image as ImageIcon,
   Info,
   Italic,
   Lightbulb,
@@ -12,11 +14,18 @@ import {
   List,
   ListChecks,
   ListOrdered,
+  Minus,
   Quote,
+  Radical,
   Search,
+  Sigma,
   SquareCode,
+  Sticker,
   Strikethrough,
+  Table,
   TriangleAlert,
+  Video,
+  Workflow,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -30,13 +39,14 @@ import { useI18n } from '../lib/i18n';
 
 const COMMAND_ZH: Record<MarkdownFormatCommandId, string> = {
   h1: '一级标题', h2: '二级标题', h3: '三级标题', bold: '粗体', italic: '斜体',
-  strikethrough: '删除线', 'inline-code': '行内代码', link: '链接', blockquote: '引用',
+  strikethrough: '删除线', 'inline-code': '行内代码', 'inline-formula': '行内公式', link: '链接', blockquote: '引用',
   'bullet-list': '无序列表', 'ordered-list': '有序列表', 'task-list': '任务列表',
-  'code-block': '代码块', 'alert-tip': '提示块', 'alert-info': '信息块',
-  'alert-warning': '警告块', 'alert-error': '错误块',
+  table: '表格', 'code-block': '代码块', mermaid: 'Mermaid 图表', 'formula-block': '公式块',
+  'horizontal-rule': '分割线', image: '图片', video: '视频', meme: '梗图', 'html-embed': 'HTML 嵌入',
+  'alert-tip': '提示块', 'alert-info': '信息块', 'alert-warning': '警告块', 'alert-error': '错误块',
 };
 
-const CATEGORY_ZH: Record<string, string> = { Text: '文本', Blocks: '块', Alerts: '提示' };
+const CATEGORY_ZH: Record<string, string> = { Text: '文本', Blocks: '块', Media: '媒体', Alerts: '提示' };
 
 interface MarkdownFormatDialogProps {
   onCancel: () => void;
@@ -52,12 +62,21 @@ const COMMAND_ICONS: Record<MarkdownFormatCommandId, LucideIcon> = {
   italic: Italic,
   strikethrough: Strikethrough,
   'inline-code': Code2,
+  'inline-formula': Radical,
   link: Link2,
   blockquote: Quote,
   'bullet-list': List,
   'ordered-list': ListOrdered,
   'task-list': ListChecks,
+  table: Table,
   'code-block': SquareCode,
+  mermaid: Workflow,
+  'formula-block': Sigma,
+  'horizontal-rule': Minus,
+  image: ImageIcon,
+  video: Video,
+  meme: Sticker,
+  'html-embed': Globe,
   'alert-tip': Lightbulb,
   'alert-info': Info,
   'alert-warning': TriangleAlert,

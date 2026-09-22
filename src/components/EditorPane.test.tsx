@@ -1427,6 +1427,24 @@ describe('EditorPane', () => {
       .toContain('Heading 1');
     expect(container.querySelector('[role="option"][data-command-id="alert-error"]')?.textContent)
       .toContain('Error');
+    expect(container.querySelector('[role="option"][data-command-id="video"]')?.textContent)
+      .toContain('Video');
+    expect(container.querySelector('[role="option"][data-command-id="meme"]')?.textContent)
+      .toContain('Meme');
+    expect(container.querySelector('[role="option"][data-command-id="html-embed"]')?.textContent)
+      .toContain('HTML embed');
+    expect(container.querySelector('[role="option"][data-command-id="table"]')?.textContent)
+      .toContain('Table');
+    expect(container.querySelector('[role="option"][data-command-id="image"]')?.textContent)
+      .toContain('Image');
+    expect(container.querySelector('[role="option"][data-command-id="formula-block"]')?.textContent)
+      .toContain('Formula block');
+    expect(container.querySelector('[role="option"][data-command-id="inline-formula"]')?.textContent)
+      .toContain('Inline formula');
+    expect(container.querySelector('[role="option"][data-command-id="mermaid"]')?.textContent)
+      .toContain('Mermaid diagram');
+    expect(container.querySelector('[role="option"][data-command-id="horizontal-rule"]')?.textContent)
+      .toContain('Divider');
   });
 
   it('does not open the palette when Left Control is released before the hold completes', () => {
@@ -1816,7 +1834,7 @@ describe('EditorPane', () => {
     lastCommand.scrollIntoView = scrollIntoView;
 
     act(() => {
-      for (let index = 0; index < 16; index += 1) {
+      for (let index = 0; index < 25; index += 1) {
         search?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown' }));
       }
     });

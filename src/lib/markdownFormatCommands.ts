@@ -6,19 +6,30 @@ export type MarkdownFormatCommandId =
   | 'italic'
   | 'strikethrough'
   | 'inline-code'
+  | 'inline-formula'
   | 'link'
   | 'blockquote'
   | 'bullet-list'
   | 'ordered-list'
   | 'task-list'
+  | 'table'
   | 'code-block'
+  | 'mermaid'
+  | 'formula-block'
+  | 'horizontal-rule'
+  | 'image'
+  | 'video'
+  | 'meme'
+  | 'html-embed'
   | 'alert-tip'
   | 'alert-info'
   | 'alert-warning'
   | 'alert-error';
 
+export type MediaEmbedCommandId = 'image' | 'video' | 'meme' | 'html-embed';
+
 export interface MarkdownFormatCommand {
-  category: 'Text' | 'Blocks' | 'Alerts';
+  category: 'Text' | 'Blocks' | 'Media' | 'Alerts';
   id: MarkdownFormatCommandId;
   keywords: string;
   label: string;
@@ -45,12 +56,21 @@ export const MARKDOWN_FORMAT_COMMANDS: readonly MarkdownFormatCommand[] = [
   { category: 'Text', id: 'italic', keywords: 'emphasis', label: 'Italic', syntax: '*text*' },
   { category: 'Text', id: 'strikethrough', keywords: 'strike delete', label: 'Strikethrough', syntax: '~~text~~' },
   { category: 'Text', id: 'inline-code', keywords: 'code monospace', label: 'Inline code', syntax: '`code`' },
+  { category: 'Text', id: 'inline-formula', keywords: 'math katex latex equation inline 行内公式 公式', label: 'Inline formula', syntax: '$…$' },
   { category: 'Text', id: 'link', keywords: 'url anchor', label: 'Link', syntax: '[text](url)' },
   { category: 'Blocks', id: 'blockquote', keywords: 'quote citation', label: 'Quote', syntax: '> ' },
   { category: 'Blocks', id: 'bullet-list', keywords: 'unordered list bullets', label: 'Bullet list', syntax: '- ' },
   { category: 'Blocks', id: 'ordered-list', keywords: 'numbered list', label: 'Ordered list', syntax: '1. ' },
   { category: 'Blocks', id: 'task-list', keywords: 'checklist todo', label: 'Task list', syntax: '- [ ] ' },
+  { category: 'Blocks', id: 'table', keywords: 'table grid 表格', label: 'Table', syntax: '| — |' },
   { category: 'Blocks', id: 'code-block', keywords: 'fence preformatted', label: 'Code block', syntax: '```' },
+  { category: 'Blocks', id: 'mermaid', keywords: 'diagram chart flowchart mermaid 图表 流程图', label: 'Mermaid diagram', syntax: '```mermaid' },
+  { category: 'Blocks', id: 'formula-block', keywords: 'math katex latex equation block 公式块 数学', label: 'Formula block', syntax: '$$…$$' },
+  { category: 'Blocks', id: 'horizontal-rule', keywords: 'horizontal rule divider separator 分割线 分隔线', label: 'Divider', syntax: '---' },
+  { category: 'Media', id: 'image', keywords: 'picture photo image 图片', label: 'Image', syntax: '![](image.png)' },
+  { category: 'Media', id: 'video', keywords: 'video player movie mp4 film 视频 影片', label: 'Video', syntax: '![](video.mp4)' },
+  { category: 'Media', id: 'meme', keywords: 'meme sticker joke image 梗图 表情', label: 'Meme', syntax: '![](… "mmd:meme")' },
+  { category: 'Media', id: 'html-embed', keywords: 'html iframe embed page 页面 嵌入', label: 'HTML embed', syntax: '[…](… "mmd:embed")' },
   { category: 'Alerts', id: 'alert-tip', keywords: 'tips hint success', label: 'Tip', syntax: '[!TIP]' },
   { category: 'Alerts', id: 'alert-info', keywords: 'note information', label: 'Info', syntax: '[!NOTE]' },
   { category: 'Alerts', id: 'alert-warning', keywords: 'warn attention', label: 'Warning', syntax: '[!WARNING]' },
@@ -61,6 +81,7 @@ const INLINE_WRAPPERS: Partial<Record<MarkdownFormatCommandId, readonly [string,
   bold: ['**', '**'],
   italic: ['*', '*'],
   strikethrough: ['~~', '~~'],
+  'inline-formula': ['$', '$'],
 };
 
 const BLOCK_COMMANDS = new Set<MarkdownFormatCommandId>([
@@ -71,7 +92,15 @@ const BLOCK_COMMANDS = new Set<MarkdownFormatCommandId>([
   'bullet-list',
   'ordered-list',
   'task-list',
+  'table',
   'code-block',
+  'mermaid',
+  'formula-block',
+  'horizontal-rule',
+  'image',
+  'video',
+  'meme',
+  'html-embed',
   'alert-tip',
   'alert-info',
   'alert-warning',
@@ -86,17 +115,37 @@ const EMPTY_TEMPLATES: Record<MarkdownFormatCommandId, readonly [string, number]
   italic: ['**', 1],
   strikethrough: ['~~~~', 2],
   'inline-code': ['``', 1],
+  'inline-formula': ['$$', 1],
   link: ['[]()', 1],
   blockquote: ['> ', 2],
   'bullet-list': ['- ', 2],
   'ordered-list': ['1. ', 3],
   'task-list': ['- [ ] ', 6],
+  table: ['| Header | Header |\n| --- | --- |\n| Cell | Cell |', 2],
   'code-block': ['```\n\n```', 4],
+  mermaid: ['```mermaid\ngraph TD\n  A --> B\n```', 11],
+  'formula-block': ['$$\n\n$$', 3],
+  'horizontal-rule': ['---', 3],
+  image: ['![alt text](path/to/image.png)', 12],
+  video: ['![video](path/to/video.mp4)', 9],
+  meme: ['![meme](path/to/meme.jpg "mmd:meme")', 8],
+  'html-embed': ['[HTML page](path/to/page.html "mmd:embed")', 11],
   'alert-tip': ['> [!TIP]\n> ', 11],
   'alert-info': ['> [!NOTE]\n> ', 12],
   'alert-warning': ['> [!WARNING]\n> ', 15],
   'alert-error': ['> [!CAUTION]\n> ', 15],
 };
+
+const MEDIA_EMBED_TEMPLATES: Record<MediaEmbedCommandId, (description: string) => string> = {
+  image: (description) => `![${description}](path/to/image.png)`,
+  video: (description) => `![${description}](path/to/video.mp4)`,
+  meme: (description) => `![${description}](path/to/meme.jpg "mmd:meme")`,
+  'html-embed': (description) => `[${description}](path/to/page.html "mmd:embed")`,
+};
+
+function isMediaEmbedCommand(command: MarkdownFormatCommandId): command is MediaEmbedCommandId {
+  return command === 'image' || command === 'video' || command === 'meme' || command === 'html-embed';
+}
 
 function alertMarker(command: MarkdownFormatCommandId): string | null {
   if (command === 'alert-tip') return 'TIP';
@@ -151,11 +200,21 @@ function selectedBlock(command: MarkdownFormatCommandId, selected: string): stri
   if (command === 'bullet-list') return prefixLines(selected, () => '- ');
   if (command === 'ordered-list') return prefixLines(selected, (index) => `${index + 1}. `);
   if (command === 'task-list') return prefixLines(selected, () => '- [ ] ');
+  if (command === 'table') return '| Header | Header |\n| --- | --- |\n| Cell | Cell |';
   if (command === 'code-block') {
     const fence = '`'.repeat(Math.max(3, longestBacktickRun(selected) + 1));
     const closingBreak = selected.endsWith('\n') ? '' : '\n';
     return `${fence}\n${selected}${closingBreak}${fence}`;
   }
+  if (command === 'mermaid') {
+    const closingBreak = selected.endsWith('\n') ? '' : '\n';
+    return `\`\`\`mermaid\n${selected}${closingBreak}\`\`\``;
+  }
+  if (command === 'formula-block') {
+    const closingBreak = selected.endsWith('\n') ? '' : '\n';
+    return `$$\n${selected}${closingBreak}$$`;
+  }
+  if (command === 'horizontal-rule') return '---';
   const marker = alertMarker(command);
   if (marker) return `> [!${marker}]\n${prefixLines(selected, () => '> ')}`;
   return selected;
@@ -206,6 +265,12 @@ export function applyMarkdownFormatCommand(
   if (command === 'link') {
     const insert = `[${selected}]()`;
     const caret = from + selected.length + 3;
+    return { from, insert, selection: { anchor: caret, head: caret }, to };
+  }
+
+  if (isMediaEmbedCommand(command)) {
+    const insert = MEDIA_EMBED_TEMPLATES[command](selected);
+    const caret = from + insert.indexOf('(path/to/') + 1;
     return { from, insert, selection: { anchor: caret, head: caret }, to };
   }
 

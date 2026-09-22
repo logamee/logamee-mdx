@@ -14,12 +14,21 @@ describe('Markdown format commands', () => {
       'italic',
       'strikethrough',
       'inline-code',
+      'inline-formula',
       'link',
       'blockquote',
       'bullet-list',
       'ordered-list',
       'task-list',
+      'table',
       'code-block',
+      'mermaid',
+      'formula-block',
+      'horizontal-rule',
+      'image',
+      'video',
+      'meme',
+      'html-embed',
       'alert-tip',
       'alert-info',
       'alert-warning',
@@ -175,5 +184,109 @@ describe('Markdown format commands', () => {
       selection: { anchor: 18, head: 18 },
       to: 6,
     });
+  });
+
+  it('inserts empty media templates with their markers', () => {
+    expect(applyMarkdownFormatCommand('', { from: 0, to: 0 }, 'video')).toMatchObject({
+      insert: '![video](path/to/video.mp4)',
+      selection: { anchor: 9, head: 9 },
+    });
+    expect(applyMarkdownFormatCommand('', { from: 0, to: 0 }, 'meme')).toMatchObject({
+      insert: '![meme](path/to/meme.jpg "mmd:meme")',
+      selection: { anchor: 8, head: 8 },
+    });
+    expect(applyMarkdownFormatCommand('', { from: 0, to: 0 }, 'html-embed')).toMatchObject({
+      insert: '[HTML page](path/to/page.html "mmd:embed")',
+      selection: { anchor: 11, head: 11 },
+    });
+  });
+
+  it('uses selected text as the description of media embeds', () => {
+    expect(applyMarkdownFormatCommand('alpha', { from: 0, to: 5 }, 'video')).toEqual({
+      from: 0,
+      insert: '![alpha](path/to/video.mp4)',
+      selection: { anchor: 9, head: 9 },
+      to: 5,
+    });
+    expect(applyMarkdownFormatCommand('alpha', { from: 0, to: 5 }, 'meme')).toEqual({
+      from: 0,
+      insert: '![alpha](path/to/meme.jpg "mmd:meme")',
+      selection: { anchor: 9, head: 9 },
+      to: 5,
+    });
+    expect(applyMarkdownFormatCommand('alpha', { from: 0, to: 5 }, 'html-embed')).toEqual({
+      from: 0,
+      insert: '[alpha](path/to/page.html "mmd:embed")',
+      selection: { anchor: 8, head: 8 },
+      to: 5,
+    });
+  });
+
+  it('isolates an empty media template when the caret is inside a paragraph', () => {
+    expect(applyMarkdownFormatCommand('beforeafter', { from: 6, to: 6 }, 'meme')).toEqual({
+      from: 6,
+      insert: '\n![meme](path/to/meme.jpg "mmd:meme")\n',
+      selection: { anchor: 15, head: 15 },
+      to: 6,
+    });
+  });
+
+  it('inserts empty templates for tables, formulas, mermaid and dividers', () => {
+    expect(applyMarkdownFormatCommand('', { from: 0, to: 0 }, 'table')).toMatchObject({
+      insert: '| Header | Header |\n| --- | --- |\n| Cell | Cell |',
+      selection: { anchor: 2, head: 2 },
+    });
+    expect(applyMarkdownFormatCommand('', { from: 0, to: 0 }, 'formula-block')).toMatchObject({
+      insert: '$$\n\n$$',
+      selection: { anchor: 3, head: 3 },
+    });
+    expect(applyMarkdownFormatCommand('', { from: 0, to: 0 }, 'mermaid')).toMatchObject({
+      insert: '```mermaid\ngraph TD\n  A --> B\n```',
+      selection: { anchor: 11, head: 11 },
+    });
+    expect(applyMarkdownFormatCommand('', { from: 0, to: 0 }, 'horizontal-rule')).toMatchObject({
+      insert: '---',
+      selection: { anchor: 3, head: 3 },
+    });
+    expect(applyMarkdownFormatCommand('', { from: 0, to: 0 }, 'image')).toMatchObject({
+      insert: '![alt text](path/to/image.png)',
+      selection: { anchor: 12, head: 12 },
+    });
+    expect(applyMarkdownFormatCommand('', { from: 0, to: 0 }, 'inline-formula')).toMatchObject({
+      insert: '$$',
+      selection: { anchor: 1, head: 1 },
+    });
+  });
+
+  it('wraps selected text as an inline formula and keeps it selected', () => {
+    expect(applyMarkdownFormatCommand('alpha', { from: 0, to: 5 }, 'inline-formula')).toEqual({
+      from: 0,
+      insert: '$alpha$',
+      selection: { anchor: 1, head: 6 },
+      to: 5,
+    });
+  });
+
+  it('uses selected text as the image description', () => {
+    expect(applyMarkdownFormatCommand('alpha', { from: 0, to: 5 }, 'image')).toEqual({
+      from: 0,
+      insert: '![alpha](path/to/image.png)',
+      selection: { anchor: 9, head: 9 },
+      to: 5,
+    });
+  });
+
+  it('replaces a selection with a table or divider template', () => {
+    expect(applyMarkdownFormatCommand('alpha', { from: 0, to: 5 }, 'table').insert)
+      .toBe('| Header | Header |\n| --- | --- |\n| Cell | Cell |');
+    expect(applyMarkdownFormatCommand('alpha', { from: 0, to: 5 }, 'horizontal-rule').insert)
+      .toBe('---');
+  });
+
+  it('wraps a selection inside formula and mermaid blocks', () => {
+    expect(applyMarkdownFormatCommand('alpha', { from: 0, to: 5 }, 'formula-block').insert)
+      .toBe('$$\nalpha\n$$');
+    expect(applyMarkdownFormatCommand('alpha', { from: 0, to: 5 }, 'mermaid').insert)
+      .toBe('```mermaid\nalpha\n```');
   });
 });
