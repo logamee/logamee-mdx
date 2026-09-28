@@ -1056,4 +1056,66 @@ describe('FileSidebar native workspace interactions', () => {
     expect(container.querySelector<HTMLElement>('[role="treeitem"]')?.getAttribute('draggable')).toBe('false');
     expect(container.querySelector<HTMLElement>('[role="treeitem"]')?.getAttribute('aria-disabled')).toBe('true');
   });
+
+  it('opens the folder picker from the empty state when no workspace is open', () => {
+    const onOpenDirectory = vi.fn<() => void>();
+    act(() => root.render(
+      <FileSidebar
+        activePath={null}
+        collapsed={false}
+        collapsedFolders={new Set()}
+        fileTree={[]}
+        onCollapseChange={vi.fn<() => void>()}
+        onCreateFile={vi.fn<() => void>()}
+        onCreateFolder={vi.fn<() => void>()}
+        onDeleteEntry={vi.fn<() => void>()}
+        onMoveEntry={vi.fn<() => void>()}
+        onOpenDirectory={onOpenDirectory}
+        onOpenFile={vi.fn<() => void>()}
+        onRefreshWorkspace={vi.fn<() => void>()}
+        onRenameEntry={vi.fn<() => void>()}
+        onRequestMove={vi.fn<() => void>()}
+        onToggleFolder={vi.fn<() => void>()}
+        workspaceRoot={null}
+      />,
+    ));
+
+    const emptyState = container.querySelector<HTMLButtonElement>('#workspace-files-panel .empty-sidebar');
+    expect(emptyState?.tagName).toBe('BUTTON');
+    act(() => emptyState?.click());
+
+    expect(onOpenDirectory).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the folder picker from the empty state of an empty workspace but not while disabled', () => {
+    const onOpenDirectory = vi.fn<() => void>();
+    act(() => root.render(
+      <FileSidebar
+        activePath={null}
+        collapsed={false}
+        collapsedFolders={new Set()}
+        disabled
+        fileTree={[]}
+        onCollapseChange={vi.fn<() => void>()}
+        onCreateFile={vi.fn<() => void>()}
+        onCreateFolder={vi.fn<() => void>()}
+        onDeleteEntry={vi.fn<() => void>()}
+        onMoveEntry={vi.fn<() => void>()}
+        onOpenDirectory={onOpenDirectory}
+        onOpenFile={vi.fn<() => void>()}
+        onRefreshWorkspace={vi.fn<() => void>()}
+        onRenameEntry={vi.fn<() => void>()}
+        onRequestMove={vi.fn<() => void>()}
+        onToggleFolder={vi.fn<() => void>()}
+        workspaceRoot="/workspace"
+      />,
+    ));
+
+    const emptyState = container.querySelector<HTMLButtonElement>('#workspace-files-panel .empty-sidebar');
+    expect(emptyState?.tagName).toBe('BUTTON');
+    expect(emptyState?.disabled).toBe(true);
+    act(() => emptyState?.click());
+
+    expect(onOpenDirectory).not.toHaveBeenCalled();
+  });
 });

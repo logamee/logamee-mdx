@@ -63,6 +63,7 @@ interface FileSidebarProps {
   onDeleteEntry: (path: string, name: string, kind: 'file' | 'folder') => void;
   onInsertWorkspaceAsset?: (asset: WorkspaceFileEntry, target: MarkdownMediaInsertionTarget) => void;
   onMoveEntry: (path: string, destinationParentPath: string) => void;
+  onOpenDirectory?: () => void;
   onOpenFile: (path: string) => void;
   onRefreshWorkspace: () => void;
   onRenameEntry: (path: string, newName: string, kind: 'file' | 'folder') => void;
@@ -175,6 +176,7 @@ export function FileSidebar({
   onDeleteEntry,
   onInsertWorkspaceAsset,
   onMoveEntry,
+  onOpenDirectory,
   onOpenFile,
   onRefreshWorkspace,
   onRenameEntry,
@@ -853,10 +855,23 @@ export function FileSidebar({
                 onKeyDown={handleTreeNavigation}
               >
                 {fileTree.length === 0 ? (
-                  <div className="empty-sidebar">
-                    <FolderOpen size={20} />
-                    <span>{workspaceRoot ? t('folderEmpty') : t('noFolderOpen')}</span>
-                  </div>
+                  onOpenDirectory ? (
+                    <button
+                      type="button"
+                      className="empty-sidebar"
+                      disabled={disabled}
+                      title={t('openWorkspaceFolder')}
+                      onClick={onOpenDirectory}
+                    >
+                      <FolderOpen size={20} />
+                      <span>{workspaceRoot ? t('folderEmpty') : t('noFolderOpen')}</span>
+                    </button>
+                  ) : (
+                    <div className="empty-sidebar">
+                      <FolderOpen size={20} />
+                      <span>{workspaceRoot ? t('folderEmpty') : t('noFolderOpen')}</span>
+                    </div>
+                  )
                 ) : (
                   <FileTreeRows
                     activePath={activePath}

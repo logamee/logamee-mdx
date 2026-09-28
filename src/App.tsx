@@ -130,6 +130,7 @@ import {
 import { OpenIntentCoordinator } from './lib/openIntentCoordinator';
 import { createWorkspaceIndexOperationId } from './lib/workspaceSearch';
 import { crashDraftCommands } from './lib/crashDraftCommands';
+import { collectAncestorFolderPaths, collectWorkspaceFolderPaths, workspaceTreeHasFile } from './lib/fileTree';
 import { getWorkspaceMoveDestinations } from './lib/fileTreeOperations';
 import { getWorkspacePresentation } from './lib/workspaceFileKind';
 import type { WorkspaceFileEntry } from './types';
@@ -520,6 +521,7 @@ export default function App() {
     settleWorkspaceSessionRestore,
     updateContent,
     workspaceRoot,
+    workspaceRollback,
     workspaceToken,
   } = useDocumentSession({
     isPopout,
@@ -2037,6 +2039,60 @@ export default function App() {
     });
   }, []);
 
+  // 工作区根目录变化时回到“只显示第一层”的默认状态；刷新保留手动展开状态。
+  // 离开某工作区时记下它的手动展开集合；失败回滚（workspaceRollback 标记）返回该工作区时原样恢复，
+  // 与“用户重新打开同一文件夹时重置默认”区分开。集合内容不变时返回原引用，避免多余渲染。
+  const collapsedDefaultRootRef = useRef<string | null>(null);
+  const leftWorkspaceExpansionRef = useRef<{ root: string | null; collapsed: Set<string> } | null>(null);
+  const handledRollbackIdRef = useRef(0);
+  useEffect(() => {
+    if (workspaceRoot === collapsedDefaultRootRef.current) return;
+    const previousRoot = collapsedDefaultRootRef.current;
+    collapsedDefaultRootRef.current = workspaceRoot;
+    const rollback = workspaceRollback?.id !== handledRollbackIdRef.current
+      && workspaceRollback?.root === workspaceRoot
+      ? workspaceRollback
+      : null;
+    if (rollback) handledRollbackIdRef.current = rollback.id;
+    const leftExpansion = leftWorkspaceExpansionRef.current;
+    if (rollback && leftExpansion?.root === workspaceRoot) {
+      setCollapsedFolders(leftExpansion.collapsed);
+      return;
+    }
+    leftWorkspaceExpansionRef.current = { root: previousRoot, collapsed: collapsedFolders };
+    setCollapsedFolders((current) => {
+      const next = collectWorkspaceFolderPaths(fileTree);
+      if (next.size !== current.size) return next;
+      for (const path of next) {
+        if (!current.has(path)) return next;
+      }
+      return current;
+    });
+  }, [collapsedFolders, fileTree, workspaceRollback, workspaceRoot]);
+
+  // 打开新文档时展开其祖先文件夹，保证当前文档在树中可见。仅当文件树确实包含该文档时
+  // 才标记完成（树晚到的场景靠后续渲染重试）；关闭文档后清空标记，重开同一文档仍会 reveal。
+  const revealedActivePathRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activePath) {
+      revealedActivePathRef.current = null;
+      return;
+    }
+    if (revealedActivePathRef.current === activePath) return;
+    if (!workspaceTreeHasFile(fileTree, activePath)) return;
+    revealedActivePathRef.current = activePath;
+    setCollapsedFolders((current) => {
+      const ancestors = collectAncestorFolderPaths(fileTree, activePath);
+      if (ancestors.size === 0) return current;
+      let changed = false;
+      const next = new Set(current);
+      for (const path of ancestors) {
+        if (next.delete(path)) changed = true;
+      }
+      return changed ? next : current;
+    });
+  }, [activePath, fileTree]);
+
   const handleOutlineItemSelect = useCallback((item: MarkdownOutlineItem) => {
     outlineJumpRequestIdRef.current += 1;
     const jump: MarkdownOutlineJump = {
@@ -2498,6 +2554,7 @@ export default function App() {
             ? handleWorkspaceAssetInsert
             : undefined}
           onMoveEntry={(path, destinationParentPath) => void moveWorkspaceEntryPath(path, destinationParentPath)}
+          onOpenDirectory={() => void handleOpenDirectory()}
           onOpenFile={requestWorkspaceFileOpen}
           onRenameEntry={(path, newName) => void renameWorkspaceEntryPath(path, newName)}
           onRequestMove={(target) => setWorkspaceMoveOperation({

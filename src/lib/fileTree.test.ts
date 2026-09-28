@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildWorkspaceFileTree } from './fileTree';
+import {
+  buildWorkspaceFileTree,
+  collectAncestorFolderPaths,
+  collectWorkspaceFolderPaths,
+  workspaceTreeHasFile,
+} from './fileTree';
 import type { WorkspaceDirectoryEntry, WorkspaceFileEntry, WorkspaceFileKind } from '../types';
 
 function file(relativePath: string, kind: WorkspaceFileKind = 'markdown'): WorkspaceFileEntry {
@@ -75,5 +80,53 @@ describe('workspace file tree', () => {
     expect(cover.kind).toBe('file');
     if (cover.kind !== 'file') throw new Error('expected image file');
     expect(cover.file.kind).toBe('image');
+  });
+});
+
+describe('collectWorkspaceFolderPaths', () => {
+  it('collects every folder path so a fresh workspace can default to first-level-only', () => {
+    const tree = buildWorkspaceFileTree(
+      [file('notes/today.md'), file('guides/advanced/tips.md')],
+      [directory('empty')],
+    );
+
+    expect(collectWorkspaceFolderPaths(tree)).toEqual(
+      new Set(['empty', 'guides', 'guides/advanced', 'notes']),
+    );
+  });
+
+  it('returns an empty set for an empty tree', () => {
+    expect(collectWorkspaceFolderPaths([])).toEqual(new Set());
+  });
+});
+
+describe('collectAncestorFolderPaths', () => {
+  it('collects every ancestor folder of a file so the active document can be revealed', () => {
+    const tree = buildWorkspaceFileTree([file('guides/advanced/tips.md'), file('a-root.md')]);
+
+    expect(collectAncestorFolderPaths(tree, '/workspace/guides/advanced/tips.md')).toEqual(
+      new Set(['guides', 'guides/advanced']),
+    );
+    expect(collectAncestorFolderPaths(tree, '/workspace/a-root.md')).toEqual(new Set());
+  });
+
+  it('returns an empty set when the path is not in the tree', () => {
+    const tree = buildWorkspaceFileTree([file('notes/today.md')]);
+
+    expect(collectAncestorFolderPaths(tree, '/workspace/missing.md')).toEqual(new Set());
+  });
+});
+
+describe('workspaceTreeHasFile', () => {
+  it('reports whether the tree contains a file path', () => {
+    const tree = buildWorkspaceFileTree([file('notes/today.md'), file('a-root.md')]);
+
+    expect(workspaceTreeHasFile(tree, '/workspace/notes/today.md')).toBe(true);
+    expect(workspaceTreeHasFile(tree, '/workspace/a-root.md')).toBe(true);
+    expect(workspaceTreeHasFile(tree, '/workspace/missing.md')).toBe(false);
+  });
+
+  it('returns false for an empty tree', () => {
+    expect(workspaceTreeHasFile([], '/workspace/missing.md')).toBe(false);
   });
 });

@@ -173,8 +173,29 @@ function createAssetSession(kind: 'image' | 'video') {
   };
 }
 
-function createTextSession(kind: 'html' | 'markdown', busy = false) {
+function createNotesFolderTree() {
   return {
+    absolutePath: '/workspace/notes',
+    kind: 'folder' as const,
+    name: 'notes',
+    path: 'notes',
+    children: [{
+      absolutePath: '/workspace/notes/report.md',
+      kind: 'file' as const,
+      name: 'report.md',
+      path: '/workspace/notes/report.md',
+      relativePath: 'notes/report.md',
+      file: {
+        kind: 'markdown' as const,
+        name: 'report.md',
+        path: '/workspace/notes/report.md',
+        relative_path: 'notes/report.md',
+      },
+    }],
+  };
+}
+
+function createTextSession(kind: 'html' | 'markdown', busy = false) {  return {
     ...createBinarySession('pdf', 'committed'),
     activeFileKind: kind,
     activeMimeType: kind === 'html' ? 'text/html' : null,
@@ -727,5 +748,234 @@ describe('App binary document composition', () => {
       '/workspace/notes/report.md',
       '/workspace',
     );
+  });
+
+  it('keeps the active document visible by expanding collapsed ancestors when it changes', async () => {
+    const notesFileTree = [createNotesFolderTree()];
+    const baseSession = createTextSession('markdown');
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: null,
+      fileTree: notesFileTree,
+    });
+
+    await act(async () => root.render(<App />));
+    const notesRow = () => container.querySelector<HTMLElement>(
+      '[role="treeitem"][data-tree-entry-path="/workspace/notes"]',
+    );
+    expect(notesRow()?.getAttribute('aria-expanded')).toBe('false');
+
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: '/workspace/notes/report.md',
+      fileTree: notesFileTree,
+    });
+    await act(async () => root.render(<App />));
+
+    expect(notesRow()?.getAttribute('aria-expanded')).toBe('true');
+    expect(container.querySelector('[data-tree-entry-path="/workspace/notes/report.md"]')).not.toBeNull();
+  });
+
+  it('re-reveals the active document when it is reopened after being closed', async () => {
+    const baseSession = createTextSession('markdown');
+    const notesFileTree = [createNotesFolderTree()];
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: '/workspace/notes/report.md',
+      fileTree: notesFileTree,
+    });
+
+    await act(async () => root.render(<App />));
+    const notesRow = () => container.querySelector<HTMLElement>(
+      '[role="treeitem"][data-tree-entry-path="/workspace/notes"]',
+    );
+    expect(notesRow()?.getAttribute('aria-expanded')).toBe('true');
+
+    act(() => container.querySelector<HTMLButtonElement>(
+      '[data-tree-entry-path="/workspace/notes"] .tree-disclosure-button',
+    )?.click());
+    expect(notesRow()?.getAttribute('aria-expanded')).toBe('false');
+
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: null,
+      fileTree: notesFileTree,
+    });
+    await act(async () => root.render(<App />));
+
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: '/workspace/notes/report.md',
+      fileTree: notesFileTree,
+    });
+    await act(async () => root.render(<App />));
+
+    expect(notesRow()?.getAttribute('aria-expanded')).toBe('true');
+    expect(container.querySelector('[data-tree-entry-path="/workspace/notes/report.md"]')).not.toBeNull();
+  });
+
+  it('reveals ancestors once the file tree catches up with the active path', async () => {
+    const baseSession = createTextSession('markdown');
+    const notesFileTree = [createNotesFolderTree()];
+    const staleTree = [{
+      absolutePath: '/workspace/archive',
+      kind: 'folder' as const,
+      name: 'archive',
+      path: 'archive',
+      children: [],
+    }];
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: '/workspace/notes/report.md',
+      fileTree: staleTree,
+    });
+
+    await act(async () => root.render(<App />));
+    const notesRow = () => container.querySelector<HTMLElement>(
+      '[role="treeitem"][data-tree-entry-path="/workspace/notes"]',
+    );
+    expect(notesRow()).toBeNull();
+
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: '/workspace/notes/report.md',
+      fileTree: notesFileTree,
+    });
+    await act(async () => root.render(<App />));
+
+    expect(notesRow()?.getAttribute('aria-expanded')).toBe('true');
+    expect(container.querySelector('[data-tree-entry-path="/workspace/notes/report.md"]')).not.toBeNull();
+  });
+
+  it('preserves manual expansion across refresh and resets it when the root changes', async () => {
+    const baseSession = createTextSession('markdown');
+    const notesFileTree = [
+      createNotesFolderTree(),
+      {
+        absolutePath: '/workspace/archive',
+        kind: 'folder' as const,
+        name: 'archive',
+        path: 'archive',
+        children: [],
+      },
+    ];
+    const refreshedTree = [
+      ...notesFileTree,
+      {
+        absolutePath: '/workspace/incoming',
+        kind: 'folder' as const,
+        name: 'incoming',
+        path: 'incoming',
+        children: [],
+      },
+    ];
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: null,
+      fileTree: notesFileTree,
+    });
+
+    await act(async () => root.render(<App />));
+    const rowByPath = (path: string) => container.querySelector<HTMLElement>(
+      `[role="treeitem"][data-tree-entry-path="${path}"]`,
+    );
+    act(() => container.querySelector<HTMLButtonElement>(
+      '[data-tree-entry-path="/workspace/notes"] .tree-disclosure-button',
+    )?.click());
+    expect(rowByPath('/workspace/notes')?.getAttribute('aria-expanded')).toBe('true');
+
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: null,
+      fileTree: refreshedTree,
+    });
+    await act(async () => root.render(<App />));
+
+    expect(rowByPath('/workspace/notes')?.getAttribute('aria-expanded')).toBe('true');
+    expect(rowByPath('/workspace/incoming')?.getAttribute('aria-expanded')).toBe('true');
+    expect(rowByPath('/workspace/archive')?.getAttribute('aria-expanded')).toBe('false');
+
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: null,
+      workspaceRoot: '/workspace-b',
+      fileTree: [{
+        absolutePath: '/workspace-b/docs',
+        kind: 'folder' as const,
+        name: 'docs',
+        path: 'docs',
+        children: [{
+          absolutePath: '/workspace-b/docs/spec.md',
+          kind: 'file' as const,
+          name: 'spec.md',
+          path: '/workspace-b/docs/spec.md',
+          relativePath: 'docs/spec.md',
+          file: {
+            kind: 'markdown' as const,
+            name: 'spec.md',
+            path: '/workspace-b/docs/spec.md',
+            relative_path: 'docs/spec.md',
+          },
+        }],
+      }],
+    });
+    await act(async () => root.render(<App />));
+
+    expect(rowByPath('/workspace-b/docs')?.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('restores manual expansion when a failed workspace switch rolls back', async () => {
+    const baseSession = createTextSession('markdown');
+    const notesFileTree = [
+      createNotesFolderTree(),
+      {
+        absolutePath: '/workspace/archive',
+        kind: 'folder' as const,
+        name: 'archive',
+        path: 'archive',
+        children: [],
+      },
+    ];
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: null,
+      fileTree: notesFileTree,
+    });
+
+    await act(async () => root.render(<App />));
+    const rowByPath = (path: string) => container.querySelector<HTMLElement>(
+      `[role="treeitem"][data-tree-entry-path="${path}"]`,
+    );
+    act(() => container.querySelector<HTMLButtonElement>(
+      '[data-tree-entry-path="/workspace/notes"] .tree-disclosure-button',
+    )?.click());
+    expect(rowByPath('/workspace/notes')?.getAttribute('aria-expanded')).toBe('true');
+    expect(rowByPath('/workspace/archive')?.getAttribute('aria-expanded')).toBe('false');
+
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: null,
+      fileTree: [{
+        absolutePath: '/workspace-b/docs',
+        kind: 'folder' as const,
+        name: 'docs',
+        path: 'docs',
+        children: [],
+      }],
+      workspaceRoot: '/workspace-b',
+    });
+    await act(async () => root.render(<App />));
+    expect(rowByPath('/workspace-b/docs')?.getAttribute('aria-expanded')).toBe('false');
+
+    appMocks.useDocumentSession.mockReturnValue({
+      ...baseSession,
+      activePath: null,
+      fileTree: notesFileTree,
+      workspaceRollback: { id: 1, root: '/workspace' },
+    });
+    await act(async () => root.render(<App />));
+
+    expect(rowByPath('/workspace/notes')?.getAttribute('aria-expanded')).toBe('true');
+    expect(rowByPath('/workspace/archive')?.getAttribute('aria-expanded')).toBe('false');
   });
 });

@@ -90,3 +90,46 @@ function absolutePathForPrefix(absolutePath: string, relativePath: string, prefi
   const root = normalizedAbsolute.slice(0, normalizedAbsolute.length - normalizedRelative.length).replace(/\/$/, '');
   return `${root}/${prefix}`;
 }
+
+export function collectWorkspaceFolderPaths(nodes: WorkspaceFileTreeNode[]): Set<string> {
+  const paths = new Set<string>();
+  function visit(children: WorkspaceFileTreeNode[]) {
+    for (const node of children) {
+      if (node.kind !== 'folder') continue;
+      paths.add(node.path);
+      visit(node.children);
+    }
+  }
+  visit(nodes);
+  return paths;
+}
+
+export function collectAncestorFolderPaths(nodes: WorkspaceFileTreeNode[], filePath: string): Set<string> {
+  const ancestors = new Set<string>();
+  function visit(children: WorkspaceFileTreeNode[], trail: string[]): boolean {
+    for (const node of children) {
+      if (node.kind !== 'folder') {
+        if (node.path === filePath) {
+          for (const path of trail) ancestors.add(path);
+          return true;
+        }
+        continue;
+      }
+      if (visit(node.children, [...trail, node.path])) return true;
+    }
+    return false;
+  }
+  visit(nodes, []);
+  return ancestors;
+}
+
+export function workspaceTreeHasFile(nodes: WorkspaceFileTreeNode[], filePath: string): boolean {
+  for (const node of nodes) {
+    if (node.kind !== 'folder') {
+      if (node.path === filePath) return true;
+      continue;
+    }
+    if (workspaceTreeHasFile(node.children, filePath)) return true;
+  }
+  return false;
+}

@@ -176,6 +176,8 @@ export function useDocumentSession({
   const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null);
   const [files, setFiles] = useState<WorkspaceFileEntry[]>([]);
   const [directories, setDirectories] = useState<WorkspaceDirectoryEntry[]>([]);
+  const workspaceRollbackIdRef = useRef(0);
+  const [workspaceRollback, setWorkspaceRollback] = useState<{ id: number; root: string | null } | null>(null);
   const [activeFileKind, setActiveFileKind] = useState<WorkspaceFileKind>('markdown');
   const [activeMimeType, setActiveMimeType] = useState<string | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -323,6 +325,13 @@ export function useDocumentSession({
     setFiles([]);
     setDirectories([]);
   }, [applyWorkspaceSnapshot]);
+
+  // 回滚到上一个工作区快照时打标记，界面层据此区分“失败回滚”与“重新打开”，保留手动展开状态。
+  const rollbackWorkspaceState = useCallback((prior: WorkspaceSnapshot | null) => {
+    restoreWorkspaceState(prior);
+    workspaceRollbackIdRef.current += 1;
+    setWorkspaceRollback({ id: workspaceRollbackIdRef.current, root: prior?.root ?? null });
+  }, [restoreWorkspaceState]);
 
   const setActiveDocumentPath = useCallback((path: string | null) => {
     const previousPath = activePathRef.current;
@@ -1367,7 +1376,7 @@ export function useDocumentSession({
             applyWorkspaceSnapshot(restored.workspace);
             const workspaceOpenReceipt = resolved.workspace_open_receipt;
             if (!workspaceOpenReceipt) {
-              restoreWorkspaceState(priorWorkspace);
+              rollbackWorkspaceState(priorWorkspace);
               if (restored.active_file) {
                 await discardOpenReceipt(restored.active_file.open_receipt).catch(() => undefined);
               }
@@ -1380,14 +1389,14 @@ export function useDocumentSession({
                 true,
               );
             } catch (error) {
-              restoreWorkspaceState(priorWorkspace);
+              rollbackWorkspaceState(priorWorkspace);
               if (restored.active_file) {
                 await discardOpenReceipt(restored.active_file.open_receipt).catch(() => undefined);
               }
               throw error;
             }
             if (workspaceSettlement !== 'applied') {
-              restoreWorkspaceState(priorWorkspace);
+              rollbackWorkspaceState(priorWorkspace);
               if (restored.active_file) {
                 await discardOpenReceipt(restored.active_file.open_receipt).catch(() => undefined);
               }
@@ -1434,9 +1443,9 @@ export function useDocumentSession({
             true,
           );
           if (workspaceSettlement === 'applied') applied = true;
-          else restoreWorkspaceState(priorWorkspace);
+          else rollbackWorkspaceState(priorWorkspace);
         } catch (error) {
-          restoreWorkspaceState(priorWorkspace);
+          rollbackWorkspaceState(priorWorkspace);
           throw error;
         }
       },
@@ -1450,7 +1459,7 @@ export function useDocumentSession({
     claimPreparedOpen,
     executeSessionOperation,
     openIntentResolutionBlocked,
-    restoreWorkspaceState,
+    rollbackWorkspaceState,
     settleWorkspaceSessionRestore,
     synchronizeWorkspaceForStandaloneFile,
   ]);
@@ -2311,6 +2320,7 @@ export function useDocumentSession({
     setNotice,
     updateContent,
     workspaceRoot,
+    workspaceRollback,
     workspaceSessionRestoreSettled,
     workspaceToken: workspaceIdentityRef.current.workspaceToken,
   };

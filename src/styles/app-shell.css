@@ -1297,6 +1297,24 @@
 }
 .empty-sidebar svg { color: var(--text-faint); }
 
+button.empty-sidebar {
+  width: 100%;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 140ms ease-out;
+}
+button.empty-sidebar:hover:not(:disabled):not(:focus-visible),
+button.empty-sidebar:focus-visible {
+  color: var(--text-main);
+}
+button.empty-sidebar:hover:not(:disabled):not(:focus-visible) svg,
+button.empty-sidebar:focus-visible svg {
+  color: var(--accent);
+}
+button.empty-sidebar:disabled { cursor: default; }
+
 .pane-title {
   flex: 0 0 38px;
   min-height: 38px;
