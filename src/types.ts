@@ -293,6 +293,7 @@ export interface AppSettings {
   wikilinksEnabled: boolean;
   resourceDirectory: string;
   editorPaneRatio: number;
+  editorFontSize: number;
   selectedSkin: SettingsSkinId;
   followSystemTheme: boolean;
   localeMode: SettingsLocaleMode;

@@ -14,6 +14,7 @@ const SETTINGS_KEYS = [
   'wikilinksEnabled',
   'resourceDirectory',
   'editorPaneRatio',
+  'editorFontSize',
   'selectedSkin',
   'followSystemTheme',
   'localeMode',
@@ -66,6 +67,8 @@ function decodeAppSettings(value: unknown): AppSettings | null {
     || typeof value.resourceDirectory !== 'string'
     || typeof value.editorPaneRatio !== 'number'
     || !Number.isFinite(value.editorPaneRatio)
+    || typeof value.editorFontSize !== 'number'
+    || !Number.isFinite(value.editorFontSize)
     || !isSkin(value.selectedSkin)
     || typeof value.followSystemTheme !== 'boolean'
     || !isLocale(value.localeMode)
@@ -80,6 +83,7 @@ function decodeAppSettings(value: unknown): AppSettings | null {
     wikilinksEnabled: value.wikilinksEnabled,
     resourceDirectory: value.resourceDirectory,
     editorPaneRatio: value.editorPaneRatio,
+    editorFontSize: value.editorFontSize,
     selectedSkin: value.selectedSkin,
     followSystemTheme: value.followSystemTheme,
     localeMode: value.localeMode,
@@ -102,6 +106,20 @@ export function decodeSettingsEnvelope(value: unknown): SettingsEnvelope {
     throw new Error('Invalid settings response');
   }
   return { schemaVersion: SETTINGS_SCHEMA_VERSION, revision: value.revision as number, settings };
+}
+
+export const MIN_EDITOR_FONT_SIZE = 12;
+export const MAX_EDITOR_FONT_SIZE = 28;
+export const DEFAULT_EDITOR_FONT_SIZE = 16;
+
+export function stepEditorFontSize(current: number, step: number): number {
+  if (!Number.isFinite(current)) return DEFAULT_EDITOR_FONT_SIZE;
+  const next = Math.round(current) + step;
+  return Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, next));
+}
+
+export function applyEditorFontSize(root: Pick<HTMLElement, 'style'>, size: number): void {
+  root.style.setProperty('--editor-font-size', `${size}px`);
 }
 
 export function projectSettingsError(value: unknown): Pick<SettingsError, 'canReset'> & { kind: 'conflict' | 'future' | 'recoverable' } {

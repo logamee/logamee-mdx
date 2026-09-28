@@ -100,6 +100,84 @@ describe('SettingsDialog', () => {
     }));
   });
 
+  it('edits and saves the editor font size within the supported range', async () => {
+    const onSave = vi.fn<(settings: AppSettings) => Promise<void>>(async () => undefined);
+    await act(async () => root.render(
+      <SettingsDialog
+        busy={false}
+        locale="zh-CN"
+        settings={currentSettingsEnvelope.settings}
+        onClose={vi.fn<() => void>()}
+        onReset={vi.fn<() => Promise<void>>(async () => undefined)}
+        onSave={onSave}
+      />,
+    ));
+
+    const fontSize = container.querySelector<HTMLInputElement>('[name="editorFontSize"]');
+    expect(fontSize).not.toBeNull();
+    expect(fontSize?.min).toBe('12');
+    expect(fontSize?.max).toBe('28');
+    expect(fontSize?.step).toBe('1');
+    expect(fontSize?.value).toBe('16');
+    const label = fontSize?.closest('.settings-field')?.querySelector('span');
+    expect(label?.textContent).toBe('编辑器字号');
+
+    act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      valueSetter?.call(fontSize, '19');
+      fontSize?.dispatchEvent(new Event('input', { bubbles: true }));
+      fontSize?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => container.querySelector('form')?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    ));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ editorFontSize: 19 }));
+  });
+
+  it('blocks saving and explains when numeric settings leave the supported range', async () => {
+    const onSave = vi.fn<(settings: AppSettings) => Promise<void>>(async () => undefined);
+    await act(async () => root.render(
+      <SettingsDialog
+        busy={false}
+        locale="zh-CN"
+        settings={currentSettingsEnvelope.settings}
+        onClose={vi.fn<() => void>()}
+        onReset={vi.fn<() => Promise<void>>(async () => undefined)}
+        onSave={onSave}
+      />,
+    ));
+    const submit = () => container.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    const setNumberInput = (input: HTMLInputElement, value: string) => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      valueSetter?.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    setNumberInput(container.querySelector<HTMLInputElement>('[name="editorFontSize"]')!, '31');
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('编辑器字号需在 12 到 28 px 之间。');
+    expect(submit().disabled).toBe(true);
+    await act(async () => container.querySelector('form')?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    ));
+    expect(onSave).not.toHaveBeenCalled();
+
+    setNumberInput(container.querySelector<HTMLInputElement>('[name="autosaveDelayMs"]')!, '100');
+    expect(container.querySelectorAll('[role="alert"]').length).toBe(2);
+    expect(submit().disabled).toBe(true);
+
+    setNumberInput(container.querySelector<HTMLInputElement>('[name="editorFontSize"]')!, '18');
+    setNumberInput(container.querySelector<HTMLInputElement>('[name="autosaveDelayMs"]')!, '1500');
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(submit().disabled).toBe(false);
+    await act(async () => container.querySelector('form')?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    ));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ editorFontSize: 18 }));
+  });
+
   it('updates the resource path only after an explicit directory authorization', async () => {
     const onAuthorizeResourceDirectory = vi
       .fn<() => Promise<string | null>>()
@@ -164,6 +242,29 @@ describe('SettingsDialog', () => {
 
     act(() => container.querySelector<HTMLButtonElement>('[name="resetShortcuts"]')?.click());
     expect(saveShortcut.value).toBe('Mod+S');
+  });
+
+  it('lists the editor font size shortcuts with labels and zoom-style defaults', async () => {
+    await act(async () => root.render(
+      <SettingsDialog
+        busy={false}
+        locale="en"
+        settings={currentSettingsEnvelope.settings}
+        onClose={vi.fn<() => void>()}
+        onReset={vi.fn<() => Promise<void>>(async () => undefined)}
+        onSave={vi.fn<(settings: AppSettings) => Promise<void>>(async () => undefined)}
+      />,
+    ));
+
+    const larger = container.querySelector<HTMLInputElement>('[name="shortcut-editorFontLarger"]')!;
+    const smaller = container.querySelector<HTMLInputElement>('[name="shortcut-editorFontSmaller"]')!;
+    const reset = container.querySelector<HTMLInputElement>('[name="shortcut-editorFontReset"]')!;
+    expect(larger.value).toBe('Mod+=');
+    expect(smaller.value).toBe('Mod+-');
+    expect(reset.value).toBe('Mod+0');
+    expect(container.textContent).toContain('Increase editor font');
+    expect(container.textContent).toContain('Decrease editor font');
+    expect(container.textContent).toContain('Reset editor font');
   });
 
   it('manages the workspace index when a workspace is available', async () => {

@@ -16,11 +16,17 @@ pub(crate) struct Settings {
     pub(crate) wikilinks_enabled: bool,
     pub(crate) resource_directory: String,
     pub(crate) editor_pane_ratio: f64,
+    #[serde(default = "default_editor_font_size")]
+    pub(crate) editor_font_size: u32,
     pub(crate) selected_skin: String,
     pub(crate) follow_system_theme: bool,
     pub(crate) locale_mode: String,
     pub(crate) shortcuts: BTreeMap<String, String>,
     pub(crate) export_profiles: BTreeMap<String, serde_json::Value>,
+}
+
+fn default_editor_font_size() -> u32 {
+    16
 }
 
 impl Default for Settings {
@@ -32,6 +38,7 @@ impl Default for Settings {
             wikilinks_enabled: false,
             resource_directory: "assets".to_string(),
             editor_pane_ratio: 0.5,
+            editor_font_size: default_editor_font_size(),
             selected_skin: "original".to_string(),
             follow_system_theme: false,
             locale_mode: "system".to_string(),
@@ -820,8 +827,9 @@ mod tests {
             revision: 7,
             settings: super::Settings::default(),
         };
+        let serialized = serde_json::to_value(&envelope).unwrap();
         assert_eq!(
-            serde_json::to_value(envelope).unwrap(),
+            serialized,
             json!({
                 "schemaVersion": 1,
                 "revision": 7,
@@ -832,6 +840,7 @@ mod tests {
                     "wikilinksEnabled": false,
                     "resourceDirectory": "assets",
                     "editorPaneRatio": 0.5,
+                    "editorFontSize": 16,
                     "selectedSkin": "original",
                     "followSystemTheme": false,
                     "localeMode": "system",
@@ -839,6 +848,10 @@ mod tests {
                     "exportProfiles": {}
                 }
             })
+        );
+        assert_eq!(
+            serde_json::from_value::<super::SettingsEnvelope>(serialized).unwrap(),
+            envelope
         );
         assert_eq!(
             serde_json::to_value(super::SettingsError {

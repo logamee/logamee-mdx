@@ -379,6 +379,11 @@ fn validate_settings(settings: &Settings) -> Result<(), SettingsError> {
             "Editor pane ratio must be between 0.2 and 0.8.",
         ));
     }
+    if !(12..=28).contains(&settings.editor_font_size) {
+        return Err(invalid_error(
+            "Editor font size must be between 12 and 28 pixels.",
+        ));
+    }
     if !matches!(settings.locale_mode.as_str(), "system" | "zh-CN" | "en") {
         return Err(invalid_error("Locale mode is not supported."));
     }
@@ -744,6 +749,58 @@ mod tests {
             assert!(error.can_reset);
             assert_eq!(fs::read(store.store_path()).unwrap(), bytes);
         }
+    }
+
+    #[test]
+    fn v1_settings_without_editor_font_size_load_with_default_sixteen() {
+        let directory = tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().to_path_buf());
+        fs::create_dir_all(store.root_path()).unwrap();
+        fs::write(
+            store.store_path(),
+            serde_json::to_vec(&json!({
+                "schemaVersion": CURRENT_SETTINGS_SCHEMA_VERSION,
+                "revision": 3,
+                "settings": {
+                    "autosaveEnabled": true,
+                    "autosaveDelayMs": 1500,
+                    "spellcheckEnabled": true,
+                    "wikilinksEnabled": false,
+                    "resourceDirectory": "assets",
+                    "editorPaneRatio": 0.5,
+                    "selectedSkin": "original",
+                    "followSystemTheme": false,
+                    "localeMode": "system",
+                    "shortcuts": {},
+                    "exportProfiles": {}
+                }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let loaded = store.load_or_create().unwrap();
+
+        assert_eq!(loaded.settings.editor_font_size, 16);
+    }
+
+    #[test]
+    fn editor_font_size_outside_supported_range_is_rejected() {
+        let directory = tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().to_path_buf());
+        let mut too_small = Settings::default();
+        too_small.editor_font_size = 11;
+        let mut too_large = Settings::default();
+        too_large.editor_font_size = 40;
+
+        assert_eq!(
+            store.update(0, too_small).unwrap_err().code,
+            SettingsErrorCode::Invalid
+        );
+        assert_eq!(
+            store.update(0, too_large).unwrap_err().code,
+            SettingsErrorCode::Invalid
+        );
     }
 
     #[test]

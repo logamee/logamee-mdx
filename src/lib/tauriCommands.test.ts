@@ -168,6 +168,7 @@ describe('Tauri command wrappers', () => {
         wikilinksEnabled: false,
         resourceDirectory: 'assets',
         editorPaneRatio: 0.5,
+        editorFontSize: 16,
         selectedSkin: 'jinxiu-zhusha',
         followSystemTheme: false,
         localeMode: 'system',

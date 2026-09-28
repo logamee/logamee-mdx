@@ -1,4 +1,6 @@
 :root {
+  /* 与 src-tauri/src/models.rs 的 editor_font_size 默认值保持一致（16px），设置加载前兜底。 */
+  --editor-font-size: 16px;
   color: var(--chrome-text);
   background: var(--bg);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;

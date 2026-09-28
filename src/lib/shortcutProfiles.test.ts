@@ -33,4 +33,22 @@ describe('shortcutProfiles', () => {
     expect(shortcutMatchesEvent('Mod+S', event, 'linux')).toBe(true);
     expect(shortcutMatchesEvent('Mod+S', { ...event, ctrlKey: false, metaKey: true }, 'mac')).toBe(true);
   });
+
+  it('provides zoom-style editor font size shortcuts in the defaults', () => {
+    expect(DEFAULT_SHORTCUTS.editorFontLarger).toBe('Mod+=');
+    expect(DEFAULT_SHORTCUTS.editorFontSmaller).toBe('Mod+-');
+    expect(DEFAULT_SHORTCUTS.editorFontReset).toBe('Mod+0');
+    expect(resolveShortcutProfile({ editorFontLarger: 'Ctrl+Alt+9' }).editorFontLarger).toBe('Ctrl+Alt+9');
+  });
+
+  it('matches the punctuation and digit keys used by editor font shortcuts', () => {
+    const decrease = { altKey: false, ctrlKey: false, key: '-', metaKey: true, shiftKey: false };
+    const increase = { altKey: false, ctrlKey: false, key: '=', metaKey: true, shiftKey: false };
+    const reset = { altKey: false, ctrlKey: false, key: '0', metaKey: true, shiftKey: false };
+    expect(shortcutMatchesEvent('Mod+-', decrease, 'mac')).toBe(true);
+    expect(shortcutMatchesEvent('Mod+-', { ...decrease, metaKey: false, ctrlKey: true }, 'win')).toBe(true);
+    expect(shortcutMatchesEvent('Mod+=', increase, 'mac')).toBe(true);
+    expect(shortcutMatchesEvent('Mod+0', reset, 'mac')).toBe(true);
+    expect(shortcutMatchesEvent('Mod+=', { ...increase, key: '+' }, 'mac')).toBe(false);
+  });
 });

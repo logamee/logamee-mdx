@@ -5,6 +5,9 @@ export const SHORTCUT_ACTIONS = [
   'workspaceSearch',
   'export',
   'settings',
+  'editorFontLarger',
+  'editorFontSmaller',
+  'editorFontReset',
 ] as const;
 
 export type ShortcutAction = typeof SHORTCUT_ACTIONS[number];
@@ -16,6 +19,9 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, string> = {
   workspaceSearch: 'Mod+Shift+F',
   export: 'Mod+Shift+E',
   settings: 'Mod+,',
+  editorFontLarger: 'Mod+=',
+  editorFontSmaller: 'Mod+-',
+  editorFontReset: 'Mod+0',
 };
 
 const MODIFIER_ALIASES: Record<string, 'Mod' | 'Ctrl' | 'Alt' | 'Shift'> = {

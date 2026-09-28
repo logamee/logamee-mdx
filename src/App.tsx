@@ -46,6 +46,7 @@ import { usePanePopouts } from './hooks/usePanePopouts';
 import { usePaneResize } from './hooks/usePaneResize';
 import { useProgramCloseGuard } from './hooks/useProgramCloseGuard';
 import { useSettings } from './hooks/useSettings';
+import { useEditorFontSize } from './hooks/useEditorFontSize';
 import { useAppUpdater } from './hooks/useAppUpdater';
 import { useI18n } from './lib/i18n';
 import { isTauriRuntime } from './lib/activeDocumentWatch';
@@ -53,6 +54,7 @@ import type { EffectiveLocale } from './lib/locale';
 import { useWorkspaceSidebarResize } from './hooks/useWorkspaceSidebarResize';
 import { APP_FEEDBACK_ERROR_EVENT, getFeedbackDialog, normalizeAppError } from './lib/appFeedback';
 import { getUnsavedExitPrompt, getUnsavedFileSwitchPrompt } from './lib/closeGuard';
+import { applyEditorFontSize } from './lib/settings';
 import {
   decodeNativeMenuCommand,
   isNativeSaveMenuEnabled,
@@ -456,6 +458,7 @@ export default function App() {
   }, [openIntentCoordinator]);
   const paneLayoutStyle = useMemo(() => getPaneLayoutStyle(editorPaneRatio), [editorPaneRatio]);
   const settingsState = useSettings();
+  const editorFontSize = useEditorFontSize(settingsState.settings, settingsState.updateSettings);
   const [resourceDirectoryAuthorization, setResourceDirectoryAuthorization] = useState<
     ResourceDirectoryAuthorization | null
   >(null);
@@ -465,7 +468,9 @@ export default function App() {
   ), []);
 
   useEffect(() => {
-    if (settingsState.settings) setEditorPaneRatio(settingsState.settings.editorPaneRatio);
+    if (!settingsState.settings) return;
+    setEditorPaneRatio(settingsState.settings.editorPaneRatio);
+    applyEditorFontSize(document.documentElement, settingsState.settings.editorFontSize);
   }, [settingsState.settings]);
 
   const {
@@ -1904,7 +1909,6 @@ export default function App() {
   }, [activeFileKind, content, previewPaneRef]);
 
   useEffect(() => {
-    if (isPopout) return;
     const shortcuts = resolveShortcutProfile(settingsState.settings?.shortcuts ?? {});
     const actions: Record<ShortcutAction, () => void> = {
       save: () => void handleSave(),
@@ -1913,13 +1917,20 @@ export default function App() {
       workspaceSearch: () => showWorkspaceSearchDialog('workspace-search'),
       export: openExportDialog,
       settings: () => setShowSettings(true),
+      editorFontLarger: editorFontSize.increase,
+      editorFontSmaller: editorFontSize.decrease,
+      editorFontReset: editorFontSize.reset,
     };
+    // 字号快捷键与保存同级：编辑器输入过程中直接可用，且在弹出编辑器窗口也生效
+    //（字号设置经设置事件跨窗口同步）；其余动作维持仅主窗口。
+    const fontActions: ReadonlySet<ShortcutAction> = new Set(['editorFontLarger', 'editorFontSmaller', 'editorFontReset']);
     const onKeyDown = (event: KeyboardEvent) => {
       if (openIntentModalActive) return;
       const target = event.target as HTMLElement | null;
       const typing = target?.matches('input, textarea, select, [contenteditable="true"]') ?? false;
       for (const action of Object.keys(shortcuts) as ShortcutAction[]) {
-        if (typing && action !== 'save' && action !== 'saveAs') continue;
+        if (isPopout && !fontActions.has(action)) continue;
+        if (typing && action !== 'save' && action !== 'saveAs' && !fontActions.has(action)) continue;
         if (!shortcutMatchesEvent(shortcuts[action], event)) continue;
         event.preventDefault();
         actions[action]();
@@ -1928,7 +1939,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleSave, handleSaveAs, isPopout, openExportDialog, openIntentModalActive, settingsState.settings?.shortcuts, showWorkspaceSearchDialog]);
+  }, [editorFontSize, handleSave, handleSaveAs, isPopout, openExportDialog, openIntentModalActive, settingsState.settings?.shortcuts, showWorkspaceSearchDialog]);
 
   const runExport = useCallback(async () => {
     setExportBusy(true);
@@ -2327,7 +2338,7 @@ export default function App() {
           ? <WorkspaceImagePreview key={activePath} enabled={documentAssetsEnabled} path={activePath} popout previewRevision={previewRevision} />
           : isMediaFile && activePath
             ? <WorkspaceMediaPreview key={activePath} enabled={documentAssetsEnabled} kind={mediaKind} mimeType={mediaMimeType} path={activePath} popout previewRevision={previewRevision} />
-            : <EditorPane activePath={activePath} content={content} documentEpoch={documentEpoch} documentId={documentId} editable={authorityStatus === 'committed'} fileKind={editorFileKind} mediaInsertion={currentMediaInsertion} outlineJump={currentOutlineJump} onContentChange={updateContent} onPasteError={handleEditorPasteError} onPasteImage={handleClipboardImagePaste} popout spellcheckEnabled={settingsState.settings?.spellcheckEnabled ?? true} />}
+            : <EditorPane activePath={activePath} content={content} documentEpoch={documentEpoch} documentId={documentId} editable={authorityStatus === 'committed'} fileKind={editorFileKind} fontSize={editorFontSize.fontSize} mediaInsertion={currentMediaInsertion} outlineJump={currentOutlineJump} onContentChange={updateContent} onFontSizeDecrease={editorFontSize.decrease} onFontSizeIncrease={editorFontSize.increase} onFontSizeReset={editorFontSize.reset} onPasteError={handleEditorPasteError} onPasteImage={handleClipboardImagePaste} popout spellcheckEnabled={settingsState.settings?.spellcheckEnabled ?? true} />}
       </PopoutPaneShell>
     );
   }
@@ -2635,11 +2646,15 @@ export default function App() {
               documentId={documentId}
               editable={authorityStatus === 'committed'}
               fileKind={editorFileKind}
+              fontSize={editorFontSize.fontSize}
               mediaInsertion={currentMediaInsertion}
               outlineJump={currentOutlineJump}
               paneRef={editorPaneRef}
               popoutButton={editorPopoutButton}
               onContentChange={updateContent}
+              onFontSizeDecrease={editorFontSize.decrease}
+              onFontSizeIncrease={editorFontSize.increase}
+              onFontSizeReset={editorFontSize.reset}
               onPasteError={handleEditorPasteError}
               onPasteImage={handleClipboardImagePaste}
               onPopout={handleEditorPopoutOpen}

@@ -756,8 +756,62 @@ describe('EditorPane', () => {
     expect(onContentChange).not.toHaveBeenCalled();
   });
 
-  it('shows live document statistics and the current cursor location', () => {
-    const content = 'Hello 世界\nnext';
+  it('exposes editor font size controls in the status bar with boundary states', () => {
+    const onIncrease = vi.fn<() => void>();
+    const onDecrease = vi.fn<() => void>();
+    const onReset = vi.fn<() => void>();
+    const renderPane = (fontSize?: number) => {
+      act(() => {
+        root.render(
+          <EditorPane
+            activePath="/workspace/notes.md"
+            content="# Notes"
+            documentEpoch={1}
+            documentId="document-notes"
+            fontSize={fontSize}
+            onContentChange={vi.fn<(value: string) => void>()}
+            onFontSizeDecrease={onDecrease}
+            onFontSizeIncrease={onIncrease}
+            onFontSizeReset={onReset}
+          />,
+        );
+      });
+    };
+
+    renderPane(16);
+    const group = container.querySelector<HTMLElement>('[aria-label="Editor font size"]');
+    expect(group?.textContent).toContain('16px');
+    const buttons = Array.from(group?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+    expect(buttons).toHaveLength(3);
+
+    act(() => buttons[0].click());
+    expect(onDecrease).toHaveBeenCalledTimes(1);
+    act(() => buttons[2].click());
+    expect(onIncrease).toHaveBeenCalledTimes(1);
+    act(() => buttons[1].click());
+    expect(onReset).toHaveBeenCalledTimes(1);
+
+    renderPane(12);
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-editor-font-action="decrease"]')?.disabled,
+    ).toBe(true);
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-editor-font-action="increase"]')?.disabled,
+    ).toBe(false);
+
+    renderPane(28);
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-editor-font-action="decrease"]')?.disabled,
+    ).toBe(false);
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-editor-font-action="increase"]')?.disabled,
+    ).toBe(true);
+
+    renderPane(undefined);
+    expect(container.querySelector('[aria-label="Editor font size"]')).toBeNull();
+  });
+
+  it('shows live document statistics and the current cursor location', () => {    const content = 'Hello 世界\nnext';
     act(() => {
       root.render(
         <EditorPane

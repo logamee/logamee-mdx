@@ -8,14 +8,15 @@ import { Annotation, Compartment, countColumn, EditorState, Transaction, type Ch
 import { drawSelection, EditorView, keymap, lineNumbers } from '@codemirror/view';
 import { tagHighlighter, tags } from '@lezer/highlight';
 import { vim } from '@replit/codemirror-vim';
-import { Bold, Code, Command, Image as ImageIcon, Italic, Link, MessageSquareWarning, Sigma, Strikethrough, Table } from 'lucide-react';
 import { applyMarkdownFormatCommand, type MarkdownFormatCommandId } from '../lib/markdownFormatCommands';
+import { Bold, Code, Command, Image as ImageIcon, Italic, Link, MessageSquareWarning, Sigma, Strikethrough, Table, ZoomIn, ZoomOut } from 'lucide-react';
 import { markdownCompletionExtension } from '../lib/markdownCompletion';
 import type { MarkdownOutlineJump } from '../lib/markdownOutline';
 import type { MarkdownMediaInsertion } from '../lib/markdownMedia';
 import type { PanePopoutButtonState } from '../lib/paneLayout';
 import { displayName } from '../lib/documentNames';
 import { getEditorDocumentStats, type EditorDocumentStats } from '../lib/editorStatus';
+import { MAX_EDITOR_FONT_SIZE, MIN_EDITOR_FONT_SIZE } from '../lib/settings';
 import { RICH_PASTE_LIMITS, RichPasteConversionError, convertRichClipboardPayload } from '../lib/richPaste';
 import { MarkdownFormatDialog } from './MarkdownFormatDialog';
 import { PaneHeader } from './PaneHeader';
@@ -30,8 +31,12 @@ interface EditorPaneProps {
   documentId: string;
   editable?: boolean;
   fileKind?: Extract<WorkspaceFileKind, 'markdown' | 'html'>;
+  fontSize?: number;
   mediaInsertion?: MarkdownMediaInsertion | null;
   onContentChange: (content: string) => void;
+  onFontSizeDecrease?: () => void;
+  onFontSizeIncrease?: () => void;
+  onFontSizeReset?: () => void;
   onPasteError?: (error: unknown) => void;
   onPasteImage?: (request: ClipboardImagePasteRequest) => Promise<string | null>;
   outlineJump?: MarkdownOutlineJump | null;
@@ -310,7 +315,7 @@ function isMarkdownFormatShortcut(event: KeyboardEvent): boolean {
     && isSlashKey;
 }
 
-export function EditorPane({ activePath, content, documentEpoch, documentId, editable = true, fileKind = 'markdown', mediaInsertion, onContentChange, onPasteError, onPasteImage, outlineJump, onPopout, paneRef, popoutButton, popout = false, spellcheckEnabled = true }: EditorPaneProps) {
+export function EditorPane({ activePath, content, documentEpoch, documentId, editable = true, fileKind = 'markdown', fontSize, mediaInsertion, onContentChange, onFontSizeDecrease, onFontSizeIncrease, onFontSizeReset, onPasteError, onPasteImage, outlineJump, onPopout, paneRef, popoutButton, popout = false, spellcheckEnabled = true }: EditorPaneProps) {
   const { t } = useI18n();
   const editorLabel = fileKind === 'html' ? t('htmlSourceEditor') : t('markdownSourceEditor');
   const [vimModeEnabled, setVimModeEnabled] = useState(false);
@@ -956,6 +961,43 @@ export function EditorPane({ activePath, content, documentEpoch, documentId, edi
         <span className="editor-status-stat editor-status-characters">{t('characters', { count: editorStatus.characters })}</span>
         <span className="editor-status-stat editor-status-lines">{t('lines', { count: editorStatus.lines })}</span>
         <span className="editor-status-cursor">{t('lineColumn', { line: editorStatus.line, column: editorStatus.column })}</span>
+        {fontSize !== undefined && (
+          <span className="editor-status-font" role="toolbar" aria-label={t('editorFontSizeControl')}>
+            <button
+              type="button"
+              className="editor-status-font-button"
+              data-editor-font-action="decrease"
+              aria-label={t('editorFontDecrease')}
+              title={t('editorFontDecrease')}
+              disabled={fontSize <= MIN_EDITOR_FONT_SIZE || !onFontSizeDecrease}
+              onClick={() => onFontSizeDecrease?.()}
+            >
+              <ZoomOut size={13} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="editor-status-font-value"
+              data-editor-font-action="reset"
+              aria-label={t('editorFontReset')}
+              title={t('editorFontReset')}
+              disabled={!onFontSizeReset}
+              onClick={() => onFontSizeReset?.()}
+            >
+              {fontSize}px
+            </button>
+            <button
+              type="button"
+              className="editor-status-font-button"
+              data-editor-font-action="increase"
+              aria-label={t('editorFontIncrease')}
+              title={t('editorFontIncrease')}
+              disabled={fontSize >= MAX_EDITOR_FONT_SIZE || !onFontSizeIncrease}
+              onClick={() => onFontSizeIncrease?.()}
+            >
+              <ZoomIn size={13} aria-hidden="true" />
+            </button>
+          </span>
+        )}
       </footer>
       {contextMenuState && (
         <div

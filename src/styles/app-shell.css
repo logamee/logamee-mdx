@@ -1427,7 +1427,9 @@ button.empty-sidebar:disabled { cursor: default; }
   height: 100%;
   background: var(--editor-bg);
   color: var(--editor-text);
-  font: 14px/1.65 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--editor-font-size);
+  line-height: 1.65;
 }
 
 .editor-host .cm-editor.cm-focused { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
@@ -1480,6 +1482,53 @@ button.empty-sidebar:disabled { cursor: default; }
   color: var(--chrome-text);
   text-align: right;
   text-overflow: ellipsis;
+}
+
+.editor-status-font {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.editor-status-font-button,
+.editor-status-font-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+}
+
+.editor-status-font-value { min-width: 34px; font-weight: 600; }
+
+.editor-status-font-button:hover:not(:disabled),
+.editor-status-font-value:hover:not(:disabled) {
+  background: var(--control-hover);
+  color: var(--chrome-text);
+}
+
+.editor-status-font-button:focus-visible,
+.editor-status-font-value:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.editor-status-font-button:disabled,
+.editor-status-font-value:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
 }
 
 @container editor-pane (max-width: 420px) {
@@ -1690,7 +1739,6 @@ button.empty-sidebar:disabled { cursor: default; }
 .popout-shell { background: var(--panel); }
 .popout-pane { min-height: 0; flex: 1; }
 .popout-pane .pane-title { min-height: 40px; }
-.popout-pane.editor-pane .cm-editor { font-size: 15px; }
 
 @media (prefers-reduced-transparency: reduce) {
   .toolbar,

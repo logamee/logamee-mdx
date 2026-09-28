@@ -3,6 +3,7 @@ import { FolderOpen, RotateCcw, Settings2, X } from 'lucide-react';
 import type { AppSettings } from '../types';
 import type { EffectiveLocale } from '../lib/locale';
 import type { SettingsRecovery } from '../hooks/useSettings';
+import { MAX_EDITOR_FONT_SIZE, MIN_EDITOR_FONT_SIZE } from '../lib/settings';
 import { SKINS } from '../lib/theme';
 import {
   DEFAULT_SHORTCUTS,
@@ -32,6 +33,9 @@ const copy = {
     title: 'Settings', autosave: 'Autosave', autosaveDelay: 'Save delay', milliseconds: 'ms',
     spellcheck: 'Spellcheck', wikilinks: 'Wikilinks', resources: 'Resource folder', layout: 'Editor width',
     appearance: 'Appearance', skin: 'Theme', followSystem: 'Follow system theme', language: 'Language',
+    editorFontSize: 'Editor font size', fontSizeUnit: 'px',
+    autosaveDelayInvalid: 'Save delay must be between 250 and 60000 ms.',
+    fontSizeInvalid: 'Editor font size must be between 12 and 28 px.',
     save: 'Save', cancel: 'Cancel', reset: 'Reset Settings', retry: 'Try Again',
     recoveryTitle: 'Settings Could Not Be Loaded',
     recoveryMessage: 'The saved settings are unavailable or incompatible. Retry, or reset them to verified defaults.',
@@ -48,12 +52,15 @@ const copy = {
     chooseResources: 'Choose resource folder',
     shortcuts: 'Keyboard Shortcuts', resetShortcuts: 'Restore shortcut defaults',
     shortcutConflict: 'Shortcut conflict', shortcutInvalid: 'Enter a supported shortcut.',
-    shortcutLabels: { save: 'Save', saveAs: 'Save as', quickOpen: 'Quick open', workspaceSearch: 'Workspace search', export: 'Export', settings: 'Settings' },
+    shortcutLabels: { save: 'Save', saveAs: 'Save as', quickOpen: 'Quick open', workspaceSearch: 'Workspace search', export: 'Export', settings: 'Settings', editorFontLarger: 'Increase editor font', editorFontSmaller: 'Decrease editor font', editorFontReset: 'Reset editor font' },
   },
   'zh-CN': {
     title: '设置', autosave: '自动保存', autosaveDelay: '保存延迟', milliseconds: '毫秒',
     spellcheck: '拼写检查', wikilinks: '双向链接', resources: '资源文件夹', layout: '编辑区宽度',
     appearance: '外观', skin: '主题', followSystem: '跟随系统主题', language: '语言',
+    editorFontSize: '编辑器字号', fontSizeUnit: 'px',
+    autosaveDelayInvalid: '保存延迟需在 250 到 60000 毫秒之间。',
+    fontSizeInvalid: '编辑器字号需在 12 到 28 px 之间。',
     save: '保存', cancel: '取消', reset: '重置设置', retry: '重试',
     recoveryTitle: '无法加载设置',
     recoveryMessage: '已保存的设置不可用或不兼容。请重试，或将设置重置为已验证的默认值。',
@@ -70,7 +77,7 @@ const copy = {
     chooseResources: '选择资源文件夹',
     shortcuts: '键盘快捷键', resetShortcuts: '恢复默认快捷键',
     shortcutConflict: '快捷键冲突', shortcutInvalid: '请输入受支持的快捷键。',
-    shortcutLabels: { save: '保存', saveAs: '另存为', quickOpen: '快速打开', workspaceSearch: '工作区搜索', export: '导出', settings: '设置' },
+    shortcutLabels: { save: '保存', saveAs: '另存为', quickOpen: '快速打开', workspaceSearch: '工作区搜索', export: '导出', settings: '设置', editorFontLarger: '放大编辑器字号', editorFontSmaller: '缩小编辑器字号', editorFontReset: '重置编辑器字号' },
   },
 };
 
@@ -126,9 +133,16 @@ export function SettingsDialog({
   } catch {
     shortcutsValid = false;
   }
+  const autosaveDelayInvalid = !Number.isFinite(draft.autosaveDelayMs)
+    || draft.autosaveDelayMs < 250
+    || draft.autosaveDelayMs > 60000;
+  const fontSizeInvalid = !Number.isFinite(draft.editorFontSize)
+    || draft.editorFontSize < MIN_EDITOR_FONT_SIZE
+    || draft.editorFontSize > MAX_EDITOR_FONT_SIZE;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (!shortcutsValid || shortcutConflicts.length > 0 || autosaveDelayInvalid || fontSizeInvalid) return;
     void onSave({ ...draft, shortcuts: resolveShortcutProfile(draft.shortcuts) });
   };
 
@@ -149,6 +163,7 @@ export function SettingsDialog({
           <section className="settings-section">
             <label className="settings-toggle"><span>{text.autosave}</span><input name="autosaveEnabled" type="checkbox" checked={draft.autosaveEnabled} onChange={(event) => setDraft({ ...draft, autosaveEnabled: event.target.checked })} /></label>
             <label className="settings-field"><span>{text.autosaveDelay}</span><span className="settings-number"><input name="autosaveDelayMs" type="number" min="250" max="60000" step="250" value={draft.autosaveDelayMs} onChange={(event) => setDraft({ ...draft, autosaveDelayMs: Number(event.target.value) })} /><small>{text.milliseconds}</small></span></label>
+            {autosaveDelayInvalid && <p className="settings-validation" role="alert">{text.autosaveDelayInvalid}</p>}
             <label className="settings-toggle"><span>{text.spellcheck}</span><input name="spellcheckEnabled" type="checkbox" checked={draft.spellcheckEnabled} onChange={(event) => setDraft({ ...draft, spellcheckEnabled: event.target.checked })} /></label>
             <label className="settings-toggle"><span>{text.wikilinks}</span><input name="wikilinksEnabled" type="checkbox" checked={draft.wikilinksEnabled} onChange={(event) => setDraft({ ...draft, wikilinksEnabled: event.target.checked })} /></label>
           </section>
@@ -220,6 +235,8 @@ export function SettingsDialog({
               </div>
             </fieldset>
             <label className="settings-toggle"><span>{text.followSystem}</span><input name="followSystemTheme" type="checkbox" checked={draft.followSystemTheme} onChange={(event) => setDraft({ ...draft, followSystemTheme: event.target.checked })} /></label>
+            <label className="settings-field"><span>{text.editorFontSize}</span><span className="settings-number"><input name="editorFontSize" type="number" min={MIN_EDITOR_FONT_SIZE} max={MAX_EDITOR_FONT_SIZE} step="1" value={draft.editorFontSize} onChange={(event) => setDraft({ ...draft, editorFontSize: Number(event.target.value) })} /><small>{text.fontSizeUnit}</small></span></label>
+            {fontSizeInvalid && <p className="settings-validation" role="alert">{text.fontSizeInvalid}</p>}
             <label className="settings-field"><span>{text.language}</span><select name="localeMode" value={draft.localeMode} onChange={(event) => setDraft({ ...draft, localeMode: event.target.value as AppSettings['localeMode'] })}><option value="system">System</option><option value="zh-CN">简体中文</option><option value="en">English</option></select></label>
           </section>
 
@@ -235,7 +252,7 @@ export function SettingsDialog({
           <div className="settings-dialog-actions">
             <button type="button" className="dialog-button ghost" disabled={busy} onClick={() => void onReset()}><RotateCcw size={14} aria-hidden="true" />{text.reset}</button>
             <button type="button" className="dialog-button ghost" disabled={busy} onClick={onClose}>{text.cancel}</button>
-            <button type="submit" className="dialog-button secondary" disabled={busy || !shortcutsValid || shortcutConflicts.length > 0}>{text.save}</button>
+            <button type="submit" className="dialog-button secondary" disabled={busy || !shortcutsValid || shortcutConflicts.length > 0 || autosaveDelayInvalid || fontSizeInvalid}>{text.save}</button>
           </div>
         </form>
       </dialog>
