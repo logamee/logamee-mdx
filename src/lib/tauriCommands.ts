@@ -618,6 +618,65 @@ export async function writeWorkspaceResource(
   return decodeWriteWorkspaceResourceResponse(await invoke<unknown>('write_workspace_resource', { input }));
 }
 
+export interface PickMediaResourcesInput {
+  mediaKind: 'image' | 'video' | 'audio' | 'html';
+  defaultDirectory: string;
+  workspaceToken: string;
+  workspaceRoot: string;
+  documentPath: string;
+  resourceDirectory: string;
+  resourceDirectoryToken?: string;
+}
+
+export interface PickedMediaResource {
+  name: string;
+  markdownPath: string;
+}
+
+function isSafePickedMarkdownPath(value: string): boolean {
+  return value.length > 0
+    && value.length <= 4096
+    && !value.startsWith('/')
+    && !value.includes('\\')
+    && !/^[A-Za-z][A-Za-z0-9+.-]*:/u.test(value)
+    && !value.split('/').some((segment) => segment === '' || segment === '.');
+}
+
+function decodePickedMediaResources(value: unknown): PickedMediaResource[] {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Invalid picked media response');
+  }
+  const record = value as Record<string, unknown>;
+  if (!Array.isArray(record.resources)) {
+    throw new Error('Invalid picked media response');
+  }
+  return record.resources.map((resource): PickedMediaResource => {
+    if (
+      typeof resource !== 'object'
+      || resource === null
+      || Array.isArray(resource)
+    ) {
+      throw new Error('Invalid picked media response');
+    }
+    const entry = resource as Record<string, unknown>;
+    if (
+      Object.keys(entry).length !== 2
+      || typeof entry.name !== 'string'
+      || typeof entry.markdownPath !== 'string'
+      || entry.name.length === 0
+      || entry.name.length > 255
+      || !isSafePickedMarkdownPath(entry.markdownPath)
+    ) {
+      throw new Error('Invalid picked media response');
+    }
+    return { name: entry.name, markdownPath: entry.markdownPath };
+  });
+}
+
+export async function pickMediaResources(input: PickMediaResourcesInput): Promise<PickedMediaResource[]> {
+  return decodePickedMediaResources(await invoke<unknown>('pick_media_resources', { input }));
+}
+
 export async function writeExcalidrawAssetPair(
   input: WriteExcalidrawAssetPairInput,
 ): Promise<WriteExcalidrawAssetPairResponse> {

@@ -1501,8 +1501,64 @@ describe('EditorPane', () => {
       .toContain('Divider');
   });
 
-  it('does not open the palette when Left Control is released before the hold completes', () => {
+  it('routes palette media commands to the resource picker instead of placeholders', () => {
+    const onMediaCommandPick = vi.fn<(command: string) => void>();
+    const onContentChange = vi.fn<(content: string) => void>();
     act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={onContentChange}
+          onMediaCommandPick={onMediaCommandPick}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    openFormatPaletteByHoldingControl(view);
+    act(() => container.querySelector<HTMLButtonElement>('[data-command-id="image"]')?.click());
+
+    expect(onMediaCommandPick).toHaveBeenCalledTimes(1);
+    expect(onMediaCommandPick).toHaveBeenCalledWith('image');
+    expect(container.querySelector('.markdown-format-dialog')).toBeNull();
+    expect(view.state.doc.toString()).toBe('alpha');
+    expect(onContentChange).not.toHaveBeenCalled();
+
+    openFormatPaletteByHoldingControl(view);
+    act(() => container.querySelector<HTMLButtonElement>('[data-command-id="meme"]')?.click());
+    expect(onMediaCommandPick).toHaveBeenLastCalledWith('meme');
+    expect(view.state.doc.toString()).toBe('alpha');
+  });
+
+  it('keeps placeholder insertion when no media picker is provided', () => {
+    const onContentChange = vi.fn<(content: string) => void>();
+    act(() => {
+      root.render(
+        <EditorPane
+          activePath="/workspace/notes.md"
+          content="alpha"
+          documentEpoch={1}
+          documentId="document-notes"
+          onContentChange={onContentChange}
+        />,
+      );
+    });
+    const editor = container.querySelector<HTMLElement>('.cm-editor');
+    const view = editor ? EditorView.findFromDOM(editor) : null;
+    if (!view) throw new Error('Expected CodeMirror editor');
+
+    openFormatPaletteByHoldingControl(view);
+    act(() => container.querySelector<HTMLButtonElement>('[data-command-id="image"]')?.click());
+
+    expect(view.state.doc.toString()).toContain('![alt text](path/to/image.png)');
+  });
+
+  it('does not open the palette when Left Control is released before the hold completes', () => {    act(() => {
       root.render(
         <EditorPane
           activePath="/workspace/notes.md"

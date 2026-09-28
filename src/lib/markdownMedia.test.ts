@@ -4,6 +4,7 @@ import {
   createMarkdownExcalidrawAssetReference,
   createMarkdownMediaDestination,
   createMarkdownMediaReference,
+  createMarkdownPickedMediaReference,
   decodeMarkdownMediaCursorInsertion,
   decodeMarkdownMediaInsertionHandshake,
   decodeMarkdownMediaInsertionReady,
@@ -21,6 +22,19 @@ describe('Markdown media references', () => {
     )).toBe('![clipboard \\[final\\].png](../../shared%20assets/clipboard%20%28final%29.png)');
     expect(createMarkdownImageReference('private.png', '/tmp/private.png')).toBeNull();
     expect(createMarkdownImageReference('private.png', 'file:///tmp/private.png')).toBeNull();
+  });
+
+  it('creates picker references for image, video, meme, and embed commands', () => {
+    expect(createMarkdownPickedMediaReference('image', 'cover.png', 'assets/cover.png'))
+      .toBe('![cover.png](assets/cover.png)');
+    expect(createMarkdownPickedMediaReference('video', 'demo clip.mp4', '../videos/demo clip.mp4'))
+      .toBe('![demo clip.mp4](../videos/demo%20clip.mp4)');
+    expect(createMarkdownPickedMediaReference('meme', 'funny [x].gif', 'assets/funny x.gif'))
+      .toBe('![funny \\[x\\].gif](assets/funny%20x.gif "mmd:meme")');
+    expect(createMarkdownPickedMediaReference('html-embed', 'demo.html', 'demos/demo.html'))
+      .toBe('[demo.html](demos/demo.html "mmd:embed")');
+    expect(createMarkdownPickedMediaReference('image', 'private.png', '/tmp/private.png')).toBeNull();
+    expect(createMarkdownPickedMediaReference('image', 'private.png', 'https://example.test/x.png')).toBeNull();
   });
 
   it('creates an image reference from a workspace-relative asset path', () => {

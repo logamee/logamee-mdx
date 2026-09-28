@@ -8,8 +8,8 @@ import { Annotation, Compartment, countColumn, EditorState, Transaction, type Ch
 import { drawSelection, EditorView, keymap, lineNumbers } from '@codemirror/view';
 import { tagHighlighter, tags } from '@lezer/highlight';
 import { vim } from '@replit/codemirror-vim';
-import { applyMarkdownFormatCommand, type MarkdownFormatCommandId } from '../lib/markdownFormatCommands';
 import { Bold, Code, Command, Image as ImageIcon, Italic, Link, MessageSquareWarning, Sigma, Strikethrough, Table, ZoomIn, ZoomOut } from 'lucide-react';
+import { applyMarkdownFormatCommand, type MarkdownFormatCommandId, type MediaEmbedCommandId } from '../lib/markdownFormatCommands';
 import { markdownCompletionExtension } from '../lib/markdownCompletion';
 import type { MarkdownOutlineJump } from '../lib/markdownOutline';
 import type { MarkdownMediaInsertion } from '../lib/markdownMedia';
@@ -37,6 +37,8 @@ interface EditorPaneProps {
   onFontSizeDecrease?: () => void;
   onFontSizeIncrease?: () => void;
   onFontSizeReset?: () => void;
+  // 媒体命令（图片/视频/梗图/HTML 嵌入）改走系统资源选择器；未提供时退回占位文本。
+  onMediaCommandPick?: (command: MediaEmbedCommandId) => void;
   onPasteError?: (error: unknown) => void;
   onPasteImage?: (request: ClipboardImagePasteRequest) => Promise<string | null>;
   outlineJump?: MarkdownOutlineJump | null;
@@ -315,7 +317,7 @@ function isMarkdownFormatShortcut(event: KeyboardEvent): boolean {
     && isSlashKey;
 }
 
-export function EditorPane({ activePath, content, documentEpoch, documentId, editable = true, fileKind = 'markdown', fontSize, mediaInsertion, onContentChange, onFontSizeDecrease, onFontSizeIncrease, onFontSizeReset, onPasteError, onPasteImage, outlineJump, onPopout, paneRef, popoutButton, popout = false, spellcheckEnabled = true }: EditorPaneProps) {
+export function EditorPane({ activePath, content, documentEpoch, documentId, editable = true, fileKind = 'markdown', fontSize, mediaInsertion, onContentChange, onFontSizeDecrease, onFontSizeIncrease, onFontSizeReset, onMediaCommandPick, onPasteError, onPasteImage, outlineJump, onPopout, paneRef, popoutButton, popout = false, spellcheckEnabled = true }: EditorPaneProps) {
   const { t } = useI18n();
   const editorLabel = fileKind === 'html' ? t('htmlSourceEditor') : t('markdownSourceEditor');
   const [vimModeEnabled, setVimModeEnabled] = useState(false);
@@ -866,6 +868,22 @@ export function EditorPane({ activePath, content, documentEpoch, documentId, edi
   const applyFormatCommand = (command: MarkdownFormatCommandId) => {
     const view = editorViewRef.current;
     const target = formatTargetRef.current;
+    if (
+      command === 'image'
+      || command === 'video'
+      || command === 'meme'
+      || command === 'html-embed'
+    ) {
+      // 媒体命令交给资源选择流程：先关面板并交还焦点，插入点取选择完成后的当前光标。
+      if (onMediaCommandPick) {
+        formatTargetRef.current = null;
+        setFormatDialogOpen(false);
+        dismissContextMenu();
+        editorViewRef.current?.focus();
+        onMediaCommandPick(command);
+        return;
+      }
+    }
     if (
       !view
       || !target

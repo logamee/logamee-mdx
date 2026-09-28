@@ -45,6 +45,15 @@ Rust 端在实际打开、读取、写入、重命名、移动、删除和提供
    目标时，必须在本次会话提供 `resource_directory_token`，并由 Rust 将令牌
    解析为对应的授权根；没有令牌时拒绝该绝对目标。读取同样必须重新标准化并
    匹配当前有效的工作区/资源授权，不得把目录字符串或 `..` 本身当作权限。
+6. 格式面板媒体插入走 `pick_media_resources`（`resource_store.rs`）：调用
+   前须通过与粘贴资源写入相同的工作区/文档/资源目录授权链校验；选择器
+   返回的路径是用户在系统对话框中亲自授权的单次读取来源，信任级别与打开
+   文档一致。落在当前工作区内的选中文件只生成相对引用，不复制；工作区外
+   的文件仅在本次命令内导入资源目录（md5 稳定命名、大小与类型校验与粘贴
+   管线一致，SVG 不参与导入），不产生任何持久路径授权，前端对返回的
+   `markdownPath` 做相对路径严格解码。对话框起始目录按平台规范化（Windows
+   盘根 `C:` 归一为 `C:/`）并做存在性校验，失效输入回退系统默认位置，
+   保证 Linux、Windows、macOS 的原生文件对话框都不会收到无效起始目录。
 
 ### 读取、预览与 CSP
 
@@ -95,6 +104,7 @@ Rust 端在实际打开、读取、写入、重命名、移动、删除和提供
 | DOCX 输入 | 32 MiB；ZIP 最多 10,000 个条目、展开后最多 128 MiB，展开比最多 100 倍 | `docx_preflight.rs`、`docxWorkerConversion.ts` |
 | DOCX 预览 HTML | 4 MiB；最多 50,000 个节点/图片；单图 8 MiB/24M 像素；总图 32 MiB/64M 像素 | `src/lib/docxResources.ts`、`docxSanitizer.ts` |
 | 一般工作区资源 | 16 MiB | `resource_store.rs` |
+| 格式面板媒体导入 | 图片/HTML 16 MiB；音频/视频 512 MiB | `resource_store.rs` |
 | HTML 预览站点 | 8 个活动站点；独立预览与嵌入共用上限 | `src-tauri/src/html_preview_server.rs` |
 | 导出载荷（Rust） | 每个载荷 64 MiB（含 Excalidraw 包成员）；HTML、PNG 还须通过格式签名校验 | `export_store.rs` |
 | 导出预检 | 文档 2,000,000 字符；生成 HTML 32 MiB；单图 16 MiB；PNG 80M 像素 | `src/lib/exportPreflight.ts`、`longPngExport.ts` |

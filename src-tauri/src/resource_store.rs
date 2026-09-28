@@ -1,5 +1,5 @@
 use std::{
-    fs::File,
+    fs::{self, File},
     io::{self, Read, Seek, SeekFrom, Write},
     path::{Component, Path, PathBuf},
     sync::Mutex,
@@ -69,6 +69,31 @@ pub(crate) struct WriteWorkspaceResourceResponse {
 pub(crate) struct ResourceDirectoryAuthorizationResponse {
     pub(crate) path: String,
     pub(crate) token: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PickMediaResourcesInput {
+    media_kind: String,
+    default_directory: String,
+    workspace_token: String,
+    workspace_root: String,
+    document_path: String,
+    resource_directory: String,
+    resource_directory_token: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PickedMediaResource {
+    pub(crate) name: String,
+    pub(crate) markdown_path: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PickMediaResourcesResponse {
+    pub(crate) resources: Vec<PickedMediaResource>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1319,6 +1344,268 @@ pub(crate) fn write_workspace_resource(
     write_workspace_resource_inner(&state, input)
 }
 
+const MAX_PICKED_AUDIO_VIDEO_BYTES: u64 = 512 * 1024 * 1024;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum MediaPickPlan {
+    Reference { markdown_path: String, name: String },
+    Import { source: PathBuf, name: String },
+}
+
+fn parse_picked_media_kind(value: &str) -> Result<WorkspaceFileKind, String> {
+    match value {
+        "image" => Ok(WorkspaceFileKind::Image),
+        "video" => Ok(WorkspaceFileKind::Video),
+        "audio" => Ok(WorkspaceFileKind::Audio),
+        "html" => Ok(WorkspaceFileKind::Html),
+        _ => Err("Unsupported media kind for resource picking".to_string()),
+    }
+}
+
+fn picked_media_filter_label(kind: WorkspaceFileKind) -> &'static str {
+    match kind {
+        WorkspaceFileKind::Image => "Images",
+        WorkspaceFileKind::Video => "Videos",
+        WorkspaceFileKind::Audio => "Audio",
+        _ => "HTML documents",
+    }
+}
+
+// 对话框起始目录只做字符串规范化：Windows 上文档位于盘根时前端算出的目录是
+// "C:"，它指向驱动器当前目录而非盘根，规范化为 "C:/" 才能定位到文档真实所在。
+fn normalize_picker_default_directory(input: &str) -> String {
+    let trimmed = input.trim();
+    let bytes = trimmed.as_bytes();
+    if bytes.len() == 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        return format!("{trimmed}/");
+    }
+    trimmed.to_string()
+}
+
+// 起始目录必须是真实存在的目录；空串、失效路径或文件一律回退对话框默认位置，
+// 避免把平台相关的无效目录交给原生文件对话框。
+fn resolve_picked_default_directory(input: &str) -> Option<PathBuf> {
+    let normalized = normalize_picker_default_directory(input);
+    if normalized.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(normalized);
+    let metadata = fs::metadata(&path).ok()?;
+    if !metadata.is_dir() {
+        return None;
+    }
+    Some(path)
+}
+
+fn resource_image_kind_for_extension(extension: &str) -> Option<ResourceImageKind> {
+    match extension {
+        "png" => Some(ResourceImageKind::Png),
+        "jpg" | "jpeg" => Some(ResourceImageKind::Jpeg),
+        "gif" => Some(ResourceImageKind::Gif),
+        "webp" => Some(ResourceImageKind::Webp),
+        _ => None,
+    }
+}
+
+fn picked_file_name(selected: &Path) -> Result<String, String> {
+    selected
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_string())
+        .filter(|name| !name.is_empty() && name.len() <= 255)
+        .ok_or_else(|| "The picked file has no usable file name".to_string())
+}
+
+// 资源选择器策略：工作区内的文件只生成相对引用（零拷贝，与文件树拖拽一致）；
+// 工作区外的文件必须导入资源目录后才可被安全引用。类型不匹配的选中项直接报错。
+pub(crate) fn plan_picked_media_resource(
+    workspace_root: &Path,
+    document_path: &Path,
+    selected: &Path,
+    media_kind: WorkspaceFileKind,
+) -> Result<MediaPickPlan, String> {
+    let classified = WorkspaceFileKind::classify(selected)
+        .ok_or_else(|| "The picked file is not a supported workspace file".to_string())?;
+    if classified != media_kind {
+        return Err(format!(
+            "The picked file does not match the {} picker",
+            picked_media_filter_label(media_kind)
+        ));
+    }
+    let name = picked_file_name(selected)?;
+    if path_is_under(selected, workspace_root) {
+        let document_directory = document_path
+            .parent()
+            .ok_or_else(|| "Markdown document has no parent directory".to_string())?;
+        let markdown_path = markdown_relative_path(document_directory, selected)?;
+        Ok(MediaPickPlan::Reference { markdown_path, name })
+    } else {
+        Ok(MediaPickPlan::Import {
+            source: selected.to_path_buf(),
+            name,
+        })
+    }
+}
+
+pub(crate) fn import_picked_media_file(
+    state: &AppState,
+    resource_workspace: &AuthorizedWorkspace,
+    resource_subdirectory: &Path,
+    document_path: &Path,
+    media_kind: WorkspaceFileKind,
+    source: &Path,
+    max_bytes: u64,
+) -> Result<String, String> {
+    let extension = source
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .ok_or_else(|| "The picked media file has no usable extension".to_string())?;
+    if !media_kind.extensions().contains(&extension.as_str()) {
+        return Err("The picked file does not match the media picker kind".to_string());
+    }
+    if media_kind == WorkspaceFileKind::Image && extension == "svg" {
+        return Err(
+            "SVG files must be placed inside the workspace and referenced directly".to_string(),
+        );
+    }
+    let mut file =
+        File::open(source).map_err(|error| format!("Cannot read the picked media file: {error}"))?;
+    let mut bytes = Vec::new();
+    Read::by_ref(&mut file)
+        .take(max_bytes.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Cannot read the picked media file: {error}"))?;
+    if bytes.len() as u64 > max_bytes {
+        return Err("The picked media file exceeds the import size limit".to_string());
+    }
+    if media_kind == WorkspaceFileKind::Image {
+        if let Some(image_kind) = resource_image_kind_for_extension(&extension) {
+            image_kind.validate(&bytes, false)?;
+        }
+    }
+    let digest_md5 = md5_hex(&bytes);
+    let file_name = format!("{digest_md5}.{extension}");
+    let _write_guard = RESOURCE_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    state
+        .file_authorization()
+        .ensure_workspace_is_current(resource_workspace)?;
+    publish_resource_no_replace(
+        resource_workspace,
+        resource_subdirectory,
+        &file_name,
+        &bytes,
+        &digest_md5,
+    )?;
+    state
+        .file_authorization()
+        .ensure_workspace_is_current(resource_workspace)?;
+    let resource_path = resource_workspace
+        .root()
+        .join(resource_subdirectory)
+        .join(&file_name);
+    let document_directory = document_path
+        .parent()
+        .ok_or_else(|| "Markdown document has no parent directory".to_string())?;
+    markdown_relative_path(document_directory, &resource_path)
+}
+
+// 面板媒体插入的资源选择入口：默认目录为当前文档所在目录。选择器返回的路径
+// 是用户在系统对话框中亲自授权的单次读取来源，与打开文档同级信任；导入仅在
+// 本命令内完成，不产生持久路径授权。
+#[tauri::command]
+pub(crate) async fn pick_media_resources(
+    app: AppHandle,
+    input: PickMediaResourcesInput,
+    state: State<'_, AppState>,
+) -> Result<PickMediaResourcesResponse, String> {
+    pick_media_resources_inner(&state, &app, input)
+}
+
+fn pick_media_resources_inner(
+    state: &AppState,
+    app: &AppHandle,
+    input: PickMediaResourcesInput,
+) -> Result<PickMediaResourcesResponse, String> {
+    let media_kind = parse_picked_media_kind(&input.media_kind)?;
+    let resource_directory = validate_resource_directory(&input.resource_directory)?;
+    let document = open_exact_workspace_file_for_read_inner(
+        state,
+        &input.workspace_token,
+        &input.workspace_root,
+        &input.document_path,
+    )?;
+    if WorkspaceFileKind::classify(document.path()) != Some(WorkspaceFileKind::Markdown) {
+        return Err("Media picking requires an authorized Markdown document".to_string());
+    }
+    let workspace_auth = document
+        .workspace_authorization()
+        .ok_or_else(|| "Document is not authorized through the selected workspace".to_string())?;
+    if workspace_auth.wire_token() != input.workspace_token {
+        return Err("Document authorization does not match the selected workspace".to_string());
+    }
+    let _document_binding = workspace_auth.retained_file_binding();
+    let workspace = resolve_authorized_workspace_root_for_token_inner(
+        state,
+        &input.workspace_token,
+        &input.workspace_root,
+    )?;
+    if workspace.root() != workspace_auth.root()
+        || !path_is_under(document.path(), workspace.root())
+    {
+        return Err("Document authorization does not match the selected workspace".to_string());
+    }
+    let (resource_workspace, resource_subdirectory) = resolve_resource_target(
+        state,
+        &workspace,
+        resource_directory,
+        input.resource_directory_token.as_deref(),
+    )?;
+
+    let max_bytes = match media_kind {
+        WorkspaceFileKind::Video | WorkspaceFileKind::Audio => MAX_PICKED_AUDIO_VIDEO_BYTES,
+        _ => MAX_RESOURCE_BYTES as u64,
+    };
+    let mut builder = app
+        .dialog()
+        .file()
+        .add_filter(
+            picked_media_filter_label(media_kind),
+            media_kind.extensions(),
+        );
+    if let Some(default_directory) = resolve_picked_default_directory(&input.default_directory) {
+        builder = builder.set_directory(default_directory);
+    }
+    let selected_paths = builder.blocking_pick_files().unwrap_or_default();
+
+    let mut resources = Vec::with_capacity(selected_paths.len());
+    for selected in selected_paths {
+        let path = selected
+            .into_path()
+            .map_err(|error| format!("Invalid selected file path: {error}"))?;
+        match plan_picked_media_resource(workspace.root(), document.path(), &path, media_kind)? {
+            MediaPickPlan::Reference { markdown_path, name } => {
+                resources.push(PickedMediaResource { name, markdown_path });
+            }
+            MediaPickPlan::Import { source, name } => {
+                let markdown_path = import_picked_media_file(
+                    state,
+                    &resource_workspace,
+                    &resource_subdirectory,
+                    document.path(),
+                    media_kind,
+                    &source,
+                    max_bytes,
+                )?;
+                resources.push(PickedMediaResource { name, markdown_path });
+            }
+        }
+    }
+    Ok(PickMediaResourcesResponse { resources })
+}
+
 pub(crate) fn write_excalidraw_asset_pair_inner(
     state: &AppState,
     input: WriteExcalidrawAssetPairRequest,
@@ -1671,6 +1958,214 @@ mod tests {
         assert!(!second.created);
         assert_eq!(first.relative_path, second.relative_path);
         assert_eq!(first.digest_md5, second.digest_md5);
+    }
+
+    #[test]
+    fn plans_workspace_references_and_external_imports_for_picked_media() {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().to_path_buf();
+        let document = root.join("notes/draft.md");
+
+        let plan = plan_picked_media_resource(
+            &root,
+            &document,
+            &root.join("notes/pic.png"),
+            WorkspaceFileKind::Image,
+        )
+        .unwrap();
+        assert_eq!(
+            plan,
+            MediaPickPlan::Reference {
+                markdown_path: "pic.png".to_string(),
+                name: "pic.png".to_string(),
+            }
+        );
+
+        let plan = plan_picked_media_resource(
+            &root,
+            &document,
+            &root.join("assets/clip.mp4"),
+            WorkspaceFileKind::Video,
+        )
+        .unwrap();
+        assert_eq!(
+            plan,
+            MediaPickPlan::Reference {
+                markdown_path: "../assets/clip.mp4".to_string(),
+                name: "clip.mp4".to_string(),
+            }
+        );
+
+        assert!(plan_picked_media_resource(
+            &root,
+            &document,
+            &root.join("notes/draft.md"),
+            WorkspaceFileKind::Image
+        )
+        .is_err());
+
+        let external = TempDir::new().unwrap();
+        let plan = plan_picked_media_resource(
+            &root,
+            &document,
+            &external.path().join("photo.jpg"),
+            WorkspaceFileKind::Image,
+        )
+        .unwrap();
+        assert_eq!(
+            plan,
+            MediaPickPlan::Import {
+                source: external.path().join("photo.jpg"),
+                name: "photo.jpg".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn imports_picked_external_media_into_the_resource_directory() {
+        let state = AppState::default();
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("draft.md"), b"# Draft").unwrap();
+        let (token, root) = open_workspace_and_document(&state, &dir);
+        let workspace =
+            resolve_authorized_workspace_root_for_token_inner(&state, &token, &root).unwrap();
+        let document_path = Path::new(&root).join("draft.md");
+
+        let external = TempDir::new().unwrap();
+        let photo = external.path().join("vacation photo.png");
+        fs::write(&photo, PNG).unwrap();
+        let clip = external.path().join("clip.mp4");
+        fs::write(&clip, b"video-bytes").unwrap();
+
+        let image_markdown = import_picked_media_file(
+            &state,
+            &workspace,
+            Path::new("assets"),
+            &document_path,
+            WorkspaceFileKind::Image,
+            &photo,
+            MAX_RESOURCE_BYTES as u64,
+        )
+        .unwrap();
+        assert!(image_markdown.starts_with("assets/"));
+        assert!(image_markdown.ends_with(".png"));
+        assert_eq!(
+            fs::read(
+                Path::new(&root)
+                    .join("assets")
+                    .join(image_markdown.trim_start_matches("assets/"))
+            )
+            .unwrap(),
+            PNG
+        );
+
+        let video_markdown = import_picked_media_file(
+            &state,
+            &workspace,
+            Path::new("assets"),
+            &document_path,
+            WorkspaceFileKind::Video,
+            &clip,
+            MAX_PICKED_AUDIO_VIDEO_BYTES,
+        )
+        .unwrap();
+        assert!(video_markdown.starts_with("assets/"));
+        assert!(video_markdown.ends_with(".mp4"));
+
+        let again = import_picked_media_file(
+            &state,
+            &workspace,
+            Path::new("assets"),
+            &document_path,
+            WorkspaceFileKind::Image,
+            &photo,
+            MAX_RESOURCE_BYTES as u64,
+        )
+        .unwrap();
+        assert_eq!(again, image_markdown);
+    }
+
+    #[test]
+    fn normalizes_picker_default_directory_for_windows_drive_roots() {
+        assert_eq!(normalize_picker_default_directory("C:"), "C:/");
+        assert_eq!(normalize_picker_default_directory("d:"), "d:/");
+        assert_eq!(normalize_picker_default_directory("E:/"), "E:/");
+        assert_eq!(
+            normalize_picker_default_directory("/workspace/notes"),
+            "/workspace/notes"
+        );
+        assert_eq!(normalize_picker_default_directory("  assets  "), "assets");
+        assert_eq!(normalize_picker_default_directory(""), "");
+    }
+
+    #[test]
+    fn resolves_picker_default_directory_only_for_existing_directories() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("draft.md");
+        fs::write(&file, b"# Draft").unwrap();
+
+        assert_eq!(
+            resolve_picked_default_directory(dir.path().to_string_lossy().as_ref()),
+            Some(dir.path().to_path_buf())
+        );
+        assert_eq!(resolve_picked_default_directory(""), None);
+        assert_eq!(resolve_picked_default_directory("   "), None);
+        assert_eq!(resolve_picked_default_directory("/definitely/not/here"), None);
+        assert_eq!(resolve_picked_default_directory(file.to_string_lossy().as_ref()), None);
+    }
+
+    #[test]
+    fn rejects_unverifiable_or_oversized_picked_media_imports() {
+        let state = AppState::default();
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("draft.md"), b"# Draft").unwrap();
+        let (token, root) = open_workspace_and_document(&state, &dir);
+        let workspace =
+            resolve_authorized_workspace_root_for_token_inner(&state, &token, &root).unwrap();
+        let document_path = dir.path().join("draft.md");
+        let external = TempDir::new().unwrap();
+
+        let svg = external.path().join("icon.svg");
+        fs::write(&svg, b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>").unwrap();
+        let error = import_picked_media_file(
+            &state,
+            &workspace,
+            Path::new("assets"),
+            &document_path,
+            WorkspaceFileKind::Image,
+            &svg,
+            MAX_RESOURCE_BYTES as u64,
+        )
+        .unwrap_err();
+        assert!(error.contains("SVG"));
+
+        let disguised = external.path().join("not-really.png");
+        fs::write(&disguised, b"<html>not an image</html>").unwrap();
+        let error = import_picked_media_file(
+            &state,
+            &workspace,
+            Path::new("assets"),
+            &document_path,
+            WorkspaceFileKind::Image,
+            &disguised,
+            MAX_RESOURCE_BYTES as u64,
+        )
+        .unwrap_err();
+        assert!(error.contains("do not match"));
+
+        let oversized = external.path().join("huge.png");
+        fs::write(&oversized, PNG).unwrap();
+        let error = import_picked_media_file(
+            &state,
+            &workspace,
+            Path::new("assets"),
+            &document_path,
+            WorkspaceFileKind::Image,
+            &oversized,
+            4,
+        )
+        .unwrap_err();
+        assert!(error.contains("size limit"));
     }
 
     #[test]

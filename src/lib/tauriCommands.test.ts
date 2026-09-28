@@ -48,6 +48,7 @@ import {
   writeFile,
   writeExcalidrawAssetPair,
   writeWorkspaceResource,
+  pickMediaResources,
 } from './tauriCommands';
 
 const invokeMock = vi.hoisted(() => vi.fn<(command: string, payload?: unknown) => Promise<unknown>>());
@@ -757,6 +758,63 @@ describe('Tauri command wrappers', () => {
         resourceDirectoryToken: 'workspace-9',
       },
     });
+  });
+
+  it('picks media resources through a strictly decoded Tauri command', async () => {
+    invokeMock.mockResolvedValue({
+      resources: [
+        { name: 'cover.png', markdownPath: 'assets/cover.png' },
+        { name: 'holiday photo.jpg', markdownPath: 'assets/holiday photo.jpg' },
+      ],
+    });
+
+    await expect(pickMediaResources({
+      mediaKind: 'image',
+      defaultDirectory: '/workspace/notes',
+      workspaceToken: 'workspace-7',
+      workspaceRoot: '/workspace',
+      documentPath: '/workspace/notes/draft.md',
+      resourceDirectory: 'assets',
+      resourceDirectoryToken: 'workspace-9',
+    })).resolves.toEqual([
+      { name: 'cover.png', markdownPath: 'assets/cover.png' },
+      { name: 'holiday photo.jpg', markdownPath: 'assets/holiday photo.jpg' },
+    ]);
+    expect(invokeMock).toHaveBeenCalledWith('pick_media_resources', {
+      input: {
+        mediaKind: 'image',
+        defaultDirectory: '/workspace/notes',
+        workspaceToken: 'workspace-7',
+        workspaceRoot: '/workspace',
+        documentPath: '/workspace/notes/draft.md',
+        resourceDirectory: 'assets',
+        resourceDirectoryToken: 'workspace-9',
+      },
+    });
+  });
+
+  it('rejects malformed pick media responses and rejects unsafe markdown paths', async () => {
+    invokeMock.mockResolvedValueOnce({ resources: [{ name: 'cover.png' }] });
+    await expect(pickMediaResources({
+      mediaKind: 'image',
+      defaultDirectory: '/workspace',
+      workspaceToken: 'workspace-7',
+      workspaceRoot: '/workspace',
+      documentPath: '/workspace/draft.md',
+      resourceDirectory: 'assets',
+    })).rejects.toThrow('Invalid picked media response');
+
+    invokeMock.mockResolvedValueOnce({
+      resources: [{ name: 'outside.png', markdownPath: '/etc/outside.png' }],
+    });
+    await expect(pickMediaResources({
+      mediaKind: 'image',
+      defaultDirectory: '/workspace',
+      workspaceToken: 'workspace-7',
+      workspaceRoot: '/workspace',
+      documentPath: '/workspace/draft.md',
+      resourceDirectory: 'assets',
+    })).rejects.toThrow('Invalid picked media response');
   });
 
   it('authorizes an absolute resource directory through the native folder picker', async () => {

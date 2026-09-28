@@ -80,6 +80,7 @@ import {
 import {
   createMarkdownImageReference,
   createMarkdownMediaReference,
+  createMarkdownPickedMediaReference,
   decodeMarkdownMediaCursorInsertion,
   decodeMarkdownMediaInsertionHandshake,
   decodeMarkdownMediaInsertionReady,
@@ -96,6 +97,7 @@ import {
   type MarkdownMediaInsertionTarget,
 } from './lib/markdownMedia';
 import { createPaneProtocolId } from './lib/tauriPaneReplication';
+import type { MediaEmbedCommandId } from './lib/markdownFormatCommands';
 import {
   DEFAULT_WORKSPACE_SIDEBAR_WIDTH,
   getWorkspaceLayoutClassName,
@@ -108,6 +110,7 @@ import {
   focusMainWindow,
   getPackagedOpenE2eConfig,
   peekOpenIntent,
+  pickMediaResources,
   recordPackagedOpenAppEvent,
   rebuildWorkspaceIndex,
   requestSessionRestore,
@@ -702,6 +705,67 @@ export default function App() {
       return null;
     }
   }, [locale, setError, setNotice]);
+  // 格式面板媒体命令的资源选择入口：选择器默认定位当前文档所在目录；工作区内
+  // 的文件直接引用，工作区外的文件由后端导入资源目录后再引用（见 pick_media_resources）。
+  const handleEditorMediaCommandPick = useCallback(async (command: MediaEmbedCommandId) => {
+    const context = editorPasteContextRef.current;
+    const mediaKind: 'image' | 'video' | 'html' = command === 'image' || command === 'meme'
+      ? 'image'
+      : command === 'video'
+        ? 'video'
+        : 'html';
+    if (
+      !context.activePath
+      || !context.activeWorkspaceMarkdownFile
+      || !context.resourceDirectory
+      || !context.workspaceRoot
+      || !context.workspaceToken
+    ) {
+      setError(t('mediaPickUnavailable'));
+      setNotice(null);
+      return;
+    }
+    const isCurrentContext = () => {
+      const current = editorPasteContextRef.current;
+      return current.activeFileKind === 'markdown'
+        && current.authorityStatus === 'committed'
+        && current.activePath === context.activePath
+        && current.documentEpoch === context.documentEpoch
+        && current.documentId === context.documentId
+        && current.workspaceRoot === context.workspaceRoot
+        && current.workspaceToken === context.workspaceToken;
+    };
+    try {
+      const picked = await pickMediaResources({
+        mediaKind,
+        defaultDirectory: context.activePath.split(/[\\/]/u).slice(0, -1).join('/') || '/',
+        workspaceToken: context.workspaceToken,
+        workspaceRoot: context.workspaceRoot,
+        documentPath: context.activePath,
+        resourceDirectory: context.resourceDirectory,
+        ...(context.resourceDirectoryAuthorization?.path === context.resourceDirectory
+          ? { resourceDirectoryToken: context.resourceDirectoryAuthorization.token }
+          : {}),
+      });
+      if (!isCurrentContext()) return;
+      if (!picked || picked.length === 0) return;
+      const markdown = picked
+        .map((resource) => createMarkdownPickedMediaReference(command, resource.name, resource.markdownPath))
+        .filter((reference): reference is string => reference !== null)
+        .join('\n\n');
+      if (!markdown) throw new Error('Picked media resources could not be inserted.');
+      mediaInsertionRequestIdRef.current += 1;
+      setMediaInsertion({
+        documentEpoch: context.documentEpoch,
+        documentId: context.documentId,
+        markdown,
+        requestId: mediaInsertionRequestIdRef.current,
+        target: { kind: 'cursor' },
+      });
+    } catch (pickError) {
+      if (isCurrentContext()) handleEditorPasteError(pickError);
+    }
+  }, [handleEditorPasteError, setError, setNotice, t]);
   const editorFileKind = 'editor' in activePresentation ? activePresentation.editor : 'markdown';
   const isImageFile = activePresentation.preview === 'image';
   const isMediaFile = activePresentation.preview === 'media';
@@ -2338,7 +2402,7 @@ export default function App() {
           ? <WorkspaceImagePreview key={activePath} enabled={documentAssetsEnabled} path={activePath} popout previewRevision={previewRevision} />
           : isMediaFile && activePath
             ? <WorkspaceMediaPreview key={activePath} enabled={documentAssetsEnabled} kind={mediaKind} mimeType={mediaMimeType} path={activePath} popout previewRevision={previewRevision} />
-            : <EditorPane activePath={activePath} content={content} documentEpoch={documentEpoch} documentId={documentId} editable={authorityStatus === 'committed'} fileKind={editorFileKind} fontSize={editorFontSize.fontSize} mediaInsertion={currentMediaInsertion} outlineJump={currentOutlineJump} onContentChange={updateContent} onFontSizeDecrease={editorFontSize.decrease} onFontSizeIncrease={editorFontSize.increase} onFontSizeReset={editorFontSize.reset} onPasteError={handleEditorPasteError} onPasteImage={handleClipboardImagePaste} popout spellcheckEnabled={settingsState.settings?.spellcheckEnabled ?? true} />}
+            : <EditorPane activePath={activePath} content={content} documentEpoch={documentEpoch} documentId={documentId} editable={authorityStatus === 'committed'} fileKind={editorFileKind} fontSize={editorFontSize.fontSize} mediaInsertion={currentMediaInsertion} outlineJump={currentOutlineJump} onContentChange={updateContent} onFontSizeDecrease={editorFontSize.decrease} onFontSizeIncrease={editorFontSize.increase} onFontSizeReset={editorFontSize.reset} onMediaCommandPick={handleEditorMediaCommandPick} onPasteError={handleEditorPasteError} onPasteImage={handleClipboardImagePaste} popout spellcheckEnabled={settingsState.settings?.spellcheckEnabled ?? true} />}
       </PopoutPaneShell>
     );
   }
@@ -2655,6 +2719,7 @@ export default function App() {
               onFontSizeDecrease={editorFontSize.decrease}
               onFontSizeIncrease={editorFontSize.increase}
               onFontSizeReset={editorFontSize.reset}
+              onMediaCommandPick={handleEditorMediaCommandPick}
               onPasteError={handleEditorPasteError}
               onPasteImage={handleClipboardImagePaste}
               onPopout={handleEditorPopoutOpen}

@@ -76,7 +76,8 @@ use packaged_lifecycle_e2e::setup_packaged_lifecycle_e2e;
 #[cfg(feature = "packaged-lifecycle-e2e")]
 use packaged_open_e2e::{get_packaged_open_e2e_config, record_packaged_open_app_event};
 use resource_store::{
-    authorize_resource_directory_dialog, write_excalidraw_asset_pair, write_workspace_resource,
+    authorize_resource_directory_dialog, pick_media_resources, write_excalidraw_asset_pair,
+    write_workspace_resource,
 };
 use state::AppState;
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
@@ -152,7 +153,8 @@ macro_rules! app_invoke_handler {
             open_workspace_index_result,
             authorize_resource_directory_dialog,
             write_excalidraw_asset_pair,
-            write_workspace_resource
+            write_workspace_resource,
+            pick_media_resources
             ,save_export_dialog
             ,save_excalidraw_bundle_dialog
             $(, $extra)*

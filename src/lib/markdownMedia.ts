@@ -227,6 +227,23 @@ export function createMarkdownImageReference(name: string, documentRelativePath:
   return destination ? `![${escapeMarkdownLabel(name)}](${destination})` : null;
 }
 
+export type MarkdownPickedMediaCommand = 'image' | 'video' | 'meme' | 'html-embed';
+
+// 资源选择器（格式面板媒体命令）的引用模板：image/video 走媒体图片语法，
+// meme 附带 `mmd:meme` title 走紧凑梗图渲染，html-embed 走 `mmd:embed` 沙箱嵌入。
+export function createMarkdownPickedMediaReference(
+  command: MarkdownPickedMediaCommand,
+  name: string,
+  markdownPath: string,
+): string | null {
+  const destination = normalizeMarkdownDestination(markdownPath);
+  if (!destination) return null;
+  const label = escapeMarkdownLabel(name);
+  if (command === 'image' || command === 'video') return `![${label}](${destination})`;
+  if (command === 'meme') return `![${label}](${destination} "mmd:meme")`;
+  return `[${label}](${destination} "mmd:embed")`;
+}
+
 function relativeAssetPath(
   document: MarkdownMediaDocument,
   asset: MarkdownMediaAsset,
