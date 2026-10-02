@@ -1,6 +1,7 @@
 import {
   SETTINGS_SCHEMA_VERSION,
   type AppSettings,
+  type AutosaveMode,
   type SettingsEnvelope,
   type SettingsError,
   type SettingsLocaleMode,
@@ -10,6 +11,7 @@ import {
 const SETTINGS_KEYS = [
   'autosaveEnabled',
   'autosaveDelayMs',
+  'autosaveMode',
   'spellcheckEnabled',
   'wikilinksEnabled',
   'resourceDirectory',
@@ -21,6 +23,11 @@ const SETTINGS_KEYS = [
   'shortcuts',
   'exportProfiles',
 ] as const;
+export const AUTOSAVE_MODES: readonly AutosaveMode[] = [
+  'afterDelay',
+  'onFocusChange',
+  'onWindowChange',
+];
 const ENVELOPE_KEYS = ['schemaVersion', 'revision', 'settings'] as const;
 const SKINS: readonly SettingsSkinId[] = [
   'original',
@@ -56,12 +63,17 @@ function isLocale(value: unknown): value is SettingsLocaleMode {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
 }
 
+function isAutosaveMode(value: unknown): value is AutosaveMode {
+  return typeof value === 'string' && (AUTOSAVE_MODES as readonly string[]).includes(value);
+}
+
 function decodeAppSettings(value: unknown): AppSettings | null {
   if (!isRecord(value) || !hasExactKeys(value, SETTINGS_KEYS)) return null;
   if (
     typeof value.autosaveEnabled !== 'boolean'
     || typeof value.autosaveDelayMs !== 'number'
     || !Number.isFinite(value.autosaveDelayMs)
+    || !isAutosaveMode(value.autosaveMode)
     || typeof value.spellcheckEnabled !== 'boolean'
     || typeof value.wikilinksEnabled !== 'boolean'
     || typeof value.resourceDirectory !== 'string'
@@ -79,6 +91,7 @@ function decodeAppSettings(value: unknown): AppSettings | null {
   return {
     autosaveEnabled: value.autosaveEnabled,
     autosaveDelayMs: value.autosaveDelayMs,
+    autosaveMode: value.autosaveMode,
     spellcheckEnabled: value.spellcheckEnabled,
     wikilinksEnabled: value.wikilinksEnabled,
     resourceDirectory: value.resourceDirectory,

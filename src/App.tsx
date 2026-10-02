@@ -137,6 +137,8 @@ import { createWorkspaceIndexOperationId } from './lib/workspaceSearch';
 import { crashDraftCommands } from './lib/crashDraftCommands';
 import { collectAncestorFolderPaths, collectWorkspaceFolderPaths, workspaceTreeHasFile } from './lib/fileTree';
 import { getWorkspaceMoveDestinations } from './lib/fileTreeOperations';
+import type { FileTreeClipboardItem } from './lib/fileTreeClipboard';
+import { revealWorkspaceEntry } from './lib/tauriCommands';
 import { getWorkspacePresentation } from './lib/workspaceFileKind';
 import type { WorkspaceFileEntry } from './types';
 import './styles.css';
@@ -511,6 +513,7 @@ export default function App() {
     handleSaveDeletedDraftAs,
     handleUseExternal,
     moveWorkspaceEntryPath,
+    copyWorkspaceEntryPath,
     notice,
     openWorkspaceIndexResult,
     openWorkspaceFilePath,
@@ -536,10 +539,12 @@ export default function App() {
     popoutPane,
     autosaveEnabled: settingsState.settings?.autosaveEnabled ?? false,
     autosaveDelayMs: settingsState.settings?.autosaveDelayMs ?? 1500,
+    autosaveMode: settingsState.settings?.autosaveMode ?? 'afterDelay',
     afterConfirmedSave: afterConfirmedCrashDraftSave,
   });
   const currentContentRef = useRef(content);
   currentContentRef.current = content;
+  const [fileTreeClipboard, setFileTreeClipboard] = useState<FileTreeClipboardItem | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
   const [exportValue, setExportValue] = useState<ExportDialogValue>({ format: 'html', scale: 2, theme: 'current' });
@@ -2105,6 +2110,23 @@ export default function App() {
     void moveWorkspaceEntryPath(operation.path, destinationParentPath);
   }, [moveWorkspaceEntryPath, workspaceMoveOperation]);
 
+  const handleFileTreePaste = useCallback((destinationParentPath: string) => {
+    const clipboard = fileTreeClipboard;
+    if (!clipboard) return;
+    if (clipboard.mode === 'cut') {
+      setFileTreeClipboard(null);
+      void moveWorkspaceEntryPath(clipboard.path, destinationParentPath);
+      return;
+    }
+    void copyWorkspaceEntryPath(clipboard.path, destinationParentPath);
+  }, [copyWorkspaceEntryPath, fileTreeClipboard, moveWorkspaceEntryPath]);
+
+  const handleFileTreeReveal = useCallback((target: { path: string }) => {
+    void revealWorkspaceEntry(target.path).catch((revealError) => {
+      setError(normalizeAppError(revealError, locale));
+    });
+  }, [locale, setError]);
+
   const toggleFolder = useCallback((path: string) => {
     setCollapsedFolders((current) => {
       const next = new Set(current);
@@ -2614,7 +2636,10 @@ export default function App() {
           collapsedFolders={collapsedFolders}
           disabled={busy || externalFileAction !== null || pendingOpenIntent !== null}
           fileTree={fileTree}
+          clipboard={fileTreeClipboard}
           onCollapseChange={setFileTreeCollapsed}
+          onCopyEntry={(target) => setFileTreeClipboard({ mode: 'copy', isFile: target.kind === 'file', path: target.path })}
+          onCutEntry={(target) => setFileTreeClipboard({ mode: 'cut', isFile: target.kind === 'file', path: target.path })}
           onCreateFile={(parentPath, parentName, fileKind) => setWorkspaceEntryOperation({
             fileKind,
             kind: 'create-file',
@@ -2631,12 +2656,14 @@ export default function App() {
           onMoveEntry={(path, destinationParentPath) => void moveWorkspaceEntryPath(path, destinationParentPath)}
           onOpenDirectory={() => void handleOpenDirectory()}
           onOpenFile={requestWorkspaceFileOpen}
+          onPasteEntry={handleFileTreePaste}
           onRenameEntry={(path, newName) => void renameWorkspaceEntryPath(path, newName)}
           onRequestMove={(target) => setWorkspaceMoveOperation({
             currentName: target.name,
             entryKind: target.kind,
             path: target.path,
           })}
+          onRevealEntry={handleFileTreeReveal}
           onSelectOutlineItem={handleOutlineItemSelect}
           onRefreshWorkspace={() => void refreshWorkspace()}
           onToggleFolder={toggleFolder}

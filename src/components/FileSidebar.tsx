@@ -1,17 +1,21 @@
 import {
   ChevronLeft,
   ChevronRight,
+  ClipboardPaste,
+  Copy,
   FilePlus2,
   FileText,
   Ellipsis,
   FolderInput,
   FolderOpen,
   FolderPlus,
+  FolderSearch,
   ListTree,
   Pencil,
   PencilRuler,
   Plus,
   RefreshCw,
+  Scissors,
   TextCursorInput,
   Trash2,
 } from 'lucide-react';
@@ -33,6 +37,11 @@ import {
   type FileTreeContextTarget,
 } from '../lib/fileTreeContextMenu';
 import { canMoveWorkspaceEntry } from '../lib/fileTreeOperations';
+import {
+  canPasteFileTreeClipboard,
+  workspaceParentPath,
+  type FileTreeClipboardItem,
+} from '../lib/fileTreeClipboard';
 import type { WorkspaceFileTreeNode } from '../lib/fileTree';
 import {
   FLOATING_MENU_VIEWPORT_MARGIN,
@@ -53,21 +62,26 @@ interface FileSidebarProps {
   collapsedFolders: Set<string>;
   disabled?: boolean;
   fileTree: WorkspaceFileTreeNode[];
+  clipboard?: FileTreeClipboardItem | null;
   onCollapseChange: (collapsed: boolean) => void;
+  onCopyEntry?: (target: WorkspaceTreeTarget) => void;
   onCreateFile: (
     parentPath: string,
     parentName: string,
     fileKind: Extract<WorkspaceFileKind, 'markdown' | 'excalidraw'>,
   ) => void;
   onCreateFolder: (parentPath: string, parentName: string) => void;
+  onCutEntry?: (target: WorkspaceTreeTarget) => void;
   onDeleteEntry: (path: string, name: string, kind: 'file' | 'folder') => void;
   onInsertWorkspaceAsset?: (asset: WorkspaceFileEntry, target: MarkdownMediaInsertionTarget) => void;
   onMoveEntry: (path: string, destinationParentPath: string) => void;
   onOpenDirectory?: () => void;
   onOpenFile: (path: string) => void;
+  onPasteEntry?: (destinationParentPath: string) => void;
   onRefreshWorkspace: () => void;
   onRenameEntry: (path: string, newName: string, kind: 'file' | 'folder') => void;
   onRequestMove: (target: Exclude<FileTreeContextTarget, { kind: 'root' }>) => void;
+  onRevealEntry?: (target: FileTreeContextTarget) => void;
   onSelectOutlineItem?: (item: MarkdownOutlineItem) => void;
   onToggleFolder: (path: string) => void;
   outlineItems?: MarkdownOutlineItem[];
@@ -110,6 +124,10 @@ function ContextMenuIcon({ action }: { action: FileTreeContextAction }) {
   if (action === 'refresh') return <RefreshCw size={14} />;
   if (action === 'rename') return <Pencil size={14} />;
   if (action === 'move') return <FolderInput size={14} />;
+  if (action === 'copy') return <Copy size={14} />;
+  if (action === 'cut') return <Scissors size={14} />;
+  if (action === 'paste') return <ClipboardPaste size={14} />;
+  if (action === 'reveal') return <FolderSearch size={14} />;
   return <Trash2 size={14} />;
 }
 
@@ -170,17 +188,22 @@ export function FileSidebar({
   collapsedFolders,
   disabled = false,
   fileTree,
+  clipboard = null,
   onCollapseChange,
+  onCopyEntry,
   onCreateFile,
   onCreateFolder,
+  onCutEntry,
   onDeleteEntry,
   onInsertWorkspaceAsset,
   onMoveEntry,
   onOpenDirectory,
   onOpenFile,
+  onPasteEntry,
   onRefreshWorkspace,
   onRenameEntry,
   onRequestMove,
+  onRevealEntry,
   onSelectOutlineItem = () => undefined,
   onToggleFolder,
   outlineItems = [],
@@ -414,6 +437,16 @@ export function FileSidebar({
     onRequestMove(target);
   }, [closeMenus, disabled, onRequestMove]);
 
+  const contextMenuPasteDestination = useCallback((target: FileTreeContextTarget): string => (
+    target.kind === 'file' ? workspaceParentPath(target.path) ?? '' : target.path
+  ), []);
+
+  const contextMenuCanPaste = useCallback((target: FileTreeContextTarget): boolean => (
+    clipboard !== null
+    && onPasteEntry !== undefined
+    && canPasteFileTreeClipboard(clipboard, contextMenuPasteDestination(target))
+  ), [clipboard, contextMenuPasteDestination, onPasteEntry]);
+
   const runContextAction = useCallback((action: FileTreeContextAction) => {
     const target = contextMenu?.target;
     if (!target) return;
@@ -434,7 +467,35 @@ export function FileSidebar({
     } else if (action === 'rename' && target.kind !== 'root') beginRename(target);
     else if (action === 'move' && target.kind !== 'root') requestMove(target);
     else if (action === 'delete' && target.kind !== 'root') requestDelete(target);
-  }, [beginCreate, beginRename, closeMenus, contextMenu, onOpenFile, onRefreshWorkspace, requestDelete, requestMove]);
+    else if (action === 'copy' && target.kind !== 'root') {
+      closeMenus();
+      onCopyEntry?.(target);
+    } else if (action === 'cut' && target.kind !== 'root') {
+      closeMenus();
+      onCutEntry?.(target);
+    } else if (action === 'paste') {
+      const destination = contextMenuPasteDestination(target);
+      closeMenus();
+      if (destination) onPasteEntry?.(destination);
+    } else if (action === 'reveal') {
+      closeMenus();
+      onRevealEntry?.(target);
+    }
+  }, [
+    beginCreate,
+    beginRename,
+    closeMenus,
+    contextMenu,
+    contextMenuPasteDestination,
+    onCopyEntry,
+    onCutEntry,
+    onOpenFile,
+    onPasteEntry,
+    onRefreshWorkspace,
+    onRevealEntry,
+    requestDelete,
+    requestMove,
+  ]);
 
   const getPointerDropDestination = useCallback((clientX: number, clientY: number) => {
     if (!workspaceRoot || typeof document.elementFromPoint !== 'function') return null;
@@ -602,6 +663,40 @@ export function FileSidebar({
 
   const handleTreeNavigation = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.defaultPrevented || event.target instanceof HTMLInputElement) return;
+    if (event.metaKey || event.ctrlKey) {
+      const key = event.key.toLowerCase();
+      if (key === 'c' || key === 'x' || key === 'v') {
+        const row = event.target instanceof Element
+          ? event.target.closest<HTMLElement>('[role="treeitem"]')
+          : null;
+        const path = row?.dataset.treeEntryPath;
+        const kind = row?.dataset.contextMenuTarget;
+        if (path && (kind === 'file' || kind === 'folder')) {
+          const target = findTreeTarget(fileTreeRef.current, path);
+          if (target) {
+            if (key === 'c' && onCopyEntry) {
+              event.preventDefault();
+              onCopyEntry(target as WorkspaceTreeTarget);
+              return;
+            }
+            if (key === 'x' && onCutEntry) {
+              event.preventDefault();
+              onCutEntry(target as WorkspaceTreeTarget);
+              return;
+            }
+            if (key === 'v' && onPasteEntry) {
+              const destination = kind === 'folder' ? path : workspaceParentPath(path);
+              if (destination && canPasteFileTreeClipboard(clipboard, destination)) {
+                event.preventDefault();
+                onPasteEntry(destination);
+              }
+              return;
+            }
+          }
+        }
+      }
+      return;
+    }
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="treeitem"]'));
     if (rows.length === 0) return;
@@ -619,7 +714,7 @@ export function FileSidebar({
     event.preventDefault();
     rows[nextIndex]?.focus();
     rows[nextIndex]?.scrollIntoView?.({ block: 'nearest' });
-  }, []);
+  }, [clipboard, onCopyEntry, onCutEntry, onPasteEntry]);
 
   const selectOutlineItem = useCallback((item: MarkdownOutlineItem) => {
     setSelectedOutlineId(item.id);
@@ -912,6 +1007,7 @@ export function FileSidebar({
                 >
                   {getFileTreeContextMenuItems(contextMenu.target, {
                     canInsertWorkspaceAsset: Boolean(onInsertWorkspaceAsset),
+                    canPaste: contextMenuCanPaste(contextMenu.target),
                   }).map((item) => (
                     <button
                       key={item.action}
@@ -926,7 +1022,7 @@ export function FileSidebar({
                       onClick={() => runContextAction(item.action)}
                     >
                       <ContextMenuIcon action={item.action} />
-                      <span>{item.action === 'create-file' ? t('newMarkdownFile') : item.action === 'create-folder' ? t('newFolder') : item.action === 'refresh' ? t('refreshWorkspace') : item.action === 'rename' ? t('rename') : item.action === 'move' ? `${t('move')}…` : item.action === 'delete' ? t('delete') : item.action === 'insert-at-cursor' ? t('insertAtCurrentCursor') : t('openDocument')}</span>
+                      <span>{item.action === 'create-file' ? t('newMarkdownFile') : item.action === 'create-folder' ? t('newFolder') : item.action === 'refresh' ? t('refreshWorkspace') : item.action === 'rename' ? t('rename') : item.action === 'move' ? `${t('move')}…` : item.action === 'delete' ? t('delete') : item.action === 'insert-at-cursor' ? t('insertAtCurrentCursor') : item.action === 'copy' ? t('copy') : item.action === 'cut' ? t('cut') : item.action === 'paste' ? t('paste') : item.action === 'reveal' ? t('revealInFileManager') : t('openDocument')}</span>
                       {item.shortcut && <kbd>{item.shortcut}</kbd>}
                     </button>
                   ))}

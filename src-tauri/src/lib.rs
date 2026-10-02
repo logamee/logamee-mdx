@@ -24,6 +24,7 @@ mod recent_files;
 mod resource_store;
 mod settings;
 mod state;
+mod workspace_copy;
 mod workspace_file_kind;
 pub mod workspace_index;
 mod workspace_index_commands;
@@ -41,7 +42,7 @@ use active_document_watch::{
     stop_active_document_watch,
 };
 use commands::{
-    cancel_document_overwrite_token, clear_recent_files, commit_recent_open,
+    cancel_document_overwrite_token, clear_recent_files, commit_recent_open, copy_workspace_entry,
     create_workspace_directory, create_workspace_file, delete_workspace_entry,
     discard_open_receipt, get_open_commit_status, get_settings, issue_document_overwrite_token,
     list_recent_files, move_workspace_entry, open_directory_dialog, open_file_dialog,
@@ -50,8 +51,8 @@ use commands::{
     read_markdown_excalidraw, read_workspace_image, refresh_directory, release_media_preview,
     remove_recent_file, rename_workspace_entry, reset_settings, resolve_markdown_image,
     resolve_markdown_media, resolve_workspace_media, retry_document_save_with_token,
-    save_as_dialog, set_native_locale_preference, set_native_save_menu_enabled,
-    set_native_theme_preference, update_settings, write_file,
+    reveal_workspace_entry, save_as_dialog, set_native_locale_preference,
+    set_native_save_menu_enabled, set_native_theme_preference, update_settings, write_file,
 };
 use crash_draft_commands::{
     discard_crash_draft, list_crash_drafts, recover_crash_draft, reset_crash_draft_overflow_batch,
@@ -118,7 +119,9 @@ macro_rules! app_invoke_handler {
             create_workspace_directory,
             rename_workspace_entry,
             move_workspace_entry,
+            copy_workspace_entry,
             delete_workspace_entry,
+            reveal_workspace_entry,
             resolve_markdown_image,
             resolve_markdown_media,
             prepare_workspace_media_preview,

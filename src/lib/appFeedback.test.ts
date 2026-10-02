@@ -30,6 +30,8 @@ describe('app feedback dialog', () => {
     expect(normalizeAppError('File is outside the user-authorized session files and directories')).toBe('出于安全限制，应用无法访问未授权的文件或文件夹。请从应用内重新打开对应文件或文件夹后再试。');
     expect(normalizeAppError('Cannot access path: No such file or directory (os error 2)')).toBe('无法访问所选路径。请确认文件或文件夹仍然存在，并且应用有权限访问。');
     expect(normalizeAppError('Destination file has not been explicitly authorized by open, workspace selection, or save-as')).not.toContain('explicitly authorized');
+    expect(normalizeAppError('Destination does not have current exact write authority')).toBe('文件在外部被替换为不受支持的对象，无法继续保存。请重新打开该文件后再试。');
+    expect(normalizeAppError('Destination does not have current exact write authority', 'en')).toBe('The file was replaced externally with an unsupported object, so it cannot be saved here. Reopen the document and try again.');
   });
 
   it('normalizes image resolver errors without exposing raw runtime text', () => {

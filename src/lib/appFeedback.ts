@@ -28,6 +28,7 @@ function stringifyError(error: unknown): string {
 function normalizeEnglishError(raw: string, message: string): string {
   if (!raw) return 'The operation could not be completed. Please try again.';
   if (message.includes('recent file')) return 'The recent file is no longer available. Choose it again from the updated list.';
+  if (message.includes('exact write authority')) return 'The file was replaced externally with an unsupported object, so it cannot be saved here. Reopen the document and try again.';
   if (message.includes('failed to write file')) return 'The file could not be saved. Confirm that it is still writable, then try again.';
   if (message.includes('failed to create')) return 'The item could not be created. Confirm that the destination is writable, then try again.';
   if (message.includes('failed to rename')) return 'The item could not be renamed. Confirm that the destination is writable, then try again.';
@@ -87,6 +88,10 @@ export function normalizeAppError(error: unknown, locale: EffectiveLocale = 'zh-
 
   if (message.includes('selected file is not a markdown/mdx file') || message.includes('workspace file is not a markdown/mdx file')) {
     return '请选择 Markdown 或 MDX 文件。';
+  }
+
+  if (message.includes('exact write authority')) {
+    return '文件在外部被替换为不受支持的对象，无法继续保存。请重新打开该文件后再试。';
   }
 
   if (message.includes('failed to write file')) {
@@ -200,7 +205,7 @@ export function normalizeAppError(error: unknown, locale: EffectiveLocale = 'zh-
     return '无法打开该路径，因为它会离开允许的文件夹。';
   }
 
-  if (message.includes('workspace entry name is empty') || message.includes('workspace entry name is invalid') || message.includes('workspace entry name cannot contain path separators')) {
+  if (message.includes('workspace entry name is empty') || message.includes('workspace entry name is invalid') || message.includes('workspace entry name cannot contain path separators') || message.includes('workspace entry name is reserved on windows')) {
     return '请输入有效的文件或文件夹名称。';
   }
 

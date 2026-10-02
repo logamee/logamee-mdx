@@ -9,6 +9,7 @@ import type {
 } from '../lib/documentSession';
 import type { PaneSnapshotEnvelope } from '../lib/paneSync';
 import type {
+  AutosaveMode,
   OpenCommitResult,
   PreparedOpenFileResponse,
   WorkspaceSessionRestore,
@@ -100,11 +101,12 @@ const fileVersion = {
   canonicalPath: '/workspace/notes.md', platformIdentity: '1', length: '7', modifiedNanos: '1', sha256: 'a'.repeat(64),
 };
 
-function SessionHarness({ isPopout = false, popoutPane = 'main', autosaveEnabled, autosaveDelayMs, afterConfirmedSave }: {
+function SessionHarness({ isPopout = false, popoutPane = 'main', autosaveEnabled, autosaveDelayMs, autosaveMode, afterConfirmedSave }: {
   isPopout?: boolean;
   popoutPane?: 'main' | 'editor' | 'preview';
   autosaveEnabled?: boolean;
   autosaveDelayMs?: number;
+  autosaveMode?: AutosaveMode;
   afterConfirmedSave?: (documentId: string) => boolean | void | Promise<boolean | void>;
 }) {
   currentSession = useDocumentSession({
@@ -113,9 +115,12 @@ function SessionHarness({ isPopout = false, popoutPane = 'main', autosaveEnabled
     popoutPane,
     autosaveEnabled,
     autosaveDelayMs,
+    autosaveMode,
     afterConfirmedSave,
   });
-  return null;
+  return autosaveMode === 'onFocusChange'
+    ? <div className="editor-pane"><input data-testid="editor-input" readOnly /></div>
+    : null;
 }
 
 function session(): Session {
@@ -509,6 +514,42 @@ describe('useDocumentSession prepared-open authority workflow', () => {
     await act(async () => session().handleNew());
     await act(async () => vi.advanceTimersByTimeAsync(500));
     expect(tauriMocks.writeFile).toHaveBeenCalledOnce();
+  });
+
+  it('autosaves when the window loses focus in onWindowChange mode and never on a timer', async () => {
+    vi.useFakeTimers();
+    tauriMocks.openFileDialog.mockResolvedValueOnce(preparedOpen('notes'));
+    act(() => root.render(<SessionHarness autosaveEnabled autosaveDelayMs={500} autosaveMode="onWindowChange" />));
+    await act(async () => session().handleOpenFile());
+    act(() => session().updateContent('# Focus loss save'));
+    await act(async () => vi.advanceTimersByTimeAsync(5000));
+    expect(tauriMocks.writeFile).not.toHaveBeenCalled();
+
+    await act(async () => {
+      globalThis.dispatchEvent(new Event('blur'));
+    });
+    expect(tauriMocks.writeFile).toHaveBeenCalledWith(
+      '/workspace/notes.md', '# Focus loss save', fileVersion, expect.stringMatching(/^document-save-/),
+    );
+  });
+
+  it('autosaves when focus leaves the editor in onFocusChange mode', async () => {
+    tauriMocks.openFileDialog.mockResolvedValueOnce(preparedOpen('notes'));
+    act(() => root.render(<SessionHarness autosaveEnabled autosaveMode="onFocusChange" />));
+    await act(async () => session().handleOpenFile());
+    act(() => session().updateContent('# Editor blur save'));
+
+    const input = document.querySelector<HTMLInputElement>('input[data-testid="editor-input"]')!;
+    input.focus();
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent('focusout', {
+        relatedTarget: document.body,
+        bubbles: true,
+      }));
+    });
+    expect(tauriMocks.writeFile).toHaveBeenCalledWith(
+      '/workspace/notes.md', '# Editor blur save', fileVersion, expect.stringMatching(/^document-save-/),
+    );
   });
 
   it('owns one main-window crash scheduler with exact existing-file metadata', async () => {

@@ -42,6 +42,7 @@ import {
   resolveUseExternal,
   type ExternalDocumentChangeDecision,
 } from '../lib/externalDocumentChange';
+import type { AutosaveMode } from '../types';
 import type { PaneReplicatedState, PaneSnapshotEnvelope, ReplicaRole } from '../lib/paneSync';
 import { normalizeAppError } from '../lib/appFeedback';
 import {
@@ -63,6 +64,7 @@ import {
   discardOpenReceipt,
   getOpenCommitStatus,
   moveWorkspaceEntry,
+  copyWorkspaceEntry,
   openDirectoryDialog,
   openFileParentDirectory,
   openFileDialog,
@@ -98,6 +100,7 @@ interface UseDocumentSessionInput {
   popoutPane: 'main' | 'editor' | 'preview';
   autosaveEnabled?: boolean;
   autosaveDelayMs?: number;
+  autosaveMode?: AutosaveMode;
   afterConfirmedSave?: (documentId: string) => boolean | void | Promise<boolean | void>;
 }
 
@@ -166,6 +169,7 @@ export function useDocumentSession({
   popoutPane,
   autosaveEnabled = false,
   autosaveDelayMs = 1500,
+  autosaveMode = 'afterDelay',
   afterConfirmedSave,
 }: UseDocumentSessionInput) {
   const { locale } = useI18n();
@@ -193,6 +197,10 @@ export function useDocumentSession({
   const [saveConflict, setSaveConflict] = useState<PendingDocumentSaveConflict | null>(null);
   const [busy, setBusy] = useState(false);
   const [autosaveBlockedContent, setAutosaveBlockedContent] = useState<string | null>(null);
+  const busyRef = useRef(false);
+  busyRef.current = busy;
+  const autosaveBlockedContentRef = useRef<string | null>(null);
+  autosaveBlockedContentRef.current = autosaveBlockedContent;
   const [workspaceSessionRestoreSettled, setWorkspaceSessionRestoreSettled] = useState(
     () => !restoreWorkspaceSessionOnMount,
   );
@@ -2099,6 +2107,42 @@ export function useDocumentSession({
     setActiveDocumentPath,
   ]);
 
+  const copyWorkspaceEntryPath = useCallback(async (
+    sourcePath: string,
+    destinationParentPath: string,
+  ) => {
+    if (ordinaryDocumentActionsBlocked()) return;
+    const requestedWorkspace = getActiveWorkspace();
+    if (!requestedWorkspace) return;
+    const requestedGeneration = workspaceGenerationRef.current;
+
+    await executeSessionOperation({
+      run: () => copyWorkspaceEntry(
+        requestedWorkspace.workspaceToken,
+        sourcePath,
+        destinationParentPath,
+      ),
+      consume: consumeMutationOutcome,
+      isCurrent: () => isCurrentWorkspaceRequest(requestedWorkspace, requestedGeneration),
+      apply: async (outcome) => {
+        if (outcome.status !== 'confirmed-committed') return;
+        const receiptError = await reconcileRequestedWorkspaceReceipt(
+          requestedWorkspace,
+          requestedGeneration,
+          outcome.receipt.workspace,
+        );
+        if (receiptError) setError(receiptError);
+      },
+    });
+  }, [
+    consumeMutationOutcome,
+    executeSessionOperation,
+    getActiveWorkspace,
+    isCurrentWorkspaceRequest,
+    ordinaryDocumentActionsBlocked,
+    reconcileRequestedWorkspaceReceipt,
+  ]);
+
   const deleteWorkspaceEntryPath = useCallback(async (path: string) => {
     if (ordinaryDocumentActionsBlocked()) return;
     const requestedWorkspace = getActiveWorkspace();
@@ -2234,7 +2278,22 @@ export function useDocumentSession({
     }
   }, [activeFileKind, activePath, authorityStatus, content, dirty, documentIdentity.documentEpoch, isPopout, scheduleCurrentCrashDraft]);
 
+  const autosaveCanRunNow = useCallback(() => (
+    !isPopout
+    && autosaveEnabled
+    && dirty
+    && Boolean(activePath)
+    && isEditableFileKind(paneStateRef.current.activeFileKind)
+    && (paneStateRef.current.authorityStatus ?? 'unknown') === 'committed'
+    && Boolean(activeFileVersionRef.current)
+    && externalFileActionRef.current === null
+    && saveConflictRef.current === null
+    && autosaveBlockedContentRef.current !== paneStateRef.current.content
+    && !busyRef.current
+  ), [activePath, autosaveEnabled, dirty, isPopout]);
+
   useEffect(() => {
+    if (autosaveMode !== 'afterDelay') return undefined;
     if (isPopout
       || !autosaveEnabled
       || !dirty
@@ -2264,7 +2323,32 @@ export function useDocumentSession({
     isPopout,
     saveConflict,
     saveCurrentDocument,
+    autosaveMode,
   ]);
+
+  // “切换窗口时”保存：应用窗口失去焦点（blur）即触发一次自动保存。
+  useEffect(() => {
+    if (autosaveMode !== 'onWindowChange') return undefined;
+    const handleBlur = () => {
+      if (autosaveCanRunNow()) void saveCurrentDocument();
+    };
+    globalThis.addEventListener('blur', handleBlur);
+    return () => globalThis.removeEventListener('blur', handleBlur);
+  }, [autosaveCanRunNow, autosaveMode, saveCurrentDocument]);
+
+  // “失焦时”保存：键盘焦点离开编辑器区域（进入文件树、对话框或窗口外）即保存。
+  useEffect(() => {
+    if (autosaveMode !== 'onFocusChange') return undefined;
+    const handleFocusOut = (event: FocusEvent) => {
+      const editorPane = document.querySelector('.editor-pane');
+      if (!editorPane) return;
+      const fromInside = event.target instanceof Node && editorPane.contains(event.target);
+      const toInside = event.relatedTarget instanceof Node && editorPane.contains(event.relatedTarget);
+      if (fromInside && !toInside && autosaveCanRunNow()) void saveCurrentDocument();
+    };
+    globalThis.addEventListener('focusout', handleFocusOut);
+    return () => globalThis.removeEventListener('focusout', handleFocusOut);
+  }, [autosaveCanRunNow, autosaveMode, saveCurrentDocument]);
 
   return {
     activeFileKind,
@@ -2302,6 +2386,7 @@ export function useDocumentSession({
     handleUseExternal,
     lastSavedContent,
     moveWorkspaceEntryPath,
+    copyWorkspaceEntryPath,
     notice,
     openWorkspaceIndexResult,
     openWorkspaceFilePath,

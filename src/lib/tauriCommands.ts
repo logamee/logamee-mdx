@@ -600,6 +600,23 @@ export async function moveWorkspaceEntry(
   return decodeMutationOutcome(response, decodeRenameWorkspaceEntryResponse);
 }
 
+export async function copyWorkspaceEntry(
+  workspaceToken: string,
+  sourcePath: string,
+  destinationParentPath: string,
+): Promise<MutationOutcome<RenameWorkspaceEntryResponse>> {
+  const response = await invoke<unknown>('copy_workspace_entry', {
+    workspaceToken,
+    sourcePath,
+    destinationParentPath,
+  });
+  return decodeMutationOutcome(response, decodeRenameWorkspaceEntryResponse);
+}
+
+export async function revealWorkspaceEntry(path: string): Promise<void> {
+  await invoke<unknown>('reveal_workspace_entry', { path });
+}
+
 export async function deleteWorkspaceEntry(
   workspaceToken: string,
   path: string,

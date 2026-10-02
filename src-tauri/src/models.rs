@@ -12,6 +12,8 @@ use crate::{
 pub(crate) struct Settings {
     pub(crate) autosave_enabled: bool,
     pub(crate) autosave_delay_ms: u32,
+    #[serde(default = "default_autosave_mode")]
+    pub(crate) autosave_mode: String,
     pub(crate) spellcheck_enabled: bool,
     pub(crate) wikilinks_enabled: bool,
     pub(crate) resource_directory: String,
@@ -29,11 +31,16 @@ fn default_editor_font_size() -> u32 {
     16
 }
 
+fn default_autosave_mode() -> String {
+    "afterDelay".to_string()
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
             autosave_enabled: true,
             autosave_delay_ms: 1_000,
+            autosave_mode: default_autosave_mode(),
             spellcheck_enabled: true,
             wikilinks_enabled: false,
             resource_directory: "assets".to_string(),
@@ -296,6 +303,7 @@ pub(crate) enum MutationKind {
     Delete,
     Rename,
     Write,
+    Copy,
 }
 
 #[derive(Debug, Serialize)]
@@ -836,6 +844,7 @@ mod tests {
                 "settings": {
                     "autosaveEnabled": true,
                     "autosaveDelayMs": 1000,
+                    "autosaveMode": "afterDelay",
                     "spellcheckEnabled": true,
                     "wikilinksEnabled": false,
                     "resourceDirectory": "assets",

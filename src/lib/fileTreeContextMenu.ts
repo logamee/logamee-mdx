@@ -8,10 +8,23 @@ export type FileTreeContextTarget =
   | { kind: 'folder'; name: string; path: string }
   | { fileKind: WorkspaceFileKind; kind: 'file'; name: string; path: string };
 
-export type FileTreeContextAction = 'create-file' | 'create-folder' | 'delete' | 'insert-at-cursor' | 'move' | 'open' | 'refresh' | 'rename';
+export type FileTreeContextAction =
+  | 'copy'
+  | 'create-file'
+  | 'create-folder'
+  | 'cut'
+  | 'delete'
+  | 'insert-at-cursor'
+  | 'move'
+  | 'open'
+  | 'paste'
+  | 'refresh'
+  | 'rename'
+  | 'reveal';
 
 interface FileTreeContextMenuOptions {
   canInsertWorkspaceAsset?: boolean;
+  canPaste?: boolean;
 }
 
 export interface FileTreeContextMenuItem {
@@ -32,21 +45,34 @@ export function getFileTreeContextMenuItems(
   options: FileTreeContextMenuOptions = {},
 ): FileTreeContextMenuItem[] {
   if (target.kind === 'root') {
-    return [
+    const items: FileTreeContextMenuItem[] = [
       { action: 'create-file', label: 'New Markdown File' },
       { action: 'create-folder', label: 'New Folder' },
-      { action: 'refresh', label: 'Refresh', separatorBefore: true, shortcut: '⌘R' },
     ];
+    if (options.canPaste) {
+      items.push({ action: 'paste', label: 'Paste', shortcut: '⌘V' });
+    }
+    items.push({ action: 'refresh', label: 'Refresh', separatorBefore: true, shortcut: '⌘R' });
+    return items;
   }
 
   if (target.kind === 'folder') {
-    return [
+    const items: FileTreeContextMenuItem[] = [
       { action: 'create-file', label: 'New Markdown File' },
       { action: 'create-folder', label: 'New Folder' },
       { action: 'rename', label: 'Rename', separatorBefore: true, shortcut: 'Return' },
-      { action: 'move', label: 'Move…' },
-      { action: 'delete', danger: true, label: 'Move to Trash', separatorBefore: true, shortcut: '⌘⌫' },
+      { action: 'copy', label: 'Copy', shortcut: '⌘C' },
+      { action: 'cut', label: 'Cut', shortcut: '⌘X' },
     ];
+    if (options.canPaste) {
+      items.push({ action: 'paste', label: 'Paste', shortcut: '⌘V' });
+    }
+    items.push(
+      { action: 'move', label: 'Move…' },
+      { action: 'reveal', label: 'Reveal in Finder' },
+      { action: 'delete', danger: true, label: 'Move to Trash', separatorBefore: true, shortcut: '⌘⌫' },
+    );
+    return items;
   }
 
   const items: FileTreeContextMenuItem[] = [
@@ -58,7 +84,17 @@ export function getFileTreeContextMenuItems(
   if (canRenameFileTreeTarget(target)) {
     items.push({ action: 'rename', label: 'Rename', separatorBefore: true, shortcut: 'Return' });
   }
-  items.push({ action: 'move', label: 'Move…', separatorBefore: !canRenameFileTreeTarget(target) });
-  items.push({ action: 'delete', danger: true, label: 'Move to Trash', separatorBefore: true, shortcut: '⌘⌫' });
+  items.push(
+    { action: 'copy', label: 'Copy', separatorBefore: !canRenameFileTreeTarget(target), shortcut: '⌘C' },
+    { action: 'cut', label: 'Cut', shortcut: '⌘X' },
+  );
+  if (options.canPaste) {
+    items.push({ action: 'paste', label: 'Paste', shortcut: '⌘V' });
+  }
+  items.push(
+    { action: 'move', label: 'Move…', separatorBefore: !canRenameFileTreeTarget(target) },
+    { action: 'reveal', label: 'Reveal in Finder' },
+    { action: 'delete', danger: true, label: 'Move to Trash', separatorBefore: true, shortcut: '⌘⌫' },
+  );
   return items;
 }

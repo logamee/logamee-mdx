@@ -254,7 +254,7 @@ export interface MutationCommitReceipt<T> {
   workspace: SnapshotReceipt;
 }
 
-export type MutationKind = 'create' | 'delete' | 'rename' | 'write';
+export type MutationKind = 'create' | 'delete' | 'rename' | 'write' | 'copy';
 
 export type MutationOutcome<T> =
   | { status: 'confirmed-not-committed'; message: string }
@@ -286,9 +286,12 @@ export type SettingsSkinId =
 
 export type SettingsLocaleMode = 'system' | 'zh-CN' | 'en';
 
+export type AutosaveMode = 'afterDelay' | 'onFocusChange' | 'onWindowChange';
+
 export interface AppSettings {
   autosaveEnabled: boolean;
   autosaveDelayMs: number;
+  autosaveMode: AutosaveMode;
   spellcheckEnabled: boolean;
   wikilinksEnabled: boolean;
   resourceDirectory: string;

@@ -70,6 +70,7 @@ vi.mock('./components/JinxiuMarkdown', () => ({ default: appMocks.jinxiuMarkdown
 
 const baseSettings: AppSettings = {
   autosaveEnabled: true,
+  autosaveMode: 'afterDelay',
   autosaveDelayMs: 1500,
   spellcheckEnabled: true,
   wikilinksEnabled: false,

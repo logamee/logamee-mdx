@@ -31,6 +31,7 @@ interface SettingsDialogProps {
 const copy = {
   en: {
     title: 'Settings', autosave: 'Autosave', autosaveDelay: 'Save delay', milliseconds: 'ms',
+    autosaveMode: 'Trigger', autosaveModeAfterDelay: 'After a delay', autosaveModeOnFocusChange: 'When the editor loses focus', autosaveModeOnWindowChange: 'When the window loses focus',
     spellcheck: 'Spellcheck', wikilinks: 'Wikilinks', resources: 'Resource folder', layout: 'Editor width',
     appearance: 'Appearance', skin: 'Theme', followSystem: 'Follow system theme', language: 'Language',
     editorFontSize: 'Editor font size', fontSizeUnit: 'px',
@@ -56,6 +57,7 @@ const copy = {
   },
   'zh-CN': {
     title: '设置', autosave: '自动保存', autosaveDelay: '保存延迟', milliseconds: '毫秒',
+    autosaveMode: '触发方式', autosaveModeAfterDelay: '延迟后保存', autosaveModeOnFocusChange: '编辑器失焦时', autosaveModeOnWindowChange: '窗口失焦时',
     spellcheck: '拼写检查', wikilinks: '双向链接', resources: '资源文件夹', layout: '编辑区宽度',
     appearance: '外观', skin: '主题', followSystem: '跟随系统主题', language: '语言',
     editorFontSize: '编辑器字号', fontSizeUnit: 'px',
@@ -162,6 +164,11 @@ export function SettingsDialog({
 
           <section className="settings-section">
             <label className="settings-toggle"><span>{text.autosave}</span><input name="autosaveEnabled" type="checkbox" checked={draft.autosaveEnabled} onChange={(event) => setDraft({ ...draft, autosaveEnabled: event.target.checked })} /></label>
+            <label className="settings-field"><span>{text.autosaveMode}</span><select name="autosaveMode" value={draft.autosaveMode} onChange={(event) => setDraft({ ...draft, autosaveMode: event.target.value as AppSettings['autosaveMode'] })}>
+              <option value="afterDelay">{text.autosaveModeAfterDelay}</option>
+              <option value="onFocusChange">{text.autosaveModeOnFocusChange}</option>
+              <option value="onWindowChange">{text.autosaveModeOnWindowChange}</option>
+            </select></label>
             <label className="settings-field"><span>{text.autosaveDelay}</span><span className="settings-number"><input name="autosaveDelayMs" type="number" min="250" max="60000" step="250" value={draft.autosaveDelayMs} onChange={(event) => setDraft({ ...draft, autosaveDelayMs: Number(event.target.value) })} /><small>{text.milliseconds}</small></span></label>
             {autosaveDelayInvalid && <p className="settings-validation" role="alert">{text.autosaveDelayInvalid}</p>}
             <label className="settings-toggle"><span>{text.spellcheck}</span><input name="spellcheckEnabled" type="checkbox" checked={draft.spellcheckEnabled} onChange={(event) => setDraft({ ...draft, spellcheckEnabled: event.target.checked })} /></label>

@@ -373,6 +373,12 @@ fn validate_settings(settings: &Settings) -> Result<(), SettingsError> {
             "Autosave delay must be between 250 and 60000 milliseconds.",
         ));
     }
+    if !matches!(
+        settings.autosave_mode.as_str(),
+        "afterDelay" | "onFocusChange" | "onWindowChange"
+    ) {
+        return Err(invalid_error("Autosave mode is not supported."));
+    }
     if !settings.editor_pane_ratio.is_finite() || !(0.2..=0.8).contains(&settings.editor_pane_ratio)
     {
         return Err(invalid_error(
@@ -414,13 +420,16 @@ fn validate_settings(settings: &Settings) -> Result<(), SettingsError> {
             "Resource directory must not contain parent traversal.",
         ));
     }
-    const SHORTCUT_DEFAULTS: [(&str, &str); 6] = [
+    const SHORTCUT_DEFAULTS: [(&str, &str); 9] = [
         ("save", "Mod+S"),
         ("saveAs", "Mod+Shift+S"),
         ("quickOpen", "Mod+P"),
         ("workspaceSearch", "Mod+Shift+F"),
         ("export", "Mod+Shift+E"),
         ("settings", "Mod+,"),
+        ("editorFontLarger", "Mod+="),
+        ("editorFontSmaller", "Mod+-"),
+        ("editorFontReset", "Mod+0"),
     ];
     if settings.shortcuts.len() > SHORTCUT_DEFAULTS.len()
         || settings
@@ -843,6 +852,34 @@ mod tests {
             .insert("quickOpen".to_string(), "mod+s".to_string());
         let error = store.update(saved.revision, settings).unwrap_err();
         assert_eq!(error.code, SettingsErrorCode::Invalid);
+    }
+
+    #[test]
+    fn shortcut_settings_accept_the_complete_frontend_default_profile() {
+        // The settings dialog resolves an empty stored profile into the FULL
+        // frontend default profile (src/lib/shortcutProfiles.ts) before
+        // saving. The backend whitelist must accept every frontend action —
+        // including the editor-font adjustments — or every first settings
+        // save is rejected with "Shortcut action is not supported."
+        let directory = tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().to_path_buf());
+        let mut settings = Settings::default();
+        settings.shortcuts = [
+            ("save", "Mod+S"),
+            ("saveAs", "Mod+Shift+S"),
+            ("quickOpen", "Mod+P"),
+            ("workspaceSearch", "Mod+Shift+F"),
+            ("export", "Mod+Shift+E"),
+            ("settings", "Mod+,"),
+            ("editorFontLarger", "Mod+="),
+            ("editorFontSmaller", "Mod+-"),
+            ("editorFontReset", "Mod+0"),
+        ]
+        .into_iter()
+        .map(|(action, shortcut)| (action.to_string(), shortcut.to_string()))
+        .collect();
+        let saved = store.update(0, settings.clone()).unwrap();
+        assert_eq!(saved.settings.shortcuts, settings.shortcuts);
     }
 
     #[test]

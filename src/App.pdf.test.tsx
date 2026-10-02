@@ -368,7 +368,7 @@ describe('App binary document composition', () => {
       expect(container.querySelectorAll('.preview-pane')).toHaveLength(1);
       expect(container.querySelector(previewSelector)).not.toBeNull();
       expect(appMocks.useDocumentSession).toHaveBeenCalledWith({
-        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, isPopout, popoutPane,
+        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, autosaveMode: 'afterDelay', isPopout, popoutPane,
       });
       expect(appMocks.setNativeSaveMenuEnabled.mock.calls).toEqual(isPopout ? [] : [[false]]);
     },
@@ -400,7 +400,7 @@ describe('App binary document composition', () => {
       expect(appMocks.jinxiuMarkdown).not.toHaveBeenCalled();
       expect(appMocks.paneResizer).not.toHaveBeenCalled();
       expect(appMocks.useDocumentSession).toHaveBeenCalledWith({
-        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, isPopout, popoutPane,
+        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, autosaveMode: 'afterDelay', isPopout, popoutPane,
       });
       expect(appMocks.setNativeSaveMenuEnabled.mock.calls).toEqual(isPopout ? [] : [[true]]);
     },
@@ -605,7 +605,7 @@ describe('App binary document composition', () => {
       });
       expect(props?.popout).toBe(isPopout ? true : undefined);
       expect(appMocks.useDocumentSession).toHaveBeenCalledWith({
-        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, isPopout, popoutPane,
+        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, autosaveMode: 'afterDelay', isPopout, popoutPane,
       });
     },
   );

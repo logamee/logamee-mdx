@@ -15,6 +15,7 @@ export const currentSettingsEnvelope: SettingsEnvelope = {
   revision: 4,
   settings: {
     autosaveEnabled: true,
+    autosaveMode: 'afterDelay',
     autosaveDelayMs: 1500,
     spellcheckEnabled: true,
     wikilinksEnabled: false,

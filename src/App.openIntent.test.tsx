@@ -81,7 +81,7 @@ vi.mock('./hooks/useSettings', () => ({
     recovery: null,
     reset: vi.fn(async () => undefined),
     retry: vi.fn(async () => undefined),
-    settings: { autosaveDelayMs: 1500, autosaveEnabled: false, editorPaneRatio: 0.5, spellcheckEnabled: true },
+    settings: { autosaveDelayMs: 1500, autosaveEnabled: false, autosaveMode: 'afterDelay', editorPaneRatio: 0.5, spellcheckEnabled: true },
     updateSettings: vi.fn(async () => undefined),
   }),
 }));

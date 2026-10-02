@@ -12,6 +12,7 @@ use crate::{
         open_regular_file_without_following_links, opened_file_platform_identity,
     },
     state::AppState,
+    workspace_copy::derive_copy_name,
 };
 
 const MAX_PENDING_SAVE_AUTHORITIES: usize = 1;
@@ -623,6 +624,26 @@ pub(crate) struct RenamedWorkspaceEntry {
     is_file: bool,
 }
 
+pub(crate) struct CopiedWorkspaceEntry {
+    workspace: AuthorizedWorkspace,
+    source: PathBuf,
+    target: PathBuf,
+    is_file: bool,
+}
+
+pub(crate) enum CopyWorkspaceEntryOutcome {
+    Committed(CopiedWorkspaceEntry),
+    /// The staged copy installed nothing at the destination name.
+    ConfirmedNotCommitted {
+        message: String,
+    },
+    /// The copy was installed, but its durability could not be proven.
+    Indeterminate {
+        copied: CopiedWorkspaceEntry,
+        recovery_message: String,
+    },
+}
+
 pub(crate) struct DeletedWorkspaceEntry {
     workspace: AuthorizedWorkspace,
     deleted_path: PathBuf,
@@ -805,6 +826,81 @@ impl SaveAuthorizationScope<'_> {
             matches!(key, GrantKey::ExactReadWrite(file)
                 if file == &self.path && exact_grant_is_current(self.state, file, ledger))
         })
+    }
+
+    /// Restores exact-write currency after the granted file object was replaced
+    /// under the still-authorized workspace root. Each workspace-bound document
+    /// origin is re-opened through the workspace root binding (per-component
+    /// O_NOFOLLOW) and its identity record is re-bound to the observed object.
+    /// Content races stay governed by version arbitration at the durable writer;
+    /// substitutions the workspace open rejects (symlinks, non-regular files,
+    /// missing files, moved roots) leave the stale binding in place so the save
+    /// fails closed.
+    pub(crate) fn refresh_workspace_document_identity(&mut self) {
+        if self.has_exact_write_authority() {
+            return;
+        }
+        let Some(ledger) = self
+            .state
+            .grants
+            .get(&GrantKey::ExactReadWrite(self.path.clone()))
+        else {
+            return;
+        };
+        if !ledger.is_active() {
+            return;
+        }
+        let document_ids = ledger
+            .origins
+            .keys()
+            .filter_map(|origin| match origin {
+                GrantOrigin::OpenDocument(id) => Some(*id),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for document_id in document_ids {
+            let Some(token) = self
+                .state
+                .workspace_document_origins
+                .get(&document_id)
+                .copied()
+            else {
+                continue;
+            };
+            let Some(workspace) = self.state.workspaces.get(&token) else {
+                continue;
+            };
+            let Some(binding) = capture_current_workspace_binding(workspace, &workspace.root)
+            else {
+                continue;
+            };
+            let workspace_grant_is_active = self.state.grants.iter().any(|(key, grant_ledger)| {
+                matches!(key, GrantKey::DirectoryRead(root)
+                    if *root == workspace.root
+                        && grant_ledger.is_active()
+                        && grant_ledger.origins.contains_key(&GrantOrigin::Workspace(token)))
+            });
+            if !workspace_grant_is_active {
+                continue;
+            }
+            let Ok(relative) = self.path.strip_prefix(&workspace.root) else {
+                continue;
+            };
+            let opened = binding.open_regular_file(relative);
+            let Ok(opened) = opened else {
+                continue;
+            };
+            let Ok(identity) = opened_file_platform_identity(&opened) else {
+                continue;
+            };
+            if let Some(record) = self
+                .state
+                .document_origin_identities
+                .get_mut(&document_id)
+            {
+                *record = identity;
+            }
+        }
     }
 
     pub(crate) fn matches_pending(&self, pending: &PendingSaveAuthority) -> bool {
@@ -1223,6 +1319,24 @@ impl DeletedWorkspaceEntry {
     }
 
     #[cfg(test)]
+    pub(crate) fn is_file(&self) -> bool {
+        self.is_file
+    }
+}
+
+impl CopiedWorkspaceEntry {
+    pub(crate) fn workspace(&self) -> &AuthorizedWorkspace {
+        &self.workspace
+    }
+
+    pub(crate) fn source(&self) -> &Path {
+        &self.source
+    }
+
+    pub(crate) fn target(&self) -> &Path {
+        &self.target
+    }
+
     pub(crate) fn is_file(&self) -> bool {
         self.is_file
     }
@@ -3401,6 +3515,79 @@ impl FileAuthorizationSession {
         )
     }
 
+    /// Copies a workspace entry to a sibling destination inside the same
+    /// workspace. The source is only read; authorization checks mirror a move
+    /// (existing entry inside the workspace, destination under the workspace
+    /// root, no overwrite), and the staged copy operation runs while the
+    /// authorization lock is held.
+    fn copy_workspace_entry(
+        &self,
+        workspace_token: &str,
+        source_path: impl AsRef<Path>,
+        destination_parent_path: impl AsRef<Path>,
+        copy: impl FnOnce(&Path, &Path, bool) -> Result<(), crate::workspace_copy::CopyEntryError>,
+    ) -> Result<CopyWorkspaceEntryOutcome, String> {
+        let token = WorkspaceToken::from_wire(workspace_token)?;
+        let state = self.lock()?;
+        let (source, workspace) =
+            Self::workspace_entry_for_mutation_locked(&state, &token, source_path)?;
+        let is_file = source.is_file();
+        let destination_parent = normalize_existing_path(destination_parent_path)?;
+        if !destination_parent.is_dir() {
+            return Err("Copy destination is not a directory".into());
+        }
+        if !path_is_under(&destination_parent, &workspace.root) {
+            return Err("Copy destination is outside the selected workspace".into());
+        }
+        let name = source
+            .file_name()
+            .ok_or_else(|| "Workspace entry name is invalid".to_string())?;
+        let requested_target = destination_parent.join(name);
+        if requested_target == source {
+            return Err("Cannot copy an entry onto itself".into());
+        }
+        if !is_file && path_is_under(&destination_parent, &source) {
+            return Err("Cannot copy a folder into itself or one of its descendants".into());
+        }
+        let target_exists = |candidate: &str| {
+            fs::symlink_metadata(&destination_parent.join(candidate)).is_ok()
+        };
+        let target_name = match name.to_str() {
+            Some(name) => derive_copy_name(name, target_exists).ok_or_else(|| {
+                "Cannot allocate a free copy destination name".to_string()
+            })?,
+            None => return Err("Workspace entry name is invalid".into()),
+        };
+        let target = destination_parent.join(target_name);
+        match fs::symlink_metadata(&target) {
+            Ok(_) => return Err("Workspace entry already exists".into()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(format!("Cannot access copy destination: {error}")),
+        }
+        match copy(&source, &target, is_file) {
+            Ok(()) => Ok(CopyWorkspaceEntryOutcome::Committed(CopiedWorkspaceEntry {
+                workspace,
+                source,
+                target,
+                is_file,
+            })),
+            Err(crate::workspace_copy::CopyEntryError::NotCommitted(message)) => {
+                Ok(CopyWorkspaceEntryOutcome::ConfirmedNotCommitted { message })
+            }
+            Err(crate::workspace_copy::CopyEntryError::CommittedButUnverified {
+                message, ..
+            }) => Ok(CopyWorkspaceEntryOutcome::Indeterminate {
+                copied: CopiedWorkspaceEntry {
+                    workspace,
+                    source,
+                    target,
+                    is_file,
+                },
+                recovery_message: message,
+            }),
+        }
+    }
+
     fn reconcile_rename_after_error(
         &self,
         attempted: RenamedWorkspaceEntry,
@@ -4093,6 +4280,39 @@ pub(crate) fn move_authorized_workspace_entry_inner(
             invalidate_preview_leases_after_authorization(state, invalidated_preview_leases)
         },
     )
+}
+
+pub(crate) fn copy_authorized_workspace_entry_inner(
+    state: &AppState,
+    workspace_token: &str,
+    source_path: impl AsRef<Path>,
+    destination_parent_path: impl AsRef<Path>,
+    copy: impl FnOnce(&Path, &Path, bool) -> Result<(), crate::workspace_copy::CopyEntryError>,
+) -> Result<CopyWorkspaceEntryOutcome, String> {
+    state
+        .file_authorization()
+        .copy_workspace_entry(workspace_token, source_path, destination_parent_path, copy)
+}
+
+/// Reveals an entry in the system file manager. The entry must already be
+/// visible to the session: either a file with a current exact grant or any
+/// file/directory covered by a current workspace directory grant.
+pub(crate) fn reveal_authorized_workspace_entry_inner(
+    state: &AppState,
+    path: impl AsRef<Path>,
+    reveal: impl FnOnce(&Path) -> Result<(), String>,
+) -> Result<PathBuf, String> {
+    let canonical = normalize_existing_path(path)?;
+    let file_authorization = state.file_authorization();
+    let authorized = match file_authorization.file_for_read(&canonical) {
+        Ok(path) => path,
+        Err(file_error) => match file_authorization.directory_for_read(&canonical) {
+            Ok(path) => path,
+            Err(_) => return Err(file_error),
+        },
+    };
+    reveal(&authorized)?;
+    Ok(authorized)
 }
 
 #[cfg(test)]

@@ -1498,7 +1498,26 @@ fn validate_workspace_entry_name(name: &str) -> Result<&str, String> {
     if matches!(name, "." | "..") || Path::new(name).components().count() != 1 {
         return Err("Workspace entry name is invalid".into());
     }
+    if is_windows_reserved_entry_name(name) {
+        return Err("Workspace entry name is reserved on Windows".into());
+    }
     Ok(name)
+}
+
+// Workspaces are local folders that can sync across platforms; a name that
+// Windows resolves to a device object would be created fine on this platform
+// and then be unreadable or shadowed on Windows, so it is rejected everywhere.
+fn is_windows_reserved_entry_name(name: &str) -> bool {
+    if name.ends_with('.') {
+        return true;
+    }
+    let base = name.split('.').next().unwrap_or(name);
+    matches!(
+        base.to_ascii_uppercase().as_str(),
+        "CON" | "PRN" | "AUX" | "NUL"
+            | "COM1" | "COM2" | "COM3" | "COM4" | "COM5" | "COM6" | "COM7" | "COM8" | "COM9"
+            | "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5" | "LPT6" | "LPT7" | "LPT8" | "LPT9"
+    )
 }
 
 fn markdown_file_name(name: &str) -> Result<String, String> {
@@ -3079,6 +3098,77 @@ pub(crate) fn move_workspace_entry_inner(
     )
 }
 
+pub(crate) fn copy_workspace_entry_inner(
+    state: &AppState,
+    workspace_token: &str,
+    source_path: impl AsRef<Path>,
+    destination_parent_path: impl AsRef<Path>,
+) -> Result<MutationOutcome<RenameWorkspaceEntryResponse, WorkspaceSnapshot>, String> {
+    copy_workspace_entry_with_snapshot_inner(
+        state,
+        workspace_token,
+        source_path,
+        destination_parent_path,
+        capture_workspace_snapshot,
+    )
+}
+
+fn copy_workspace_entry_with_snapshot_inner(
+    state: &AppState,
+    workspace_token: &str,
+    source_path: impl AsRef<Path>,
+    destination_parent_path: impl AsRef<Path>,
+    snapshot: impl for<'a> FnOnce(
+        WorkspaceSnapshotSource<'a>,
+    ) -> Result<CapturedWorkspaceSnapshot, String>,
+) -> Result<MutationOutcome<RenameWorkspaceEntryResponse, WorkspaceSnapshot>, String> {
+    let outcome = crate::path_auth::copy_authorized_workspace_entry_inner(
+        state,
+        workspace_token,
+        source_path,
+        destination_parent_path,
+        crate::workspace_copy::copy_entry,
+    );
+    match outcome {
+        Ok(crate::path_auth::CopyWorkspaceEntryOutcome::Committed(copied)) => {
+            let committed = RenameWorkspaceEntryResponse {
+                entry_kind: if copied.is_file() {
+                    "file"
+                } else {
+                    "directory"
+                }
+                .to_string(),
+                old_path: copied.source().to_string_lossy().to_string(),
+                new_path: copied.target().to_string_lossy().to_string(),
+            };
+            let workspace =
+                capture_post_commit_workspace_receipt(state, copied.workspace(), snapshot);
+            discard_workspace_index_after_workspace_mutation(state, copied.workspace());
+            Ok(MutationOutcome::ConfirmedCommitted {
+                receipt: MutationCommitReceipt {
+                    committed,
+                    workspace,
+                },
+            })
+        }
+        Ok(crate::path_auth::CopyWorkspaceEntryOutcome::ConfirmedNotCommitted {
+            message,
+        }) => Ok(MutationOutcome::ConfirmedNotCommitted { message }),
+        Ok(crate::path_auth::CopyWorkspaceEntryOutcome::Indeterminate {
+            copied,
+            recovery_message,
+        }) => Ok(MutationOutcome::Indeterminate {
+            operation: crate::models::MutationKind::Copy,
+            paths: vec![
+                copied.source().to_string_lossy().to_string(),
+                copied.target().to_string_lossy().to_string(),
+            ],
+            recovery_message,
+        }),
+        Err(message) => Ok(MutationOutcome::ConfirmedNotCommitted { message }),
+    }
+}
+
 #[cfg(test)]
 fn delete_workspace_entry_with_ports_inner(
     state: &AppState,
@@ -3506,6 +3596,103 @@ pub(crate) fn move_workspace_entry(
     state: State<'_, AppState>,
 ) -> Result<MutationOutcome<RenameWorkspaceEntryResponse, WorkspaceSnapshot>, String> {
     move_workspace_entry_inner(&state, &workspace_token, path, destination_parent_path)
+}
+
+#[tauri::command]
+pub(crate) fn copy_workspace_entry(
+    workspace_token: String,
+    source_path: String,
+    destination_parent_path: String,
+    state: State<'_, AppState>,
+) -> Result<MutationOutcome<RenameWorkspaceEntryResponse, WorkspaceSnapshot>, String> {
+    copy_workspace_entry_inner(
+        &state,
+        &workspace_token,
+        source_path,
+        destination_parent_path,
+    )
+}
+
+pub(crate) trait RevealPort: Send + Sync {
+    fn reveal(&self, path: &Path) -> Result<(), String>;
+}
+
+struct SystemRevealPort;
+
+#[cfg(target_os = "macos")]
+impl RevealPort for SystemRevealPort {
+    fn reveal(&self, path: &Path) -> Result<(), String> {
+        let status = std::process::Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .status()
+            .map_err(|error| format!("Failed to reveal the entry in Finder: {error}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("Failed to reveal the entry in Finder: exit status {status}"))
+        }
+    }
+}
+
+#[cfg(windows)]
+impl RevealPort for SystemRevealPort {
+    fn reveal(&self, path: &Path) -> Result<(), String> {
+        // explorer reports a nonzero exit code on success for /select, so the
+        // spawn result alone decides the outcome.
+        std::process::Command::new("explorer")
+            .arg(format!("/select,{}", path.display()))
+            .spawn()
+            .map_err(|error| format!("Failed to reveal the entry in File Explorer: {error}"))
+            .map(|_| ())
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl RevealPort for SystemRevealPort {
+    fn reveal(&self, path: &Path) -> Result<(), String> {
+        let parent = path
+            .parent()
+            .ok_or_else(|| "Revealed entry has no parent".to_string())?;
+        let status = std::process::Command::new("xdg-open")
+            .arg(parent)
+            .status()
+            .map_err(|error| format!("Failed to open the containing folder: {error}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("Failed to open the containing folder: exit status {status}"))
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
+impl RevealPort for SystemRevealPort {
+    fn reveal(_path: &Path) -> Result<(), String> {
+        Err("Revealing entries in the system file manager is unsupported on this platform".into())
+    }
+}
+
+#[cfg(test)]
+fn reveal_workspace_entry_with_port_inner(
+    state: &AppState,
+    path: impl AsRef<Path>,
+    reveal: &dyn RevealPort,
+) -> Result<PathBuf, String> {
+    crate::path_auth::reveal_authorized_workspace_entry_inner(state, path, |canonical| {
+        reveal.reveal(canonical)
+    })
+}
+
+#[tauri::command]
+pub(crate) fn reveal_workspace_entry(
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    crate::path_auth::reveal_authorized_workspace_entry_inner(&state, path, |canonical| {
+        SystemRevealPort.reveal(canonical)
+    })
+    .map(|_| ())
 }
 
 #[tauri::command]
@@ -8241,6 +8428,210 @@ mod tests {
         ));
         assert!(unsupported.is_file());
         assert!(!promoted.exists());
+    }
+
+    #[test]
+    fn copies_workspace_entries_inside_the_workspace_and_rejects_conflicts() {
+        let workspace = tempdir().unwrap();
+        let state = AppState::default();
+        let opened = open_directory_inner(&state, workspace.path()).unwrap();
+        let note = workspace.path().join("note.md");
+        fs::write(&note, "# hello").unwrap();
+        fs::create_dir_all(workspace.path().join("book/chapters")).unwrap();
+        fs::write(workspace.path().join("book/chapters/one.md"), "one").unwrap();
+        fs::create_dir(workspace.path().join("notes")).unwrap();
+
+        let committed = match copy_workspace_entry_inner(
+            &state,
+            &opened.workspace_token,
+            &note,
+            workspace.path().join("notes"),
+        )
+        .unwrap()
+        {
+            MutationOutcome::ConfirmedCommitted { receipt } => receipt.committed,
+            outcome => panic!("expected a committed copy, got {outcome:?}"),
+        };
+        assert_eq!(
+            fs::read_to_string(workspace.path().join("notes/note.md")).unwrap(),
+            "# hello"
+        );
+        assert_eq!(committed.entry_kind, "file");
+        assert!(committed.new_path.ends_with("notes/note.md"));
+
+        assert_confirmed_not_committed(copy_workspace_entry_inner(
+            &state,
+            &opened.workspace_token,
+            &note,
+            workspace.path(),
+        ));
+        // Pasting a second copy into the same folder derives "note copy.md"
+        // instead of refusing, matching mainstream file managers.
+        let duplicate = match copy_workspace_entry_inner(
+            &state,
+            &opened.workspace_token,
+            &note,
+            workspace.path().join("notes"),
+        )
+        .unwrap()
+        {
+            MutationOutcome::ConfirmedCommitted { receipt } => receipt.committed,
+            outcome => panic!("expected a committed copy, got {outcome:?}"),
+        };
+        assert!(duplicate.new_path.ends_with("notes/note copy.md"));
+        assert_eq!(
+            fs::read_to_string(workspace.path().join("notes/note copy.md")).unwrap(),
+            "# hello"
+        );
+        assert_eq!(
+            fs::read_to_string(workspace.path().join("notes/note.md")).unwrap(),
+            "# hello"
+        );
+
+        let copied_tree = match copy_workspace_entry_inner(
+            &state,
+            &opened.workspace_token,
+            workspace.path().join("book"),
+            workspace.path().join("notes"),
+        )
+        .unwrap()
+        {
+            MutationOutcome::ConfirmedCommitted { receipt } => receipt.committed,
+            outcome => panic!("expected a committed copy, got {outcome:?}"),
+        };
+        assert_eq!(copied_tree.entry_kind, "directory");
+        assert_eq!(
+            fs::read_to_string(
+                workspace
+                    .path()
+                    .join("notes/book/chapters/one.md")
+            )
+            .unwrap(),
+            "one"
+        );
+
+        assert_confirmed_not_committed(copy_workspace_entry_inner(
+            &state,
+            &opened.workspace_token,
+            workspace.path().join("book"),
+            workspace.path().join("book/chapters"),
+        ));
+        match copy_workspace_entry_inner(
+            &state,
+            &opened.workspace_token,
+            &note,
+            workspace.path().join("book"),
+        )
+        .unwrap()
+        {
+            MutationOutcome::ConfirmedCommitted { .. } => {}
+            outcome => panic!("expected a committed copy, got {outcome:?}"),
+        }
+        assert_confirmed_not_committed(copy_workspace_entry_inner(
+            &state,
+            &opened.workspace_token,
+            &note,
+            workspace.path(),
+        ));
+        assert_eq!(
+            fs::read_to_string(workspace.path().join("book/note.md")).unwrap(),
+            "# hello"
+        );
+    }
+
+    #[test]
+    fn copy_rejects_sources_outside_the_authorized_workspace() {
+        let workspace = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let outside_note = outside.path().join("outside.md");
+        fs::write(&outside_note, "# outside").unwrap();
+        let state = AppState::default();
+        let opened = open_directory_inner(&state, workspace.path()).unwrap();
+
+        assert_confirmed_not_committed(copy_workspace_entry_inner(
+            &state,
+            &opened.workspace_token,
+            &outside_note,
+            workspace.path(),
+        ));
+        assert!(!workspace.path().join("outside.md").exists());
+    }
+
+    struct CapturingRevealPort {
+        revealed: std::sync::Mutex<Option<PathBuf>>,
+    }
+
+    impl RevealPort for CapturingRevealPort {
+        fn reveal(&self, path: &Path) -> Result<(), String> {
+            *self.revealed.lock().unwrap() = Some(path.to_path_buf());
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn reveal_uses_the_canonical_path_and_requires_authorized_entries() {
+        let workspace = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        fs::write(outside.path().join("outside.md"), "# outside").unwrap();
+        let state = AppState::default();
+        let opened = open_directory_inner(&state, workspace.path()).unwrap();
+        let note = workspace.path().join("note.md");
+        fs::write(&note, "# hello").unwrap();
+        let port = CapturingRevealPort {
+            revealed: std::sync::Mutex::new(None),
+        };
+
+        let canonical = reveal_workspace_entry_with_port_inner(&state, &note, &port).unwrap();
+        assert_eq!(canonical, note.canonicalize().unwrap());
+        assert_eq!(port.revealed.lock().unwrap().as_deref(), Some(canonical.as_path()));
+
+        let directory = reveal_workspace_entry_with_port_inner(
+            &state,
+            workspace.path().canonicalize().unwrap(),
+            &port,
+        )
+        .unwrap();
+        assert_eq!(directory, workspace.path().canonicalize().unwrap());
+
+        assert!(reveal_workspace_entry_with_port_inner(
+            &state,
+            outside.path().join("outside.md"),
+            &port
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn workspace_entry_names_reject_windows_reserved_device_names() {
+        let workspace = tempdir().unwrap();
+        let state = AppState::default();
+        let opened = open_directory_inner(&state, workspace.path()).unwrap();
+
+        for name in ["CON.md", "con", "Com1.txt", "LPT9.md", "aux", "NUL", "notes.md."] {
+            assert_confirmed_not_committed(create_workspace_file_inner(
+                &state,
+                &opened.workspace_token,
+                workspace.path(),
+                name,
+            ));
+            assert_confirmed_not_committed(create_workspace_directory_inner(
+                &state,
+                &opened.workspace_token,
+                workspace.path(),
+                name,
+            ));
+        }
+
+        let valid = match create_workspace_file_inner(
+            &state,
+            &opened.workspace_token,
+            workspace.path(),
+            "connector.md",
+        ) {
+            Ok(MutationOutcome::ConfirmedCommitted { .. }) => true,
+            _ => false,
+        };
+        assert!(valid);
     }
 
     #[test]
