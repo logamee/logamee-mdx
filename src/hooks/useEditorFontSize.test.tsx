@@ -110,7 +110,15 @@ describe('useEditorFontSize', () => {
     expect(updateSettings).toHaveBeenCalledTimes(1);
     expect(updateSettings.mock.calls[0][0].editorFontSize).toBe(17);
 
-    await settleFlush();
+    // 第二次写入依赖"写入完成 → 设置重渲染推进 → 重查冲刷"链：jsdom 下
+    // 渲染在 act 退出时才冲刷，重查按 25ms 间隔重试，两段等待分别覆盖
+    // 渲染冲刷和下一次重查，保证慢机器上断言前冲刷已真正发起。
+    await act(async () => {
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 80));
+    });
+    await act(async () => {
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 80));
+    });
     expect(updateSettings).toHaveBeenCalledTimes(2);
     expect(updateSettings.mock.calls[1][0].editorFontSize).toBe(19);
 
