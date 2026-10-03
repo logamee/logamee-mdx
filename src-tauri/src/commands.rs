@@ -8457,7 +8457,7 @@ mod tests {
             "# hello"
         );
         assert_eq!(committed.entry_kind, "file");
-        assert!(committed.new_path.ends_with("notes/note.md"));
+        assert!(Path::new(&committed.new_path).ends_with(Path::new("notes").join("note.md")));
 
         assert_confirmed_not_committed(copy_workspace_entry_inner(
             &state,
@@ -8478,7 +8478,7 @@ mod tests {
             MutationOutcome::ConfirmedCommitted { receipt } => receipt.committed,
             outcome => panic!("expected a committed copy, got {outcome:?}"),
         };
-        assert!(duplicate.new_path.ends_with("notes/note copy.md"));
+        assert!(Path::new(&duplicate.new_path).ends_with(Path::new("notes").join("note copy.md")));
         assert_eq!(
             fs::read_to_string(workspace.path().join("notes/note copy.md")).unwrap(),
             "# hello"
