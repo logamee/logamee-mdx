@@ -15,7 +15,7 @@
 | React/CSS/主题/交互 | 聚焦 Vitest、`npm run typecheck`、`npm run lint` | 组件状态、键盘/ARIA、主题令牌、窄屏布局 |
 | Markdown/预览/导出 | 对应 Vitest、`npm run typecheck`、`npm run build` | 围栏代码、GFM/数学、资源作用域、HTML iframe 沙箱、DOCX/富文本净化器、导出预检 |
 | IPC/协议/工作区 | 对应 Vitest + `cargo test --manifest-path src-tauri/Cargo.toml` | 精确键解码、世代编号/令牌、回执、错误路径 |
-| Rust 文件/授权/写入/回收站 | 对应 Rust 测试、`cargo check --manifest-path src-tauri/Cargo.toml` | 根目录逃逸、符号链接、版本冲突、持久写入、不确定结果 |
+| Rust 文件/授权/写入/回收站 | 对应 Rust 测试、`cargo check --manifest-path src-tauri/Cargo.toml`、`npm run check:platform-apis` | 根目录逃逸、符号链接、版本冲突、持久写入、不确定结果；平台专有 API（`std::os::unix`/`std::os::windows`、`libc::`、平台 crate）必须位于平台 cfg 门控内 |
 | Tauri 配置/窗口/CSP/文件关联 | `npm test`、Rust 测试、`npm run build`、必要时 `npm run tauri -- build --debug` | 最小能力权限、CSP、启动/第二实例/窗口释放 |
 | 性能/索引 | `npm run perf:gate` | 10k/100k 产物完整、可比较、p95 门禁结果 |
 | 发布脚本/版本/第三方资产 | `npm run test:release-tools`、`npm run check:release-version`、`npm run sync:vendor-assets` | 版本、信任、产物、平台冒烟测试、许可证和资源清单 |
@@ -33,6 +33,20 @@ npm run build
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
+上述序列可通过一条命令运行（失败即停，平台 API 审计在序列前段）：
+
+```bash
+npm run ci:local
+```
+
+`npm run check:platform-apis` 是静态门禁纪律审计：扫描 `src-tauri` 中的
+`std::os::unix`、`std::os::windows`、`libc::` 与平台专有 crate 引用，要求其
+位于 `cfg(unix)`、`cfg(windows)`、`cfg(target_os = ...)` 等平台门控内，防止
+"仅在一台开发机上编译过"的跨平台编译破坏（例如只在 `cfg(test)` 下使用
+Unix 专有导入）。它不能模拟编译：导入可见性类偏差（如门控导入被
+`cfg(test)` 代码引用）仍需远端四平台 CI 确认；个别行可用
+`platform-audit: allow` 注释显式豁免并说明理由。
 
 涉及脚本/元数据时追加：
 

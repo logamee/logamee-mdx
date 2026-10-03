@@ -17,6 +17,8 @@
     "test:watch": "vitest",
     "lint": "oxlint --deny-warnings --react-plugin --jsx-a11y-plugin --vitest-plugin",
     "check:release-version": "node scripts/check-release-version.mjs",
+    "check:platform-apis": "node scripts/ci/check-platform-apis.mjs",
+    "ci:local": "node scripts/ci/local-ci.mjs",
     "check:release-trust": "node scripts/ci/check-release-trust.mjs",
     "test:release-version": "node --test scripts/check-release-version.test.mjs",
     "test:metadata": "node --test scripts/project-metadata.test.mjs",
@@ -41,7 +43,7 @@
     "perf:gate": "npm run perf:candidate:10k && npm run perf:candidate:100k && npm run perf:gate:check",
     "perf:gate:check": "node scripts/perf/evaluate-gate-suite.mjs .perf/results/m3-gate-summary.json",
     "verify:m3-attestation": "node scripts/perf/evaluate-m3-attestation.mjs docs/evidence/m3/fts5-defer-attestation/attestation.json",
-    "test:release-tools": "node --test scripts/check-release-version.test.mjs scripts/release-workflow.node-test.mjs scripts/ci/check-release-trust.node-test.mjs scripts/ci/create-update-manifest.node-test.mjs scripts/ci/artifact-manifest.test.mjs scripts/ci/smoke-linux.node-test.mjs scripts/ci/smoke-macos.node-test.mjs scripts/ci/packaged-open-evidence.node-test.mjs scripts/ci/packaged-open-runner.node-test.mjs scripts/ci/platform-workflow.node-test.mjs",
+    "test:release-tools": "node --test scripts/check-release-version.test.mjs scripts/release-workflow.node-test.mjs scripts/ci/check-release-trust.node-test.mjs scripts/ci/create-update-manifest.node-test.mjs scripts/ci/artifact-manifest.test.mjs scripts/ci/smoke-linux.node-test.mjs scripts/ci/smoke-macos.node-test.mjs scripts/ci/packaged-open-evidence.node-test.mjs scripts/ci/packaged-open-runner.node-test.mjs scripts/ci/platform-workflow.node-test.mjs scripts/ci/check-platform-apis.node-test.mjs scripts/ci/local-ci.node-test.mjs",
     "sync:pdf-assets": "node scripts/sync-pdf-assets.mjs",
     "sync:third-party-notices": "node scripts/sync-third-party-notices.mjs",
     "sync:vendor-assets": "npm run sync:pdf-assets && npm run sync:third-party-notices"
