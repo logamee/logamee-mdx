@@ -3678,7 +3678,7 @@ fn reveal_workspace_entry_with_port_inner(
     state: &AppState,
     path: impl AsRef<Path>,
     reveal: &dyn RevealPort,
-) -> Result<PathBuf, String> {
+) -> Result<std::path::PathBuf, String> {
     crate::path_auth::reveal_authorized_workspace_entry_inner(state, path, |canonical| {
         reveal.reveal(canonical)
     })

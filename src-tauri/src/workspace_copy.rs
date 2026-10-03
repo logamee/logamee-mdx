@@ -302,7 +302,9 @@ fn sync_parent_directory(_target: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{copy_entry, derive_copy_name, CopyEntryError};
-    use std::{fs, os::unix::fs::symlink};
+    use std::fs;
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink;
     use tempfile::tempdir;
 
     #[test]
@@ -386,6 +388,7 @@ mod tests {
         assert_eq!(fs::read(&target).unwrap(), b"original");
     }
 
+    #[cfg(unix)]
     #[test]
     fn refuses_symlinks_anywhere_in_the_copied_tree() {
         let directory = tempdir().unwrap();
@@ -405,7 +408,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_a_missing_or_non_regular_copy_source() {
+    fn rejects_a_missing_copy_source() {
         let directory = tempdir().unwrap();
         let missing = directory.path().join("missing.md");
         let target = directory.path().join("copy.md");
@@ -413,8 +416,14 @@ mod tests {
         let error = assert_not_committed(copy_entry(&missing, &target, true).unwrap_err());
         assert!(error.contains("Cannot read the copy source"));
         assert!(!target.exists());
+    }
 
+    #[cfg(unix)]
+    #[test]
+    fn rejects_a_fifo_copy_source() {
+        let directory = tempdir().unwrap();
         let fifo = directory.path().join("pipe");
+        let target = directory.path().join("copy.md");
         let name = std::ffi::CString::new(fifo.as_os_str().to_str().unwrap()).unwrap();
         unsafe {
             libc::mkfifo(name.as_ptr(), 0o600);
