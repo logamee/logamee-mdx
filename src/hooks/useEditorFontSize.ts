@@ -9,6 +9,12 @@ export interface EditorFontSizeController {
   reset: () => void;
 }
 
+// 写入完成后设置需要经历一次重渲染才会推进；0ms 重查可能早于这次渲染
+// （高负载主线程或恢复模型介入时）。未推进时按间隔有界重试，超限才视
+// 为"写入落空"丢弃目标，避免连按目标被调度延迟 silently 丢弃。
+const SETTINGS_ADVANCE_RECHECK_INTERVAL_MS = 25;
+const SETTINGS_ADVANCE_RECHECK_LIMIT = 80;
+
 // 编辑器字号会被快捷键连按高频调整。设置写入基于 revision 做乐观并发控制，
 // 并发 update 会携带过期 revision 触发冲突恢复弹窗，所以这里只串行发起写入：
 // 目标字号先登记，同一时刻最多一个写入在飞，完成后再冲刷剩余目标（此时设置
@@ -48,14 +54,22 @@ export function useEditorFontSize(
       targetRef.current = null;
       return;
     }
-    globalThis.setTimeout(() => {
+    let recheckAttempts = 0;
+    const recheck = () => {
       if (settingsRef.current === current) {
-        // 写入完成后设置未随之推进（被恢复模型拦截或落空）：丢弃目标，避免无限重写。
+        if (recheckAttempts < SETTINGS_ADVANCE_RECHECK_LIMIT) {
+          recheckAttempts += 1;
+          globalThis.setTimeout(recheck, SETTINGS_ADVANCE_RECHECK_INTERVAL_MS);
+          return;
+        }
+        // 写入完成后设置始终未推进（被恢复模型拦截或落空）：丢弃目标，
+        // 避免无限重写。
         targetRef.current = null;
         return;
       }
       void flush();
-    }, 0);
+    };
+    globalThis.setTimeout(recheck, 0);
   }, []);
 
   const request = useCallback((next: number) => {

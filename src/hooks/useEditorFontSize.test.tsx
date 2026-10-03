@@ -22,6 +22,25 @@ function Harness({ initial, updateSettings, observe }: {
   return <output>{value.fontSize}</output>;
 }
 
+// 模拟真实应用的滞后链：写入承诺立即完成，但设置状态要等一个宏任务后才
+// 推进（对应 React 调度延迟、恢复模型介入等场景），用于固化“写入完成但
+// 设置尚未重渲染”的窗口。
+function LaggingHarness({ initial, applyDelayMs, updateSettings, observe }: {
+  initial: AppSettings | null;
+  applyDelayMs: number;
+  updateSettings: (settings: AppSettings) => Promise<void>;
+  observe: (value: EditorFontSizeController) => void;
+}) {
+  const [settings, setSettings] = useState<AppSettings | null>(initial);
+  const value = useEditorFontSize(settings, (next) => {
+    void updateSettings(next);
+    globalThis.setTimeout(() => setSettings(next), applyDelayMs);
+    return Promise.resolve();
+  });
+  useEffect(() => observe(value), [observe, value]);
+  return <output>{value.fontSize}</output>;
+}
+
 describe('useEditorFontSize', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -97,6 +116,41 @@ describe('useEditorFontSize', () => {
 
     await settleFlush();
     expect(updateSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the queued target when the settings application lags behind the completed write', async () => {
+    const updateSettings = vi.fn<(settings: AppSettings) => Promise<void>>(async () => undefined);
+    let controller: EditorFontSizeController | undefined;
+    const observe = (value: EditorFontSizeController) => { controller = value; };
+
+    await act(async () => root.render(
+      <LaggingHarness
+        initial={{ ...currentSettingsEnvelope.settings, editorFontSize: 16 }}
+        applyDelayMs={40}
+        updateSettings={updateSettings}
+        observe={observe}
+      />,
+    ));
+
+    act(() => {
+      controller?.increase();
+      controller?.increase();
+    });
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings.mock.calls[0][0].editorFontSize).toBe(17);
+
+    // 写入已完成但设置要 40ms 后才推进：排队的目标（18）必须在重查中
+    // 存活到设置推进，再串行写入，而不是被立即丢弃。第一段等待让设置
+    // 应用并在 act 退出时冲刷渲染；第二段等待覆盖一次重查间隔，让冲刷
+    // 真正发起第二次写入。
+    await act(async () => {
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 300));
+    });
+    await act(async () => {
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 80));
+    });
+    expect(updateSettings).toHaveBeenCalledTimes(2);
+    expect(updateSettings.mock.calls[1][0].editorFontSize).toBe(18);
   });
 
   it('skips writes when the size is already at the boundary', async () => {
