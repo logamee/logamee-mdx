@@ -3,13 +3,13 @@ import packageLock from '../../package-lock.json';
 import packageManifest from '../../package.json';
 
 const expectedCodeMirrorVersions = {
-  '@codemirror/commands': '6.10.4',
-  '@codemirror/lang-html': '6.4.11',
-  '@codemirror/lang-markdown': '6.5.1',
+  '@codemirror/commands': '6.11.1',
+  '@codemirror/lang-html': '6.4.12',
+  '@codemirror/lang-markdown': '6.5.2',
   '@codemirror/language': '6.12.4',
-  '@codemirror/search': '6.7.1',
-  '@codemirror/state': '6.7.1',
-  '@codemirror/view': '6.43.6',
+  '@codemirror/search': '6.7.2',
+  '@codemirror/state': '6.7.6',
+  '@codemirror/view': '6.43.13',
 } as const;
 
 describe('CodeMirror dependency pins', () => {

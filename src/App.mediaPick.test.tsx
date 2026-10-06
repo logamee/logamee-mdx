@@ -22,17 +22,17 @@ vi.mock('@tauri-apps/api/event', () => ({
   emitTo: vi.fn<(target: string, event: string, payload: unknown) => Promise<void>>(),
   listen: vi.fn<() => Promise<() => void>>(async () => () => undefined),
 }));
-vi.mock('./hooks/useDocumentSession', () => ({
+vi.mock('./features/document/useDocumentSession', () => ({
   useDocumentSession: appMocks.useDocumentSession,
 }));
-vi.mock('./hooks/useCrashDraftRecovery', () => ({
+vi.mock('./features/document/useCrashDraftRecovery', () => ({
   useCrashDraftRecovery: appMocks.useCrashDraftRecovery,
 }));
 vi.mock('./lib/tauriCommands', () => ({
   pickMediaResources: appMocks.pickMediaResources,
   setNativeSaveMenuEnabled: appMocks.setNativeSaveMenuEnabled,
 }));
-vi.mock('./hooks/usePaneResize', () => ({
+vi.mock('./features/app/usePaneResize', () => ({
   usePaneResize: () => ({
     editorPaneRef: { current: null },
     movePaneResize: vi.fn<() => void>(),
@@ -41,7 +41,7 @@ vi.mock('./hooks/usePaneResize', () => ({
     stopPaneResize: vi.fn<() => void>(),
   }),
 }));
-vi.mock('./hooks/usePanePopouts', () => ({
+vi.mock('./features/app/usePanePopouts', () => ({
   usePanePopouts: () => ({
     closePopoutWindows: vi.fn<() => Promise<void>>(async () => undefined),
     editorPopoutButton: undefined,
@@ -49,12 +49,12 @@ vi.mock('./hooks/usePanePopouts', () => ({
     previewPopoutButton: undefined,
   }),
 }));
-vi.mock('./hooks/useProgramCloseGuard', () => ({
+vi.mock('./features/app/useProgramCloseGuard', () => ({
   useProgramCloseGuard: () => ({
     forceCloseProgram: vi.fn<() => Promise<void>>(async () => undefined),
   }),
 }));
-vi.mock('./hooks/useSettings', () => ({
+vi.mock('./features/settings/useSettings', () => ({
   useSettings: () => ({
     busy: false,
     recovery: null,
@@ -64,12 +64,13 @@ vi.mock('./hooks/useSettings', () => ({
     updateSettings: appMocks.updateSettings,
   }),
 }));
-vi.mock('./components/EditorPane', () => ({ EditorPane: appMocks.editorPane }));
+vi.mock('./features/workspace/EditorPane', () => ({ EditorPane: appMocks.editorPane }));
 vi.mock('./components/PaneResizer', () => ({ PaneResizer: appMocks.paneResizer }));
-vi.mock('./components/JinxiuMarkdown', () => ({ default: appMocks.jinxiuMarkdown }));
+vi.mock('./features/preview/JinxiuMarkdown', () => ({ default: appMocks.jinxiuMarkdown }));
 
 const baseSettings: AppSettings = {
   autosaveEnabled: true,
+  autosaveMode: 'afterDelay',
   autosaveDelayMs: 1500,
   spellcheckEnabled: true,
   wikilinksEnabled: false,

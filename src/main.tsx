@@ -6,7 +6,7 @@ import { APP_FEEDBACK_ERROR_EVENT, normalizeAppError } from './lib/appFeedback';
 import { LocaleProvider } from './lib/i18n';
 import { bootstrapLocale } from './lib/locale';
 import { createLocaleRuntime, type LocaleRuntimeRole } from './lib/localeRuntime';
-import { bootstrapTheme } from './lib/theme';
+import { bootstrapTheme, themePreferenceFromSettingsSnapshot } from './lib/theme';
 import { createThemeRuntime, type ThemeRuntimeRole } from './lib/themeRuntime';
 import { setNativeLocalePreference, setNativeThemePreference } from './lib/tauriCommands';
 
@@ -52,6 +52,14 @@ const themeRuntime = createThemeRuntime({
   onError: reportThemeError,
 });
 void themeRuntime.start();
+// 设置对话框保存的皮肤选择经设置广播接入主题运行时（原生菜单路径之外的第二入口）。
+const unlistenSettingsTheme = await listen('mmd:settings-changed', (event) => {
+  const preference = themePreferenceFromSettingsSnapshot(event.payload);
+  if (preference) themeRuntime.setPreference(preference);
+}).catch((error: unknown) => {
+  reportThemeError(error);
+  return () => undefined;
+});
 const localeRuntime = createLocaleRuntime({
   role: localeRole,
   root: document.documentElement,
@@ -68,6 +76,7 @@ const localeRuntime = createLocaleRuntime({
 });
 void localeRuntime.start();
 window.addEventListener('pagehide', () => {
+  unlistenSettingsTheme();
   themeRuntime.stop();
   localeRuntime.stop();
 }, { once: true });

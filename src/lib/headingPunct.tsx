@@ -1,7 +1,7 @@
 import { Children } from 'react';
 import type React from 'react';
 
-export const JINXIU_HEADING_SYMBOL_SPLIT = /(■|▪)/;
+const JINXIU_HEADING_SYMBOL_SPLIT = /(■|▪)/;
 export const JINXIU_HEADING_PUNCT_CLASS = 'jinxiu-h2-punct';
 
 export function wrapPlainTextWithJinxiuHeadingPunct(text: string, keyPrefix: string): React.ReactNode[] {

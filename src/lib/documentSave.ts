@@ -28,85 +28,93 @@ function invalidDocumentSaveResponse(): never {
   throw new Error('Invalid document save response');
 }
 
+// 已确认提交：版本必须可解码，可选 cleanup 回执须匹配专用格式。
+function decodeCommittedSaveResponse(value: Record<string, unknown>): DocumentSaveResponse {
+  const receipt = value.cleanup_repair_receipt;
+  const receiptInvalid = receipt !== undefined
+    && (typeof receipt !== 'string' || !/^cleanup-[0-9a-f]{64}$/.test(receipt));
+  if (receiptInvalid
+    || !hasExactOptionalKey(value, ['status', 'path', 'version'], 'cleanup_repair_receipt')) {
+    return invalidDocumentSaveResponse();
+  }
+  try {
+    return {
+      status: 'confirmed_committed',
+      path: value.path as string,
+      version: decodeFileVersion(value.version),
+      ...(receipt === undefined ? {} : { cleanup_repair_receipt: receipt }),
+    };
+  } catch {
+    return invalidDocumentSaveResponse();
+  }
+}
+
+// 已确认未提交：message 必填，可选 current_version 须可解码。
+function decodeNotCommittedSaveResponse(value: Record<string, unknown>): DocumentSaveResponse {
+  if (!hasExactOptionalKey(value, ['status', 'path', 'message'], 'current_version')
+    || typeof value.message !== 'string') {
+    return invalidDocumentSaveResponse();
+  }
+  try {
+    return {
+      status: 'confirmed_not_committed',
+      path: value.path as string,
+      ...(value.current_version === undefined
+        ? {}
+        : { current_version: decodeFileVersion(value.current_version) }),
+      message: value.message,
+    };
+  } catch {
+    return invalidDocumentSaveResponse();
+  }
+}
+
+// 冲突：键集合受控，可选 current_version 与 overwrite_token（64 位十六进制）。
+function decodeConflictSaveResponse(value: Record<string, unknown>): DocumentSaveResponse {
+  const requiredKeys = ['status', 'path', 'message'] as const;
+  const allowedKeys = new Set([...requiredKeys, 'current_version', 'overwrite_token']);
+  const token = value.overwrite_token;
+  const tokenInvalid = token !== undefined
+    && (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token));
+  if (tokenInvalid
+    || Object.keys(value).some((key) => !allowedKeys.has(key))
+    || !requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
+    || typeof value.message !== 'string') return invalidDocumentSaveResponse();
+  try {
+    return {
+      status: 'conflict',
+      path: value.path as string,
+      message: value.message as string,
+      ...(value.current_version === undefined ? {} : { current_version: decodeFileVersion(value.current_version) }),
+      ...(token === undefined ? {} : { overwrite_token: token }),
+    };
+  } catch {
+    return invalidDocumentSaveResponse();
+  }
+}
+
+// 结果不确定：恰好三键且 message 为字符串。
+function decodeIndeterminateSaveResponse(value: Record<string, unknown>): DocumentSaveResponse {
+  if (hasExactKeys(value, ['status', 'path', 'message']) && typeof value.message === 'string') {
+    return { status: 'indeterminate', path: value.path as string, message: value.message as string };
+  }
+  return invalidDocumentSaveResponse();
+}
+
 export function decodeDocumentSaveResponse(value: unknown): DocumentSaveResponse {
   if (!isRecord(value) || typeof value.path !== 'string') return invalidDocumentSaveResponse();
-
-  if (value.status === 'confirmed_committed') {
-    if (
-      !hasExactOptionalKey(value, ['status', 'path', 'version'], 'cleanup_repair_receipt') ||
-      (value.cleanup_repair_receipt !== undefined
-        && (typeof value.cleanup_repair_receipt !== 'string'
-          || !/^cleanup-[0-9a-f]{64}$/.test(value.cleanup_repair_receipt)))
-    ) {
+  switch (value.status) {
+    case 'confirmed_committed':
+      return decodeCommittedSaveResponse(value);
+    case 'confirmed_not_committed':
+      return decodeNotCommittedSaveResponse(value);
+    case 'conflict':
+      return decodeConflictSaveResponse(value);
+    case 'indeterminate':
+      return decodeIndeterminateSaveResponse(value);
+    default:
       return invalidDocumentSaveResponse();
-    }
-    try {
-      return {
-        status: 'confirmed_committed',
-        path: value.path,
-        version: decodeFileVersion(value.version),
-        ...(value.cleanup_repair_receipt === undefined
-          ? {}
-          : { cleanup_repair_receipt: value.cleanup_repair_receipt }),
-      };
-    } catch {
-      return invalidDocumentSaveResponse();
-    }
   }
-
-  if (value.status === 'confirmed_not_committed') {
-    if (
-      !hasExactOptionalKey(value, ['status', 'path', 'message'], 'current_version') ||
-      typeof value.message !== 'string'
-    ) {
-      return invalidDocumentSaveResponse();
-    }
-    try {
-      return {
-        status: value.status,
-        path: value.path,
-        ...(value.current_version === undefined
-          ? {}
-          : { current_version: decodeFileVersion(value.current_version) }),
-        message: value.message,
-      };
-    } catch {
-      return invalidDocumentSaveResponse();
-    }
-  }
-
-  if (value.status === 'conflict') {
-    const requiredKeys = ['status', 'path', 'message'] as const;
-    const allowedKeys = new Set([...requiredKeys, 'current_version', 'overwrite_token']);
-    if (Object.keys(value).some((key) => !allowedKeys.has(key))
-      || !requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
-      || typeof value.message !== 'string'
-      || (value.overwrite_token !== undefined
-        && (typeof value.overwrite_token !== 'string'
-          || !/^[0-9a-f]{64}$/.test(value.overwrite_token)))
-    ) return invalidDocumentSaveResponse();
-    try {
-      return {
-        status: 'conflict',
-        path: value.path,
-        message: value.message,
-        ...(value.current_version === undefined ? {} : { current_version: decodeFileVersion(value.current_version) }),
-        ...(value.overwrite_token === undefined ? {} : { overwrite_token: value.overwrite_token }),
-      };
-    } catch {
-      return invalidDocumentSaveResponse();
-    }
-  }
-
-  if (
-    value.status === 'indeterminate' &&
-    hasExactKeys(value, ['status', 'path', 'message']) &&
-    typeof value.message === 'string'
-  ) {
-    return { status: 'indeterminate', path: value.path, message: value.message };
-  }
-
-  return invalidDocumentSaveResponse();
 }
 
 export function decodeOverwriteTokenResponse(value: unknown): OverwriteTokenResponse {

@@ -276,3 +276,17 @@
   color: var(--text-muted);
   font-size: 13px;
 }
+
+/* GFM 脚注：自动生成的“Footnotes”标题视觉隐藏（规格 3.1 与样例 40），
+   编号列表与回链正常显示；经典 sr-only 裁剪法。 */
+.typora-jinxiu .footnotes > h2.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

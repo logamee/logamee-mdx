@@ -164,6 +164,7 @@ describe('Tauri command wrappers', () => {
       revision: 7,
       settings: {
         autosaveEnabled: true,
+        autosaveMode: 'afterDelay',
         autosaveDelayMs: 1000,
         spellcheckEnabled: true,
         wikilinksEnabled: false,

@@ -1,0 +1,310 @@
+// @vitest-environment jsdom
+
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+import { getMediaPlaybackMode, WorkspaceMediaPreview } from './WorkspaceMediaPreview';
+import { VideoPlayer } from './VideoPlayer';
+
+interface MockMpegtsPlayer {
+  attachMediaElement: (mediaElement: HTMLMediaElement) => void;
+  destroy: () => void;
+  detachMediaElement: () => void;
+  load: () => void;
+  off: (event: string, listener: (...args: unknown[]) => void) => void;
+  on: (event: string, listener: (...args: unknown[]) => void) => void;
+  play: () => Promise<void> | void;
+  unload: () => void;
+}
+
+const commandMocks = vi.hoisted(() => ({
+  prepareWorkspaceMediaPreview: vi.fn<(path: string) => Promise<{ url: string; ownerId: number }>>(),
+  releaseMediaPreview: vi.fn<(ownerId: number) => Promise<void>>(async () => undefined),
+}));
+const mpegtsMocks = vi.hoisted(() => ({
+  Events: { ERROR: 'error', MEDIA_INFO: 'media-info' },
+  createPlayer: vi.fn<(options: { url: string }) => MockMpegtsPlayer>(),
+  isSupported: vi.fn<() => boolean>(() => true),
+}));
+
+vi.mock('../../lib/tauriCommands', () => ({
+  prepareWorkspaceMediaPreview: commandMocks.prepareWorkspaceMediaPreview,
+  releaseMediaPreview: commandMocks.releaseMediaPreview,
+}));
+
+vi.mock('@tauri-apps/api/core', () => ({
+  convertFileSrc: (path: string) => `asset://localhost/${encodeURIComponent(path)}`,
+  invoke: vi.fn<typeof import('@tauri-apps/api/core').invoke>(),
+}));
+vi.mock('mpegts.js', () => ({ default: mpegtsMocks }));
+describe('VideoPlayer', () => {
+  it('keeps audio enabled for native video playback', () => {
+    const html = renderToStaticMarkup(
+      <VideoPlayer
+        onError={() => undefined}
+        onLoaded={() => undefined}
+        path="/workspace/media/clip.mp4"
+        sourceUrl="http://127.0.0.1:1234/clip.mp4"
+      />,
+    );
+
+    expect(html).not.toContain('muted');
+    expect(html).toContain('controls');
+  });
+  it('starts MSE playback after loading and keeps autoplay rejection recoverable', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    commandMocks.prepareWorkspaceMediaPreview.mockReset();
+    commandMocks.prepareWorkspaceMediaPreview.mockResolvedValue({ url: 'http://127.0.0.1:1234/clip.flv', ownerId: 1 });
+    mpegtsMocks.createPlayer.mockReset();
+    mpegtsMocks.isSupported.mockReturnValue(true);
+    const lifecycle: string[] = [];
+    const play = vi.fn<() => Promise<void>>().mockRejectedValue(new DOMException('User gesture required', 'NotAllowedError'));
+    mpegtsMocks.createPlayer.mockReturnValue({
+      attachMediaElement: vi.fn<(mediaElement: HTMLMediaElement) => void>(),
+      destroy: vi.fn<() => void>(),
+      detachMediaElement: vi.fn<() => void>(),
+      load: vi.fn<() => void>(() => lifecycle.push('load')),
+      off: vi.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
+      on: vi.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
+      play: () => {
+        lifecycle.push('play');
+        return play();
+      },
+      unload: vi.fn<() => void>(),
+    });
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+
+    try {
+      await act(async () => root.render(
+        <WorkspaceMediaPreview
+          kind="video"
+          mimeType="video/x-flv"
+          path="/workspace/media/clip.flv"
+          previewRevision={1}
+        />,
+      ));
+      await act(async () => Promise.resolve());
+
+      expect(lifecycle).toEqual(['load', 'play']);
+      expect(play).toHaveBeenCalledOnce();
+    } finally {
+      act(() => root.unmount());
+      container.remove();
+    }
+  });
+});
+
+describe('WorkspaceMediaPreview', () => {
+  it('routes FLV through the dedicated player and browser formats through native playback', () => {
+    expect(getMediaPlaybackMode('/workspace/clip.flv')).toBe('flv');
+    expect(getMediaPlaybackMode('/workspace/CLIP.FLV')).toBe('flv');
+    expect(getMediaPlaybackMode('/workspace/clip.mp4')).toBe('native');
+    expect(getMediaPlaybackMode('/workspace/clip.m2ts')).toBe('mpegts');
+    expect(getMediaPlaybackMode('/workspace/clip.mts?mmdRevision=1')).toBe('native');
+    expect(getMediaPlaybackMode('/workspace/clip.ts?mmdRevision=1')).toBe('native');
+    expect(getMediaPlaybackMode('/workspace/song.mp3')).toBe('native');
+  });
+
+  it('shows an accessible loading state for selected media', () => {
+    const html = renderToStaticMarkup(
+      <WorkspaceMediaPreview kind="video" mimeType="video/mp4" path="/workspace/media/clip.mp4" previewRevision={0} />,
+    );
+
+    expect(html).toContain('Media Preview');
+    expect(html).toContain('clip.mp4');
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('Loading media');
+  });
+
+  it('does not create a media element before document authority is committed', () => {
+    const html = renderToStaticMarkup(
+      <WorkspaceMediaPreview
+        enabled={false}
+        kind="video"
+        mimeType="video/mp4"
+        path="/workspace/media/clip.mp4"
+        previewRevision={0}
+      />,
+    );
+
+    expect(html).toContain('aria-busy="true"');
+    expect(html).not.toContain('<video');
+    expect(html).not.toContain('asset://');
+  });
+
+  it('reloads native media when the same path receives a newer preview revision', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    commandMocks.prepareWorkspaceMediaPreview.mockReset();
+    commandMocks.prepareWorkspaceMediaPreview.mockResolvedValue({ url: 'http://127.0.0.1:1234/clip.mp4', ownerId: 1 });
+    const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+
+    try {
+      await act(async () => root.render(
+        <WorkspaceMediaPreview
+          kind="video"
+          mimeType="video/mp4"
+          path="/workspace/media/clip.mp4"
+          previewRevision={1}
+        />,
+      ));
+      const firstVideo = container.querySelector<HTMLVideoElement>('video');
+      expect(firstVideo?.src).toContain('mmdRevision=1');
+      act(() => firstVideo?.dispatchEvent(new Event('loadedmetadata')));
+      expect(container.querySelector('.workspace-media-viewport')?.getAttribute('aria-busy')).toBe('false');
+      const initialLoadCalls = load.mock.calls.length;
+
+      await act(async () => root.render(
+        <WorkspaceMediaPreview
+          kind="video"
+          mimeType="video/mp4"
+          path="/workspace/media/clip.mp4"
+          previewRevision={2}
+        />,
+      ));
+
+      expect(commandMocks.prepareWorkspaceMediaPreview).toHaveBeenCalledTimes(2);
+      expect(container.querySelector<HTMLVideoElement>('video')?.src).toContain('mmdRevision=2');
+      expect(container.querySelector('.workspace-media-viewport')?.getAttribute('aria-busy')).toBe('true');
+      expect(load.mock.calls.length).toBeGreaterThan(initialLoadCalls);
+    } finally {
+      act(() => root.unmount());
+      container.remove();
+      load.mockRestore();
+    }
+  });
+
+  it('tears down the old FLV player before creating one for a newer preview revision', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    commandMocks.prepareWorkspaceMediaPreview.mockReset();
+    commandMocks.prepareWorkspaceMediaPreview.mockResolvedValue({ url: 'http://127.0.0.1:1234/clip.flv', ownerId: 1 });
+    mpegtsMocks.createPlayer.mockReset();
+    mpegtsMocks.isSupported.mockReset();
+    mpegtsMocks.isSupported.mockReturnValue(true);
+    const lifecycle: string[] = [];
+    let playerSequence = 0;
+    mpegtsMocks.createPlayer.mockImplementation((options: { url: string }) => {
+      playerSequence += 1;
+      const playerId = `player-${playerSequence}`;
+      lifecycle.push(`${playerId}:create:${options.url}`);
+      return {
+        attachMediaElement: vi.fn<(mediaElement: HTMLMediaElement) => void>(() => {
+          lifecycle.push(`${playerId}:attach`);
+        }),
+        destroy: vi.fn<() => void>(() => {
+          lifecycle.push(`${playerId}:destroy`);
+        }),
+        detachMediaElement: vi.fn<() => void>(() => {
+          lifecycle.push(`${playerId}:detach`);
+        }),
+        load: vi.fn<() => void>(() => {
+          lifecycle.push(`${playerId}:load`);
+        }),
+        off: vi.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
+        on: vi.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
+        play: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+        unload: vi.fn<() => void>(() => {
+          lifecycle.push(`${playerId}:unload`);
+        }),
+      };
+    });
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+
+    try {
+      await act(async () => root.render(
+        <WorkspaceMediaPreview
+          kind="video"
+          mimeType="video/x-flv"
+          path="/workspace/media/clip.flv"
+          previewRevision={1}
+        />,
+      ));
+      await act(async () => Promise.resolve());
+      expect(mpegtsMocks.createPlayer).toHaveBeenCalledOnce();
+
+      await act(async () => root.render(
+        <WorkspaceMediaPreview
+          kind="video"
+          mimeType="video/x-flv"
+          path="/workspace/media/clip.flv"
+          previewRevision={2}
+        />,
+      ));
+      await act(async () => Promise.resolve());
+
+      expect(mpegtsMocks.createPlayer).toHaveBeenCalledTimes(2);
+      const secondCreateIndex = lifecycle.findIndex((entry) => entry.startsWith('player-2:create:'));
+      expect(lifecycle.indexOf('player-1:unload')).toBeGreaterThanOrEqual(0);
+      expect(lifecycle.indexOf('player-1:detach')).toBeGreaterThan(lifecycle.indexOf('player-1:unload'));
+      expect(lifecycle.indexOf('player-1:destroy')).toBeGreaterThan(lifecycle.indexOf('player-1:detach'));
+      expect(secondCreateIndex).toBeGreaterThan(lifecycle.indexOf('player-1:destroy'));
+      expect(lifecycle[secondCreateIndex]).toContain('mmdRevision=2');
+    } finally {
+      act(() => root.unmount());
+      container.remove();
+    }
+  });
+
+});
+
+describe('media preview lease lifecycle', () => {
+  function renderPreview(element: React.ReactElement): { container: HTMLDivElement; root: ReturnType<typeof createRoot> } {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    act(() => root.render(element));
+    return { container, root };
+  }
+
+  it('releases the lease when unmounted before the preview resolves', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    let resolvePrepare: (lease: { ownerId: number; url: string }) => void = () => undefined;
+    commandMocks.prepareWorkspaceMediaPreview.mockImplementationOnce(() => new Promise((resolve) => {
+      resolvePrepare = resolve;
+    }));
+    const { root } = renderPreview(
+      <WorkspaceMediaPreview kind="audio" mimeType="audio/mpeg" path="/ws/a.mp3" previewRevision={1} />,
+    );
+    act(() => root.unmount());
+    await act(async () => {
+      resolvePrepare({ ownerId: 77, url: 'http://127.0.0.1:1/p' });
+      await Promise.resolve();
+    });
+    expect(commandMocks.releaseMediaPreview).toHaveBeenCalledWith(77);
+  });
+
+  it('ignores failures that arrive after unmount', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    let rejectPrepare: (error: Error) => void = () => undefined;
+    commandMocks.prepareWorkspaceMediaPreview.mockImplementationOnce(() => new Promise((_resolve, reject) => {
+      rejectPrepare = reject;
+    }));
+    const { container, root } = renderPreview(
+      <WorkspaceMediaPreview kind="audio" mimeType="audio/mpeg" path="/ws/a.mp3" previewRevision={1} />,
+    );
+    act(() => root.unmount());
+    await act(async () => {
+      rejectPrepare(new Error('late failure'));
+      await Promise.resolve();
+    });
+    expect(container.querySelector('.workspace-media-error')).toBeNull();
+  });
+
+  it('does not request a lease while disabled', () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    commandMocks.prepareWorkspaceMediaPreview.mockReset();
+    const { container, root } = renderPreview(
+      <WorkspaceMediaPreview enabled={false} kind="audio" mimeType="audio/mpeg" path="/ws/a.mp3" previewRevision={1} />,
+    );
+    expect(commandMocks.prepareWorkspaceMediaPreview).not.toHaveBeenCalled();
+    expect(container.querySelector('.workspace-media-viewport')?.getAttribute('aria-busy')).toBe('true');
+    act(() => root.unmount());
+  });
+});

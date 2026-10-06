@@ -32,24 +32,22 @@ export class PdfCancelledError extends Error {
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
+function assertBase64PaddingValid(value: string, padding: number): void {
+  if (padding === 2) {
+    const finalSextet = BASE64_ALPHABET.indexOf(value[value.length - 3]!);
+    if (finalSextet < 0 || (finalSextet & 0x0f) !== 0) throw new PdfResourceLimitError('Invalid PDF source encoding');
+  } else if (padding === 1) {
+    const finalSextet = BASE64_ALPHABET.indexOf(value[value.length - 2]!);
+    if (finalSextet < 0 || (finalSextet & 0x03) !== 0) throw new PdfResourceLimitError('Invalid PDF source encoding');
+  }
+}
+
 function getCanonicalBase64ByteLength(value: string): number {
   if (!value || value.length % 4 !== 0 || !BASE64_PATTERN.test(value)) {
     throw new PdfResourceLimitError('Invalid PDF source encoding');
   }
-
   const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
-  if (padding === 2) {
-    const finalSextet = BASE64_ALPHABET.indexOf(value[value.length - 3]!);
-    if (finalSextet < 0 || (finalSextet & 0x0f) !== 0) {
-      throw new PdfResourceLimitError('Invalid PDF source encoding');
-    }
-  } else if (padding === 1) {
-    const finalSextet = BASE64_ALPHABET.indexOf(value[value.length - 2]!);
-    if (finalSextet < 0 || (finalSextet & 0x03) !== 0) {
-      throw new PdfResourceLimitError('Invalid PDF source encoding');
-    }
-  }
-
+  assertBase64PaddingValid(value, padding);
   return (value.length / 4) * 3 - padding;
 }
 
@@ -100,36 +98,40 @@ export interface PdfCanvasAllocation {
   pixels: number;
 }
 
+// 视口与缩放预检：均为正有限数。
+function pdfAllocationInputInvalid(width: number, height: number, scale: number): boolean {
+  return !Number.isFinite(width)
+    || width <= 0
+    || !Number.isFinite(height)
+    || height <= 0
+    || !Number.isFinite(scale)
+    || scale <= 0;
+}
+
+// 像素总量预检：安全整数、正数且不超过单页上限。
+function pdfPixelTotalInvalid(pixels: number): boolean {
+  return !Number.isSafeInteger(pixels)
+    || pixels <= 0
+    || pixels > PDF_PREVIEW_LIMITS.maxPagePixels;
+}
+
 export function getPdfCanvasAllocation(
   viewportWidth: number,
   viewportHeight: number,
   outputScale: number,
 ): PdfCanvasAllocation {
-  if (
-    !Number.isFinite(viewportWidth)
-    || viewportWidth <= 0
-    || !Number.isFinite(viewportHeight)
-    || viewportHeight <= 0
-    || !Number.isFinite(outputScale)
-    || outputScale <= 0
-  ) {
+  if (pdfAllocationInputInvalid(viewportWidth, viewportHeight, outputScale)) {
     throw new PdfResourceLimitError();
   }
-
   const width = Math.ceil(viewportWidth * outputScale);
   const height = Math.ceil(viewportHeight * outputScale);
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height)) {
     throw new PdfResourceLimitError();
   }
   const pixels = width * height;
-  if (
-    !Number.isSafeInteger(pixels)
-    || pixels <= 0
-    || pixels > PDF_PREVIEW_LIMITS.maxPagePixels
-  ) {
+  if (pdfPixelTotalInvalid(pixels)) {
     throw new PdfResourceLimitError();
   }
-
   return { width, height, pixels };
 }
 

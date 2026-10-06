@@ -1,5 +1,5 @@
-export const LOCALE_MODES = ['system', 'zh-CN', 'en'] as const;
-export const LOCALE_PREFERENCE_VERSION = 1 as const;
+const LOCALE_MODES = ['system', 'zh-CN', 'en'] as const;
+const LOCALE_PREFERENCE_VERSION = 1 as const;
 export const LOCALE_PROTOCOL_VERSION = 1 as const;
 export const LOCALE_STORAGE_KEY = 'mmd-locale-preference';
 export const LOCALE_SNAPSHOT_EVENT = 'mmd-locale-preference';

@@ -7,7 +7,7 @@ import {
 } from './pdfAssetManifest';
 
 const encoder = new TextEncoder();
-const assetRoot = '/vendor/pdfjs/6.1.200/';
+const assetRoot = '/vendor/pdfjs/6.4.299/';
 const buildWorkerUrl = '/assets/pdf.worker.min-BAKOMYW7.js';
 const devWorkerUrl = '/node_modules/pdfjs-dist/build/pdf.worker.min.mjs?worker_file&type=module';
 const noticeUrls = [
@@ -23,8 +23,8 @@ const noticeUrls = [
   `${assetRoot}wasm/LICENSE_QCMS`,
 ] as const;
 const fixtureAssets: Record<string, Uint8Array> = {
-  [buildWorkerUrl]: encoder.encode('worker-6.1.200'),
-  [devWorkerUrl]: encoder.encode('worker-6.1.200'),
+  [buildWorkerUrl]: encoder.encode('worker-6.4.299'),
+  [devWorkerUrl]: encoder.encode('worker-6.4.299'),
   [`${assetRoot}cmaps/Adobe-Japan1-UCS2.bcmap`]: encoder.encode('cmap'),
   [`${assetRoot}standard_fonts/FoxitSans.pfb`]: encoder.encode('font'),
   [`${assetRoot}wasm/jbig2_nowasm_fallback.js`]: encoder.encode('wasm'),
@@ -33,7 +33,7 @@ const fixtureAssets: Record<string, Uint8Array> = {
 for (const url of noticeUrls) fixtureAssets[url] = encoder.encode('notice');
 
 const hashes = {
-  worker: 'c7719084a5839386cc39bc1941cb32b34cd91b22ef08dd831a48a620e0363e60',
+  worker: '9b63fc2dd6949e08fee920e9beca68cfb431dd15250484f6d841329d5fafc3fc',
   cmap: '054b66e4a813a1c3a724faa8f9c7e658834ce117519233dca13677c1aa0fc25b',
   font: '795ea3efa43d0872b63bf0067be97553b46983e4f075097669391e9d15388ecc',
   wasm: '336154bf67f765f8f75d16a0accee61b5ee5f6a75b2a2905703df913bd550f3e',
@@ -43,7 +43,7 @@ const hashes = {
 function createManifest(workerUrl = buildWorkerUrl): PdfAssetManifest {
   return {
     schema_version: 1,
-    pdfjs_version: '6.1.200',
+    pdfjs_version: '6.4.299',
     worker_url: workerUrl,
     cmap_base_url: `${assetRoot}cmaps/`,
     standard_font_base_url: `${assetRoot}standard_fonts/`,
@@ -92,7 +92,7 @@ describe('PDF.js packaged asset manifest', () => {
     const invalidManifests: PdfAssetManifest[] = [];
 
     const wrongVersion = cloneManifest();
-    wrongVersion.pdfjs_version = '6.1.201';
+    wrongVersion.pdfjs_version = '6.4.300';
     invalidManifests.push(wrongVersion);
 
     for (const [key, url] of [

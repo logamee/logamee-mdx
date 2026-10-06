@@ -1,0 +1,17 @@
+{
+  "ignorePatterns": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "dist/**",
+    "node_modules/**",
+    "coverage/**",
+    ".perf/**",
+    "scripts/**",
+    "src-tauri/**"
+  ],
+  "rules": {
+    "max-lines": ["error", { "max": 500 }],
+    "max-lines-per-function": ["error", { "max": 80 }],
+    "complexity": ["error", { "max": 10 }]
+  }
+}

@@ -133,30 +133,8 @@ export class OpenIntentCoordinator {
         && left.targetKind === right.targetKind
         && left.displayPath === right.displayPath;
     }
-    const leftAction = left.action;
-    const rightAction = right.action;
-    if (leftAction.kind !== rightAction.kind) return false;
-    switch (leftAction.kind) {
-      case 'new_document':
-      case 'open_file':
-      case 'open_directory':
-        return true;
-      case 'open_recent':
-        return rightAction.kind === leftAction.kind && leftAction.entryId === rightAction.entryId;
-      case 'workspace_file':
-        return rightAction.kind === leftAction.kind && leftAction.path === rightAction.path;
-      case 'workspace_search_result':
-        return rightAction.kind === leftAction.kind
-          && leftAction.selection.workspaceToken === rightAction.selection.workspaceToken
-          && leftAction.selection.workspaceRoot === rightAction.selection.workspaceRoot
-          && leftAction.selection.indexGeneration === rightAction.selection.indexGeneration
-          && leftAction.selection.relativePath === rightAction.selection.relativePath;
-      case 'crash_draft':
-        return rightAction.kind === leftAction.kind
-          && leftAction.draft.documentId === rightAction.draft.documentId
-          && leftAction.draft.entryToken === rightAction.draft.entryToken
-          && leftAction.draft.draftRevision === rightAction.draft.draftRevision;
-    }
+    if (left.action.kind !== right.action.kind) return false;
+    return sameActionTarget(left.action, right.action);
   }
 
   private settleActive(intentId: string, settlement: OpenIntentSettlement): boolean {
@@ -189,4 +167,56 @@ export class OpenIntentCoordinator {
       this.draining = false;
     }
   }
+}
+
+// 动作身份比较器表：kind 已由外层保证一致，这里只比较身份字段。
+// 各 kind 的窄类型提取器：让比较器拿到已收窄的左右操作数。
+type ActionOfKind<K extends import('./openIntent').LocalOpenIntentAction['kind']> =
+  Extract<import('./openIntent').LocalOpenIntentAction, { kind: K }>;
+
+interface ActionComparator<K extends import('./openIntent').LocalOpenIntentAction['kind']> {
+  compare: (left: ActionOfKind<K>, right: ActionOfKind<K>) => boolean;
+  kind: K;
+}
+
+function actionComparator<K extends import('./openIntent').LocalOpenIntentAction['kind']>(
+  kind: K,
+  compare: (left: ActionOfKind<K>, right: ActionOfKind<K>) => boolean,
+): ActionComparator<K> {
+  return { compare, kind };
+}
+
+const ACTION_IDENTITY_COMPARATORS = [
+  actionComparator('new_document', () => true),
+  actionComparator('open_file', () => true),
+  actionComparator('open_directory', () => true),
+  actionComparator('open_recent', (l, r) => l.entryId === r.entryId),
+  actionComparator('workspace_file', (l, r) => l.path === r.path),
+  actionComparator('workspace_search_result', (l, r) => (
+    l.selection.workspaceToken === r.selection.workspaceToken
+      && l.selection.workspaceRoot === r.selection.workspaceRoot
+      && l.selection.indexGeneration === r.selection.indexGeneration
+      && l.selection.relativePath === r.selection.relativePath
+  )),
+  actionComparator('crash_draft', (l, r) => (
+    l.draft.documentId === r.draft.documentId
+      && l.draft.entryToken === r.draft.entryToken
+      && l.draft.draftRevision === r.draft.draftRevision
+  )),
+] as ReadonlyArray<ActionComparator<import('./openIntent').LocalOpenIntentAction['kind']>>;
+
+function sameActionTargetNarrowed(
+  left: import('./openIntent').LocalOpenIntentAction,
+  right: unknown,
+): boolean {
+  const entry = ACTION_IDENTITY_COMPARATORS.find(({ kind }) => kind === left.kind);
+  return entry ? (entry.compare as (l: typeof left, r: typeof left) => boolean)(left, right as typeof left) : false;
+}
+
+// 前端意图同目标：按动作类型比较各自身份字段（kind 已在外层一致）。
+function sameActionTarget(
+  left: import('./openIntent').LocalOpenIntentAction,
+  right: import('./openIntent').LocalOpenIntentAction,
+): boolean {
+  return sameActionTargetNarrowed(left, right);
 }

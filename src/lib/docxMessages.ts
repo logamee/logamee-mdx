@@ -1,4 +1,4 @@
-export const MAMMOTH_MESSAGE_POLICY_VERSION = 'mammoth@1.12.0' as const;
+export const MAMMOTH_MESSAGE_POLICY_VERSION = 'mammoth@1.13.0' as const;
 
 export interface DocxConversionMessage {
   type: 'error' | 'warning';

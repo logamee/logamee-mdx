@@ -1,6 +1,6 @@
 [package]
 name = "logamee-mdx"
-version = "0.1.1"
+version = "0.2.0"
 description = "Local Markdown editor"
 edition = "2021"
 default-run = "mdx"
@@ -29,35 +29,34 @@ required-features = ["bench-cli"]
 tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
-base64 = "=0.22.1"
-fs2 = "=0.4.3"
+base64 = "=0.23.1"
 getrandom = "=0.4.3"
 mime_guess = "2.0.5"
-libc = "=0.2.186"
-md-5 = "=0.10.6"
+libc = "=0.2.190"
+md-5 = "=0.11.0"
 notify = "=8.2.0"
 notify-debouncer-full = "=0.7.0"
 percent-encoding = "2.3.2"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
-sha2 = "=0.10.9"
-tauri = { version = "2.11.5", features = ["protocol-asset"] }
-tauri-plugin-dialog = "2.7.1"
-tauri-plugin-single-instance = "=2.4.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "=0.11.0"
+tauri = { version = "2.12.1", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2.8.1"
+tauri-plugin-single-instance = "=2.5.2"
 tiny_http = "0.12.0"
 walkdir = "2.5.0"
 zip = { version = "=8.6.0", default-features = false }
-tauri-plugin-updater = "=2.10.1"
-tauri-plugin-process = "=2.3.1"
+tauri-plugin-updater = "=2.13.1"
+tauri-plugin-process = "=2.4.0"
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "=0.61.3", features = [
+windows = { version = "=0.62.2", features = [
     "Win32_Foundation",
     "Win32_System_Com",
     "Win32_UI_Shell",
     "Win32_UI_Shell_Common",
 ] }
-windows-core = "=0.61.2"
+windows-core = "=0.62.2"
 windows-sys = { version = "=0.61.2", features = [
     "Wdk_Foundation",
     "Wdk_Storage_FileSystem",

@@ -127,7 +127,7 @@ describe('PDF asset manifest build integration', () => {
 
     await writeFile(packageJsonPath, JSON.stringify({ version: '6.1.201' }));
     await expect(collectSynchronizedPdfAssets({ projectRoot: fixtureRoot })).rejects.toThrow(
-      'Expected pdfjs-dist 6.1.200, found 6.1.201',
+      'Expected pdfjs-dist 6.4.299, found 6.1.201',
     );
   });
 

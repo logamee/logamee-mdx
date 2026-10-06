@@ -76,4 +76,3 @@ export const CANONICAL_THEME_TOKENS = [
   '--mermaid-background',
 ] as const;
 
-export type CanonicalThemeToken = (typeof CANONICAL_THEME_TOKENS)[number];

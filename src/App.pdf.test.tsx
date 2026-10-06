@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import type { DocxPreviewFeedback } from './components/DocxPreview';
+import type { DocxPreviewFeedback } from './features/preview/DocxPreview';
 import { APP_FEEDBACK_ERROR_EVENT } from './lib/appFeedback';
 
 const appMocks = vi.hoisted(() => ({
@@ -32,16 +32,16 @@ vi.mock('@tauri-apps/api/event', () => ({
   emitTo: appMocks.emitTo,
   listen: vi.fn<() => Promise<() => void>>(async () => () => undefined),
 }));
-vi.mock('./hooks/useDocumentSession', () => ({
+vi.mock('./features/document/useDocumentSession', () => ({
   useDocumentSession: appMocks.useDocumentSession,
 }));
-vi.mock('./hooks/useCrashDraftRecovery', () => ({
+vi.mock('./features/document/useCrashDraftRecovery', () => ({
   useCrashDraftRecovery: appMocks.useCrashDraftRecovery,
 }));
 vi.mock('./lib/tauriCommands', () => ({
   setNativeSaveMenuEnabled: appMocks.setNativeSaveMenuEnabled,
 }));
-vi.mock('./hooks/usePaneResize', () => ({
+vi.mock('./features/app/usePaneResize', () => ({
   usePaneResize: () => ({
     editorPaneRef: { current: null },
     movePaneResize: vi.fn<() => void>(),
@@ -50,7 +50,7 @@ vi.mock('./hooks/usePaneResize', () => ({
     stopPaneResize: vi.fn<() => void>(),
   }),
 }));
-vi.mock('./hooks/usePanePopouts', () => ({
+vi.mock('./features/app/usePanePopouts', () => ({
   usePanePopouts: () => ({
     closePopoutWindows: vi.fn<() => Promise<void>>(async () => undefined),
     editorPopoutButton: undefined,
@@ -60,12 +60,12 @@ vi.mock('./hooks/usePanePopouts', () => ({
     previewPopoutButton: undefined,
   }),
 }));
-vi.mock('./hooks/useProgramCloseGuard', () => ({
+vi.mock('./features/app/useProgramCloseGuard', () => ({
   useProgramCloseGuard: () => ({
     forceCloseProgram: vi.fn<() => Promise<void>>(async () => undefined),
   }),
 }));
-vi.mock('./hooks/useSettings', () => ({
+vi.mock('./features/settings/useSettings', () => ({
   useSettings: () => ({
     busy: false,
     recovery: null,
@@ -75,25 +75,25 @@ vi.mock('./hooks/useSettings', () => ({
     updateSettings: vi.fn<(settings: unknown) => Promise<void>>(async () => undefined),
   }),
 }));
-vi.mock('./components/EditorPane', () => ({ EditorPane: appMocks.editorPane }));
-vi.mock('./components/DocxPreview', () => {
+vi.mock('./features/workspace/EditorPane', () => ({ EditorPane: appMocks.editorPane }));
+vi.mock('./features/preview/DocxPreview', () => {
   appMocks.previewModuleLoads.docx += 1;
   return { DocxPreview: appMocks.docxPreview };
 });
-vi.mock('./components/ExcalidrawPane', () => {
+vi.mock('./features/preview/ExcalidrawPane', () => {
   appMocks.previewModuleLoads.excalidraw += 1;
   return { ExcalidrawPane: appMocks.excalidrawPane };
 });
 vi.mock('./components/PaneResizer', () => ({ PaneResizer: appMocks.paneResizer }));
-vi.mock('./components/JinxiuMarkdown', () => ({ default: appMocks.jinxiuMarkdown }));
-vi.mock('./components/PdfPreview', () => {
+vi.mock('./features/preview/JinxiuMarkdown', () => ({ default: appMocks.jinxiuMarkdown }));
+vi.mock('./features/preview/PdfPreview', () => {
   appMocks.previewModuleLoads.pdf += 1;
   return { PdfPreview: appMocks.pdfPreview };
 });
-vi.mock('./components/WorkspaceImagePreview', () => ({
+vi.mock('./features/preview/WorkspaceImagePreview', () => ({
   WorkspaceImagePreview: (props: Record<string, unknown>) => appMocks.workspaceImagePreview(props),
 }));
-vi.mock('./components/WorkspaceMediaPreview', () => ({
+vi.mock('./features/preview/WorkspaceMediaPreview', () => ({
   WorkspaceMediaPreview: (props: Record<string, unknown>) => appMocks.workspaceMediaPreview(props),
 }));
 
@@ -368,7 +368,7 @@ describe('App binary document composition', () => {
       expect(container.querySelectorAll('.preview-pane')).toHaveLength(1);
       expect(container.querySelector(previewSelector)).not.toBeNull();
       expect(appMocks.useDocumentSession).toHaveBeenCalledWith({
-        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, isPopout, popoutPane,
+        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, autosaveMode: 'afterDelay', isPopout, popoutPane,
       });
       expect(appMocks.setNativeSaveMenuEnabled.mock.calls).toEqual(isPopout ? [] : [[false]]);
     },
@@ -400,7 +400,7 @@ describe('App binary document composition', () => {
       expect(appMocks.jinxiuMarkdown).not.toHaveBeenCalled();
       expect(appMocks.paneResizer).not.toHaveBeenCalled();
       expect(appMocks.useDocumentSession).toHaveBeenCalledWith({
-        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, isPopout, popoutPane,
+        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, autosaveMode: 'afterDelay', isPopout, popoutPane,
       });
       expect(appMocks.setNativeSaveMenuEnabled.mock.calls).toEqual(isPopout ? [] : [[true]]);
     },
@@ -605,7 +605,7 @@ describe('App binary document composition', () => {
       });
       expect(props?.popout).toBe(isPopout ? true : undefined);
       expect(appMocks.useDocumentSession).toHaveBeenCalledWith({
-        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, isPopout, popoutPane,
+        afterConfirmedSave: expect.any(Function), autosaveDelayMs: 1500, autosaveEnabled: false, autosaveMode: 'afterDelay', isPopout, popoutPane,
       });
     },
   );

@@ -1,15 +1,18 @@
-export { COMMON_MARKDOWN_FENCE_SPLIT_RE, applyOutsideCommonFenceBlocks } from './markdown/fences';
-export { preserveHardLineBreaksInBlockquotes } from './markdown/blockquoteHardBreaks';
-export { escapeCurrencyDollarSigns, normalizeDoubleBackslashesInMathDelimiters } from './markdown/math';
-export { escapeGfmTableCellPipes, escapePipesInInlineCode, splitGfmTableRow } from './markdown/gfmTables';
 
 import { preserveHardLineBreaksInBlockquotes } from './markdown/blockquoteHardBreaks';
+import { convertLeadingBulletsToListItems, splitInlineBulletPoints } from './markdown/bullets';
 import { applyOutsideCommonFenceBlocks } from './markdown/fences';
 import { escapeGfmTableCellPipes } from './markdown/gfmTables';
+import { convertCompleteBrTagsToHardBreaks } from './markdown/lineBreakTags';
 import { normalizeDoubleBackslashesInMathDelimiters } from './markdown/math';
+import { cutAutolinksBeforeFullwidthPunctuation } from './markdown/autolinks';
 
 export function preprocessMarkdown(source: string): string {
   const normalized = applyOutsideCommonFenceBlocks(source, normalizeDoubleBackslashesInMathDelimiters);
-  const tableSafe = applyOutsideCommonFenceBlocks(normalized, escapeGfmTableCellPipes);
-  return applyOutsideCommonFenceBlocks(tableSafe, preserveHardLineBreaksInBlockquotes);
+  const bulletLists = applyOutsideCommonFenceBlocks(normalized, (segment) =>
+    splitInlineBulletPoints(convertLeadingBulletsToListItems(segment)));
+  const tableSafe = applyOutsideCommonFenceBlocks(bulletLists, escapeGfmTableCellPipes);
+  const linkSafe = applyOutsideCommonFenceBlocks(tableSafe, cutAutolinksBeforeFullwidthPunctuation);
+  const brSafe = applyOutsideCommonFenceBlocks(linkSafe, convertCompleteBrTagsToHardBreaks);
+  return applyOutsideCommonFenceBlocks(brSafe, preserveHardLineBreaksInBlockquotes);
 }

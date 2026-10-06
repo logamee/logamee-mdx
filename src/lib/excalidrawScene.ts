@@ -66,6 +66,15 @@ function bindingTargetId(
   return requiredId(value.elementId, `${property} for ${element.id}`);
 }
 
+function invalidLinearPoint(point: unknown): boolean {
+  return !Array.isArray(point)
+    || point.length !== 2
+    || typeof point[0] !== 'number'
+    || typeof point[1] !== 'number'
+    || !Number.isFinite(point[0])
+    || !Number.isFinite(point[1]);
+}
+
 function validateLinearPoints(element: SceneElement): void {
   const points = element.record.points;
   if (!Array.isArray(points) || points.length < 2) {
@@ -74,14 +83,7 @@ function validateLinearPoints(element: SceneElement): void {
 
   let prior: [number, number] | null = null;
   for (const point of points) {
-    if (
-      !Array.isArray(point)
-      || point.length !== 2
-      || typeof point[0] !== 'number'
-      || typeof point[1] !== 'number'
-      || !Number.isFinite(point[0])
-      || !Number.isFinite(point[1])
-    ) {
+    if (invalidLinearPoint(point)) {
       invalidScene(`linear element ${element.id} contains an invalid point`);
     }
     const current: [number, number] = [point[0], point[1]];
@@ -92,7 +94,8 @@ function validateLinearPoints(element: SceneElement): void {
   }
 }
 
-function validateSceneElements(elements: Record<string, unknown>[]): void {
+// 第一轮：登记全部元素，拒绝非对象、私有 label 字段与重复 id。
+function collectSceneElements(elements: Record<string, unknown>[]): Map<string, SceneElement> {
   const allElements = new Map<string, SceneElement>();
   for (const record of elements) {
     if (!isRecord(record)) invalidScene('elements must contain objects');
@@ -103,65 +106,88 @@ function validateSceneElements(elements: Record<string, unknown>[]): void {
     if (allElements.has(id)) invalidScene(`duplicate element id ${id}`);
     allElements.set(id, { id, record });
   }
+  return allElements;
+}
 
-  const activeElements = new Map(
-    [...allElements].filter(([, element]) => !isDeleted(element.record)),
-  );
+// 文本元素必须与容器双向绑定。
+function validateTextContainer(activeElements: Map<string, SceneElement>, element: SceneElement): void {
+  const containerId = element.record.containerId;
+  if (containerId === undefined || containerId === null) return;
+  const resolvedContainerId = requiredId(containerId, `containerId for ${element.id}`);
+  const container = activeElements.get(resolvedContainerId);
+  if (!container || !hasBoundElement(container, element.id, 'text')) {
+    invalidScene(`text ${element.id} is not bound bidirectionally to its container`);
+  }
+}
 
+// 箭头元素的起止绑定目标必须存在并回注册该箭头。
+function validateArrowBindings(activeElements: Map<string, SceneElement>, element: SceneElement): void {
+  for (const property of ['startBinding', 'endBinding'] as const) {
+    const targetId = bindingTargetId(element, property);
+    if (!targetId) continue;
+    const target = activeElements.get(targetId);
+    if (!target || !hasBoundElement(target, element.id, 'arrow')) {
+      invalidScene(`arrow ${element.id} is not registered on its ${property} element`);
+    }
+  }
+}
+
+// 第二轮：逐元素校验绑定去重、类型专属规则与线性元素坐标。
+function validateActiveElements(activeElements: Map<string, SceneElement>): void {
   for (const element of activeElements.values()) {
     const type = requiredId(element.record.type, `type for ${element.id}`);
-    const bindings = boundElements(element);
     const seenBindings = new Set<string>();
-    for (const binding of bindings) {
+    for (const binding of boundElements(element)) {
       const key = `${binding.type}:${binding.id}`;
       if (seenBindings.has(key)) invalidScene(`duplicate binding ${key} on ${element.id}`);
       seenBindings.add(key);
     }
 
-    if (type === 'text') {
-      const containerId = element.record.containerId;
-      if (containerId !== undefined && containerId !== null) {
-        const resolvedContainerId = requiredId(containerId, `containerId for ${element.id}`);
-        const container = activeElements.get(resolvedContainerId);
-        if (!container || !hasBoundElement(container, element.id, 'text')) {
-          invalidScene(`text ${element.id} is not bound bidirectionally to its container`);
-        }
-      }
-    }
-
+    if (type === 'text') validateTextContainer(activeElements, element);
     if (type === 'line' || type === 'arrow') validateLinearPoints(element);
-    if (type !== 'arrow') continue;
-
-    for (const property of ['startBinding', 'endBinding'] as const) {
-      const targetId = bindingTargetId(element, property);
-      if (!targetId) continue;
-      const target = activeElements.get(targetId);
-      if (!target || !hasBoundElement(target, element.id, 'arrow')) {
-        invalidScene(`arrow ${element.id} is not registered on its ${property} element`);
-      }
-    }
+    if (type === 'arrow') validateArrowBindings(activeElements, element);
   }
+}
 
+// 文本绑定目标必须是文本且 containerId 指回声明方。
+function validateBoundTextTarget(target: SceneElement, binding: BoundElement, elementId: string): void {
+  const targetType = requiredId(target.record.type, `type for ${target.id}`);
+  if (targetType !== 'text' || target.record.containerId !== elementId) {
+    invalidScene(`bound text ${binding.id} does not point back to ${elementId}`);
+  }
+}
+
+// 箭头绑定目标必须是箭头且起止绑定之一指回声明方。
+function validateBoundArrowTarget(target: SceneElement, binding: BoundElement, elementId: string): void {
+  if (requiredId(target.record.type, `type for ${target.id}`) !== 'arrow') {
+    invalidScene(`bound arrow ${binding.id} is not an arrow`);
+  }
+  const start = bindingTargetId(target, 'startBinding');
+  const end = bindingTargetId(target, 'endBinding');
+  if (start !== elementId && end !== elementId) {
+    invalidScene(`bound arrow ${binding.id} does not point back to ${elementId}`);
+  }
+}
+
+// 第三轮：每条绑定目标必须存在且文本/箭头绑定指回声明方。
+function validateBoundElementTargets(activeElements: Map<string, SceneElement>): void {
   for (const element of activeElements.values()) {
     for (const binding of boundElements(element)) {
       const target = activeElements.get(binding.id);
       if (!target) invalidScene(`binding ${binding.id} on ${element.id} points to a missing element`);
-      const targetType = requiredId(target.record.type, `type for ${target.id}`);
-      if (binding.type === 'text') {
-        if (targetType !== 'text' || target.record.containerId !== element.id) {
-          invalidScene(`bound text ${binding.id} does not point back to ${element.id}`);
-        }
-      }
-      if (binding.type === 'arrow') {
-        if (targetType !== 'arrow') invalidScene(`bound arrow ${binding.id} is not an arrow`);
-        const start = bindingTargetId(target, 'startBinding');
-        const end = bindingTargetId(target, 'endBinding');
-        if (start !== element.id && end !== element.id) {
-          invalidScene(`bound arrow ${binding.id} does not point back to ${element.id}`);
-        }
-      }
+      if (binding.type === 'text') validateBoundTextTarget(target, binding, element.id);
+      if (binding.type === 'arrow') validateBoundArrowTarget(target, binding, element.id);
     }
   }
+}
+
+function validateSceneElements(elements: Record<string, unknown>[]): void {
+  const allElements = collectSceneElements(elements);
+  const activeElements = new Map(
+    [...allElements].filter(([, element]) => !isDeleted(element.record)),
+  );
+  validateActiveElements(activeElements);
+  validateBoundElementTargets(activeElements);
 }
 
 export function createEmptyExcalidrawScene(): ExcalidrawScene {

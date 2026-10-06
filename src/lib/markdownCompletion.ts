@@ -86,90 +86,55 @@ function isViewInsideFencedCode(view: EditorView, position: number): boolean {
   }
 }
 
-function getListContinuationEdit(document: MarkdownCompletionDocument, position: number): MarkdownCompletionEdit | null {
-  const line = document.lineAt(position);
-  if (position !== line.to) return null;
+// 空列表项回车：退出列表（整行替换为换行并把光标移到下一行行首）。
+function exitListEdit(line: { from: number }, position: number): MarkdownCompletionEdit {
+  return {
+    from: line.from,
+    to: position,
+    insert: '\n',
+    selection: { anchor: line.from + 1, head: line.from + 1 },
+  };
+}
 
-  const task = /^(\s*)([-+*])\s+\[([ xX])\]\s*(.*)$/.exec(line.text);
-  if (task) {
-    const [, indent, marker, , content] = task;
-    if (!content.trim()) {
-      return {
-        from: line.from,
-        to: position,
-        insert: '\n',
-        selection: { anchor: line.from + 1, head: line.from + 1 },
-      };
-    }
-    const continuation = `\n${indent}${marker} [ ] `;
-    return {
-      from: position,
-      to: position,
-      insert: continuation,
-      selection: { anchor: position + continuation.length, head: position + continuation.length },
-    };
-  }
-
-  const bullet = /^(\s*)([-+*])\s+(.*)$/.exec(line.text);
-  if (bullet) {
-    const [, indent, marker, content] = bullet;
-    if (!content.trim()) {
-      return {
-        from: line.from,
-        to: position,
-        insert: '\n',
-        selection: { anchor: line.from + 1, head: line.from + 1 },
-      };
-    }
-    const continuation = `\n${indent}${marker} `;
-    return {
-      from: position,
-      to: position,
-      insert: continuation,
-      selection: { anchor: position + continuation.length, head: position + continuation.length },
-    };
-  }
-
-  const ordered = /^(\s*)(\d+)([.)])\s+(.*)$/.exec(line.text);
-  if (ordered) {
-    const [, indent, sequence, delimiter, content] = ordered;
-    if (!content.trim()) {
-      return {
-        from: line.from,
-        to: position,
-        insert: '\n',
-        selection: { anchor: line.from + 1, head: line.from + 1 },
-      };
-    }
-    const number = Number(sequence);
-    if (!Number.isSafeInteger(number)) return null;
-    const continuation = `\n${indent}${number + 1}${delimiter} `;
-    return {
-      from: position,
-      to: position,
-      insert: continuation,
-      selection: { anchor: position + continuation.length, head: position + continuation.length },
-    };
-  }
-
-  const quote = /^(\s*)>\s?(.*)$/.exec(line.text);
-  if (!quote) return null;
-  const [, indent, content] = quote;
-  if (!content.trim()) {
-    return {
-      from: line.from,
-      to: position,
-      insert: '\n',
-      selection: { anchor: line.from + 1, head: line.from + 1 },
-    };
-  }
-  const continuation = `\n${indent}> `;
+// 续写编辑：在光标处插入续行前缀并把光标移到其后。
+function continuationEdit(position: number, continuation: string): MarkdownCompletionEdit {
   return {
     from: position,
     to: position,
     insert: continuation,
     selection: { anchor: position + continuation.length, head: position + continuation.length },
   };
+}
+
+// 解析当前行的列表/引用前缀；空项标记退出，prefix 为续行前缀。
+function listPrefixOf(text: string): { empty: boolean; prefix: string } | null {
+  const task = /^(\s*)([-+*])\s+\[([ xX])\]\s*(.*)$/.exec(text);
+  if (task) return { empty: !task[4].trim(), prefix: `${task[1]}${task[2]} [ ] ` };
+
+  const bullet = /^(\s*)([-+*])\s+(.*)$/.exec(text);
+  if (bullet) return { empty: !bullet[3].trim(), prefix: `${bullet[1]}${bullet[2]} ` };
+
+  const ordered = /^(\s*)(\d+)([.)])\s+(.*)$/.exec(text);
+  if (ordered) {
+    const number = Number(ordered[2]);
+    if (!Number.isSafeInteger(number)) return null;
+    return { empty: !ordered[4].trim(), prefix: `${ordered[1]}${number + 1}${ordered[3]} ` };
+  }
+
+  const quote = /^(\s*)>\s?(.*)$/.exec(text);
+  if (!quote) return null;
+  return { empty: !quote[2].trim(), prefix: `${quote[1]}> ` };
+}
+
+// 列表/引用续行：任务、普通列表、有序列表与引用的回车续写或空项退出。
+function getListContinuationEdit(document: MarkdownCompletionDocument, position: number): MarkdownCompletionEdit | null {
+  const line = document.lineAt(position);
+  if (position !== line.to) return null;
+  const parsed = listPrefixOf(line.text);
+  if (!parsed) return null;
+  return parsed.empty
+    ? exitListEdit(line, position)
+    : continuationEdit(position, `\n${parsed.prefix}`);
 }
 
 function getMarkdownCompletionEditForDocument(
@@ -215,16 +180,48 @@ function dispatchCompletion(view: EditorView, edit: MarkdownCompletionEdit): voi
   });
 }
 
+// 输入法/粘贴拖放守卫状态：组合输入或粘贴后的下一次输入不走补全。
+interface TransientInputState {
+  awaitingPasteOrDrop: boolean;
+  composing: boolean;
+  compositionJustEnded: boolean;
+}
+
+function completionDomEventHandlers(state: TransientInputState, reset: () => void) {
+  return {
+    paste: () => {
+      state.awaitingPasteOrDrop = true;
+      reset();
+      return false;
+    },
+    drop: () => {
+      state.awaitingPasteOrDrop = true;
+      reset();
+      return false;
+    },
+    compositionstart: () => {
+      state.composing = true;
+      return false;
+    },
+    compositionend: () => {
+      state.composing = false;
+      state.compositionJustEnded = true;
+      reset();
+      return false;
+    },
+  };
+}
+
 export function markdownCompletionExtension(isEnabled: () => boolean): Extension {
-  let awaitingPasteOrDrop = false;
-  let composing = false;
-  let compositionJustEnded = false;
+  const transient: TransientInputState = {
+    awaitingPasteOrDrop: false, composing: false, compositionJustEnded: false,
+  };
   let resetTimer: ReturnType<typeof setTimeout> | null = null;
   const resetTransientInputState = () => {
     if (resetTimer !== null) clearTimeout(resetTimer);
     resetTimer = setTimeout(() => {
-      awaitingPasteOrDrop = false;
-      compositionJustEnded = false;
+      transient.awaitingPasteOrDrop = false;
+      transient.compositionJustEnded = false;
       resetTimer = null;
     }, 0);
   };
@@ -233,9 +230,9 @@ export function markdownCompletionExtension(isEnabled: () => boolean): Extension
       !isCompletionTrigger(input.text)
       || !isEnabled()
       || view.composing
-      || composing
-      || compositionJustEnded
-      || awaitingPasteOrDrop
+      || transient.composing
+      || transient.compositionJustEnded
+      || transient.awaitingPasteOrDrop
       || view.state.facet(EditorState.readOnly)
       || view.state.selection.ranges.length !== 1
     ) return false;
@@ -252,28 +249,7 @@ export function markdownCompletionExtension(isEnabled: () => boolean): Extension
   };
 
   return [
-    EditorView.domEventHandlers({
-      paste: () => {
-        awaitingPasteOrDrop = true;
-        resetTransientInputState();
-        return false;
-      },
-      drop: () => {
-        awaitingPasteOrDrop = true;
-        resetTransientInputState();
-        return false;
-      },
-      compositionstart: () => {
-        composing = true;
-        return false;
-      },
-      compositionend: () => {
-        composing = false;
-        compositionJustEnded = true;
-        resetTransientInputState();
-        return false;
-      },
-    }),
+    EditorView.domEventHandlers(completionDomEventHandlers(transient, resetTransientInputState)),
     EditorView.inputHandler.of((view, from, to, text) => apply(view, { from, to, text })),
     Prec.highest(keymap.of([{
       key: 'Enter',

@@ -29,6 +29,7 @@ const en = {
   rebuildIndex: 'Rebuild index', openSearchResult: 'Open {path}', searchUnavailable: 'Open a workspace to search files.',
   workspaceIndexDiscarded: 'The workspace search index was discarded.', workspaceIndexRebuilt: 'The workspace search index is ready.',
   create: 'Create', rename: 'Rename', delete: 'Move to Trash', cancel: 'Cancel', move: 'Move', name: 'Name', moveTo: 'Move to',
+  copy: 'Copy', cut: 'Cut', paste: 'Paste', revealInFileManager: 'Reveal in Finder',
   createExcalidrawTitle: 'New Excalidraw File', createFileTitle: 'New File', createFolderTitle: 'New Folder',
   renameFileTitle: 'Rename File', renameFolderTitle: 'Rename Folder', deleteFileTitle: 'Move File to Trash', deleteFolderTitle: 'Move Folder to Trash',
   createExcalidrawMessage: 'Create an Excalidraw scene in “{parent}”.', createFileMessage: 'Create a Markdown file in “{parent}”.',
@@ -88,6 +89,7 @@ const zh: Record<MessageKey, string> = {
   rebuildIndex: '重建索引', openSearchResult: '打开 {path}', searchUnavailable: '请先打开工作区后再搜索文件。',
   workspaceIndexDiscarded: '工作区搜索索引已丢弃。', workspaceIndexRebuilt: '工作区搜索索引已准备就绪。',
   create: '创建', rename: '重命名', delete: '移到废纸篓', cancel: '取消', move: '移动', name: '名称', moveTo: '移动到',
+  copy: '复制', cut: '剪切', paste: '粘贴', revealInFileManager: '在访达中显示',
   createExcalidrawTitle: '新建 Excalidraw 文件', createFileTitle: '新建文件', createFolderTitle: '新建文件夹',
   renameFileTitle: '重命名文件', renameFolderTitle: '重命名文件夹', deleteFileTitle: '将文件移到废纸篓', deleteFolderTitle: '将文件夹移到废纸篓',
   createExcalidrawMessage: '在“{parent}”中新建 Excalidraw 场景。', createFileMessage: '在“{parent}”中新建 Markdown 文件。',
@@ -129,7 +131,7 @@ export function translate(locale: EffectiveLocale, key: MessageKey, values?: Rec
   return formatMessage((locale === 'zh-CN' ? zh : en)[key], values);
 }
 
-interface I18nValue {
+export interface I18nValue {
   locale: EffectiveLocale;
   t: Translate;
 }

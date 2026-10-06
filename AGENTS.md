@@ -20,6 +20,8 @@
   明确调整产品边界，否则不得加入云同步、账号、遥测或服务端接口。
 - 引入新抽象或依赖前，优先复用现有组件、钩子、协议解码器、Rust 命令和
   标准主题令牌。
+- 引入或升级依赖、使用不熟悉的外部 API 前，先核对锁定版本的官方文档，
+  不得凭记忆或过时示例编码。
 - 所有文件系统路径、工作区令牌、IPC 载荷和二进制预览都属于安全敏感面；
   修改前必须遵守安全契约。
 - 现有 `mmd-*` 事件名、`mmd.*` 存储键、`.mmd-*` CSS 类、`mmd:embed` /
@@ -53,7 +55,7 @@
 - 测试、发布检查、性能门禁和证据报告：
   `docs/testing/validation-matrix.md`
 - 新增或移动指导文档时，必须在同一变更中更新 `docs/README.md` 和
-  `.codex/rules/project-rules.md`。
+  `docs/project-rules.md`。
 
 ## 事实来源与优先级
 
@@ -67,13 +69,22 @@
 
 本仓库使用 React、TypeScript、Vite 和 Tauri 2 构建 Markdown 桌面编辑器。
 
-- `src/` 包含 React 前端。`App.tsx` 协调编辑器界面，`components/`
-  存放可复用界面和预览组件，`hooks/` 管理会话和窗口生命周期，
-  `lib/` 存放 Markdown 预处理、协议和领域工具，`types.ts` 存放共享
+- `src/` 包含 React 前端。`App.tsx` 是组装薄壳，结构按域组织：
+  `features/app/` 承载主窗口组装、工具栏、窗口/窗格钩子与 shell 契约
+  测试；`features/document/` 承载打开意图、外部变更、保存流三个会话
+  子模块、`useDocumentSession` 组合入口与崩溃草稿恢复；
+  `features/workspace/` 承载文件树、大纲、编辑表面、工作区对话框与
+  格式面板；`features/preview/` 承载全部预览组件、Markdown 渲染管线
+  与媒体租约；`features/export/`、`features/settings/`、
+  `features/feedback/` 分别承载导出、设置和模态反馈对话框家族。
+  `components/` 仅存放 `PaneHeader`、`PaneResizer`、`PopoutPaneShell`
+  跨域通用件；`lib/` 存放无 React 的 Markdown 预处理、协议解码和
+  领域工具（设置信封解码在 `lib/settings.ts`），`types.ts` 存放共享
   前端契约。
-- `src-tauri/` 包含 Rust 后端。Tauri 命令、文件系统授权、目录遍历、
-  持久写入、崩溃草稿、工作区索引及测试位于其 Rust 模块中；`lib.rs`
-  负责组装 Tauri 应用。
+- `src-tauri/` 包含 Rust 后端。Tauri 命令按域位于 `src-tauri/src/commands/`
+  （settings、open_recent、document_save、session、workspace_mutation、
+  media、dialogs 及 tests），文件系统授权、目录遍历、持久写入、崩溃
+  草稿、工作区索引位于各自 Rust 模块；`lib.rs` 负责组装 Tauri 应用。
 - `public/styles/typora-theme/` 存放迁移后的 Typora/Jinxiu 预览资源。
 - `src-tauri/capabilities/`、`src-tauri/tauri.conf.json` 和
   `src-tauri/icons/` 定义权限、CSP 与资源访问、打包元数据和图标。
@@ -90,16 +101,44 @@
 - `npm run build`：完成类型检查并生成生产前端构建。
 - `cargo test --manifest-path src-tauri/Cargo.toml`：运行 Rust 单元测试。
 - `cargo check --manifest-path src-tauri/Cargo.toml`：检查 Rust 编译。
+- `npm run check:code-size`：函数长度、文件长度、圈复杂度基线棘轮门禁。
+- `npm run check:duplication`：jscpd 重复率棘轮门禁。
+- `npm run check:dead-code`：knip 死代码检查。
+- `npm run check:circular`：dpdm 循环依赖检查。
+- `npm run lint:rust-quality`：clippy 函数长度与认知复杂度检查。
+- `npm run test:coverage:changed`：改动文件行覆盖率不低于 80%。
+- `npm run report:hotspots`：热点文件报告（信息性）。
 - `npm run tauri -- build --debug`：在需要打包验证时生成调试桌面包。
 - 发布和性能脚本以 `package.json` 为准，并受
   `docs/testing/validation-matrix.md` 约束；不得自行发明替代门禁。
 
 ## 编码风格与命名
 
-使用严格 TypeScript 和 React 函数组件。TS、TSX、CSS、JSON 使用 2 空格
+使用严格 TypeScript 和 React 函数组件。类型检查必须零错误，不得用
+`any` 绕过；lint 警告保持为 0。TS、TSX、CSS、JSON 使用 2 空格
 缩进，Rust 使用 rustfmt 默认格式。React 组件使用 `PascalCase`，钩子和
 工具函数使用 `camelCase`，Rust 命令和函数使用 `snake_case`。文件系统
 和安全敏感逻辑应保留在现有 Rust 归属模块中，除非已有文档批准边界变更。
+前端文件读写必须经 Tauri 命令层完成，不得绕过工作区授权直接访问文件
+系统；模块依赖保持单向，禁止循环引用。
+
+## 代码质量与防腐约定
+
+量化阈值全部接入机器门禁；存量违规以基线棘轮钉住、只减不增，
+由 `docs/plans/code-quality-refactor-plan.md` 分阶段偿还：
+
+- 单个函数不超过 80 行，单个源文件不超过 500 行，单函数圈复杂度
+  不超过 10：`npm run check:code-size`（基线
+  `scripts/ci/baselines/code-size.json`；Rust 函数长度与认知复杂度阈值
+  见 `src-tauri/clippy.toml`，用 `npm run lint:rust-quality` 检查）。
+- 重复代码占比低于 3%：`npm run check:duplication`（阈值随重构收紧）。
+- 死代码保持为 0：`npm run check:dead-code`。
+- 模块依赖禁止循环引用（TS/TSX）：`npm run check:circular`。
+- 新增或修改代码的行覆盖率不低于 80%：`npm run test:coverage:changed`；
+  全量报告用 `npm run test:coverage`。
+- 改动最频繁又最大的文件优先评审：`npm run report:hotspots`。
+- 基线只能缩小；重建基线（`--update-baseline`）必须在同一提交中说明
+  是修复还是搬移。
 
 ## 界面反馈约定
 
@@ -125,6 +164,11 @@
 例如 `frontend: 改进预览状态` 或 `tauri: 加固工作区授权`。合并请求应包含
 简要摘要、验证命令、
 界面变更截图，以及安全、权限、导出或发布相关行为说明。
+
+单次提交改动约 400 行；超过 400 行 pre-commit 提示，超过 800 行拒绝
+（显式 `--no-verify` 可绕过，须在交付说明中记录）。pre-commit 另运行
+staged 文件 lint、全量 typecheck 与代码尺寸棘轮；pre-push 运行
+`npm run ci:local`。
 
 ## 安全与配置提示
 

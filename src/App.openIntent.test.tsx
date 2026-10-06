@@ -4,10 +4,9 @@
 import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import App, {
-  syncOpenIntentCoordinatorModalState,
-  updatePackagedSettlementBarrier,
-} from './App';
+import App from './App';
+import { updatePackagedSettlementBarrier } from './features/document/packagedOpenEvidence';
+import { syncOpenIntentCoordinatorModalState } from './features/document/appOpenIntentModalSync';
 import { NATIVE_MENU_EVENT } from './lib/nativeMenu';
 import { OPEN_INTENT_FOCUS_EVENT, OPEN_INTENT_PENDING_EVENT } from './lib/openIntent';
 
@@ -47,7 +46,7 @@ vi.mock('@tauri-apps/api/event', () => ({
   emitTo: vi.fn<() => Promise<void>>(async () => undefined),
   listen: mocks.listen,
 }));
-vi.mock('./hooks/useDocumentSession', () => ({ useDocumentSession: mocks.useDocumentSession }));
+vi.mock('./features/document/useDocumentSession', () => ({ useDocumentSession: mocks.useDocumentSession }));
 vi.mock('./lib/tauriCommands', () => ({
   discardOpenIntent: mocks.discardOpenIntent,
   focusMainWindow: mocks.focusMainWindow,
@@ -57,7 +56,7 @@ vi.mock('./lib/tauriCommands', () => ({
   recordPackagedOpenAppEvent: mocks.recordPackagedOpenAppEvent,
   setNativeSaveMenuEnabled: vi.fn<() => Promise<void>>(async () => undefined),
 }));
-vi.mock('./hooks/useCrashDraftRecovery', () => ({
+vi.mock('./features/document/useCrashDraftRecovery', () => ({
   useCrashDraftRecovery: ({ onRecoverDraft }: { onRecoverDraft: (draft: unknown) => Promise<void> | void }) => {
     mocks.crashOnRecoverDraft = onRecoverDraft;
     return ({
@@ -75,17 +74,17 @@ vi.mock('./hooks/useCrashDraftRecovery', () => ({
     });
   },
 }));
-vi.mock('./hooks/useSettings', () => ({
+vi.mock('./features/settings/useSettings', () => ({
   useSettings: () => ({
     busy: false,
     recovery: null,
     reset: vi.fn(async () => undefined),
     retry: vi.fn(async () => undefined),
-    settings: { autosaveDelayMs: 1500, autosaveEnabled: false, editorPaneRatio: 0.5, spellcheckEnabled: true },
+    settings: { autosaveDelayMs: 1500, autosaveEnabled: false, autosaveMode: 'afterDelay', editorPaneRatio: 0.5, spellcheckEnabled: true },
     updateSettings: vi.fn(async () => undefined),
   }),
 }));
-vi.mock('./hooks/usePanePopouts', () => ({
+vi.mock('./features/app/usePanePopouts', () => ({
   usePanePopouts: () => ({
     closePopoutWindows: vi.fn(async () => undefined),
     editorPopoutButton: undefined,
@@ -93,7 +92,7 @@ vi.mock('./hooks/usePanePopouts', () => ({
     previewPopoutButton: undefined,
   }),
 }));
-vi.mock('./hooks/usePaneResize', () => ({
+vi.mock('./features/app/usePaneResize', () => ({
   usePaneResize: () => ({
     editorPaneRef: { current: null },
     movePaneResize: vi.fn(),
@@ -103,7 +102,7 @@ vi.mock('./hooks/usePaneResize', () => ({
     stopPaneResize: vi.fn(),
   }),
 }));
-vi.mock('./hooks/useWorkspaceSidebarResize', () => ({
+vi.mock('./features/app/useWorkspaceSidebarResize', () => ({
   useWorkspaceSidebarResize: () => ({
     moveWorkspaceSidebarResize: vi.fn(),
     resizeWorkspaceSidebarWithKeyboard: vi.fn(),
@@ -111,16 +110,16 @@ vi.mock('./hooks/useWorkspaceSidebarResize', () => ({
     stopWorkspaceSidebarResize: vi.fn(),
   }),
 }));
-vi.mock('./hooks/useProgramCloseGuard', () => ({
+vi.mock('./features/app/useProgramCloseGuard', () => ({
   useProgramCloseGuard: () => ({ forceCloseProgram: vi.fn(async () => undefined) }),
 }));
 
-vi.mock('./components/AppToolbar', () => ({
+vi.mock('./features/app/AppToolbar', () => ({
   AppToolbar: ({ onQuickOpen }: { onQuickOpen: () => void }) => (
     <button type="button" data-testid="quick-open" onClick={onQuickOpen}>Quick Open</button>
   ),
 }));
-vi.mock('./components/EditorPane', () => ({
+vi.mock('./features/workspace/EditorPane', () => ({
   EditorPane: ({ spellcheckEnabled }: { spellcheckEnabled: boolean }) => (
     <section className="editor-pane">
       <div className="editor-host">
@@ -129,27 +128,27 @@ vi.mock('./components/EditorPane', () => ({
     </section>
   ),
 }));
-vi.mock('./components/FileSidebar', () => ({
+vi.mock('./features/workspace/FileSidebar', () => ({
   FileSidebar: ({ onOpenFile }: { onOpenFile: (path: string) => void }) => (
     <button type="button" data-testid="sidebar-file" onClick={() => onOpenFile('/workspace/sidebar.md')}>Sidebar file</button>
   ),
 }));
 vi.mock('./components/PaneResizer', () => ({ PaneResizer: () => null }));
-vi.mock('./components/PreviewPane', () => ({ PreviewPane: ({ children }: { children?: unknown }) => children ?? null }));
-vi.mock('./components/JinxiuMarkdown', () => ({ default: () => null }));
+vi.mock('./features/preview/PreviewPane', () => ({ PreviewPane: ({ children }: { children?: unknown }) => children ?? null }));
+vi.mock('./features/preview/JinxiuMarkdown', () => ({ default: () => null }));
 vi.mock('./components/WorkspaceSidebarResizer', () => ({ WorkspaceSidebarResizer: () => null }));
-vi.mock('./components/WorkspaceImagePreview', () => ({ WorkspaceImagePreview: () => null }));
-vi.mock('./components/WorkspaceHtmlPreview', () => ({ WorkspaceHtmlPreview: () => null }));
-vi.mock('./components/WorkspaceMediaPreview', () => ({ WorkspaceMediaPreview: () => null }));
-vi.mock('./components/WorkspaceEntryDialog', () => ({ WorkspaceEntryDialog: () => null }));
-vi.mock('./components/WorkspaceMoveDialog', () => ({ WorkspaceMoveDialog: () => null }));
-vi.mock('./components/ExternalFileChangeDialog', () => ({ ExternalFileChangeDialog: () => null }));
-vi.mock('./components/DocumentSaveConflictDialog', () => ({ DocumentSaveConflictDialog: () => null }));
-vi.mock('./components/CrashDraftRecoveryDialog', () => ({ CrashDraftRecoveryDialog: () => null }));
-vi.mock('./components/CrashDraftStoreRepairDialog', () => ({ CrashDraftStoreRepairDialog: () => null }));
-vi.mock('./components/FeedbackDialog', () => ({ FeedbackDialog: () => null }));
-vi.mock('./components/SettingsDialog', () => ({ SettingsDialog: () => null }));
-vi.mock('./components/UnsavedExitDialog', () => ({
+vi.mock('./features/preview/WorkspaceImagePreview', () => ({ WorkspaceImagePreview: () => null }));
+vi.mock('./features/preview/WorkspaceHtmlPreview', () => ({ WorkspaceHtmlPreview: () => null }));
+vi.mock('./features/preview/WorkspaceMediaPreview', () => ({ WorkspaceMediaPreview: () => null }));
+vi.mock('./features/workspace/WorkspaceEntryDialog', () => ({ WorkspaceEntryDialog: () => null }));
+vi.mock('./features/workspace/WorkspaceMoveDialog', () => ({ WorkspaceMoveDialog: () => null }));
+vi.mock('./features/feedback/ExternalFileChangeDialog', () => ({ ExternalFileChangeDialog: () => null }));
+vi.mock('./features/feedback/DocumentSaveConflictDialog', () => ({ DocumentSaveConflictDialog: () => null }));
+vi.mock('./features/feedback/CrashDraftRecoveryDialog', () => ({ CrashDraftRecoveryDialog: () => null }));
+vi.mock('./features/feedback/CrashDraftStoreRepairDialog', () => ({ CrashDraftStoreRepairDialog: () => null }));
+vi.mock('./features/feedback/FeedbackDialog', () => ({ FeedbackDialog: () => null }));
+vi.mock('./features/settings/SettingsDialog', () => ({ SettingsDialog: () => null }));
+vi.mock('./features/feedback/UnsavedExitDialog', () => ({
   UnsavedExitDialog: ({ prompt, onCancelExit, onQuitWithoutSaving, onSaveAndQuit }: {
     prompt: { cancelLabel: string; quitLabel: string; saveLabel: string };
     onCancelExit: () => void;
@@ -168,11 +167,11 @@ vi.mock('./components/UnsavedExitDialog', () => ({
   },
 }));
 vi.mock('./components/PopoutPaneShell', () => ({ PopoutPaneShell: ({ children }: { children?: unknown }) => children ?? null }));
-vi.mock('./components/LazyPreviewBoundary', () => ({ LazyPreviewBoundary: ({ children }: { children?: unknown }) => children ?? null }));
-vi.mock('./components/DocxPreview', () => ({ DocxPreview: () => null }));
-vi.mock('./components/ExcalidrawPane', () => ({ ExcalidrawPane: () => null }));
-vi.mock('./components/PdfPreview', () => ({ PdfPreview: () => null }));
-vi.mock('./components/QuickOpenDialog', () => ({
+vi.mock('./features/preview/LazyPreviewBoundary', () => ({ LazyPreviewBoundary: ({ children }: { children?: unknown }) => children ?? null }));
+vi.mock('./features/preview/DocxPreview', () => ({ DocxPreview: () => null }));
+vi.mock('./features/preview/ExcalidrawPane', () => ({ ExcalidrawPane: () => null }));
+vi.mock('./features/preview/PdfPreview', () => ({ PdfPreview: () => null }));
+vi.mock('./features/workspace/QuickOpenDialog', () => ({
   QuickOpenDialog: ({ onSelect }: {
     onSelect: (selection: {
       workspaceToken: string;

@@ -26,7 +26,7 @@ vi.mock('@tauri-apps/api/event', () => ({
   emitTo: vi.fn<() => Promise<void>>(async () => undefined),
   listen: vi.fn<() => Promise<() => void>>(async () => () => undefined),
 }));
-vi.mock('./hooks/useDocumentSession', () => ({ useDocumentSession: mocks.useDocumentSession }));
+vi.mock('./features/document/useDocumentSession', () => ({ useDocumentSession: mocks.useDocumentSession }));
 vi.mock('./lib/crashDraftCommands', () => ({
   crashDraftCommands: {
     discard: mocks.discard, list: mocks.list, recover: mocks.recover,
@@ -36,7 +36,7 @@ vi.mock('./lib/crashDraftCommands', () => ({
 vi.mock('./lib/tauriCommands', () => ({
   setNativeSaveMenuEnabled: vi.fn<(enabled: boolean) => Promise<void>>(async () => undefined),
 }));
-vi.mock('./hooks/useSettings', () => ({
+vi.mock('./features/settings/useSettings', () => ({
   useSettings: () => ({
     busy: false,
     recovery: null,
@@ -46,7 +46,7 @@ vi.mock('./hooks/useSettings', () => ({
     updateSettings: vi.fn<(settings: unknown) => Promise<void>>(async () => undefined),
   }),
 }));
-vi.mock('./hooks/usePanePopouts', () => ({
+vi.mock('./features/app/usePanePopouts', () => ({
   usePanePopouts: () => ({
     closePopoutWindows: vi.fn<() => Promise<void>>(async () => undefined),
     editorPopoutButton: undefined,
@@ -54,7 +54,7 @@ vi.mock('./hooks/usePanePopouts', () => ({
     openPanePopout: vi.fn<(pane: 'editor' | 'preview') => Promise<void>>(async () => undefined),
   }),
 }));
-vi.mock('./hooks/usePaneResize', () => ({
+vi.mock('./features/app/usePaneResize', () => ({
   usePaneResize: () => ({
     editorPaneRef: { current: null },
     previewPaneRef: { current: null },
@@ -64,7 +64,7 @@ vi.mock('./hooks/usePaneResize', () => ({
     stopPaneResize: vi.fn<() => void>(),
   }),
 }));
-vi.mock('./hooks/useProgramCloseGuard', () => ({
+vi.mock('./features/app/useProgramCloseGuard', () => ({
   useProgramCloseGuard: (input: {
     flushWorkspaceSession: () => Promise<void>;
     setShowUnsavedExitPrompt: (show: boolean) => void;
@@ -73,11 +73,11 @@ vi.mock('./hooks/useProgramCloseGuard', () => ({
     return { forceCloseProgram: mocks.forceCloseProgram };
   },
 }));
-vi.mock('./components/EditorPane', () => ({ EditorPane: () => null }));
-vi.mock('./components/FileSidebar', () => ({ FileSidebar: () => null }));
-vi.mock('./components/AppToolbar', () => ({ AppToolbar: () => null }));
+vi.mock('./features/workspace/EditorPane', () => ({ EditorPane: () => null }));
+vi.mock('./features/workspace/FileSidebar', () => ({ FileSidebar: () => null }));
+vi.mock('./features/app/AppToolbar', () => ({ AppToolbar: () => null }));
 vi.mock('./components/PaneResizer', () => ({ PaneResizer: () => null }));
-vi.mock('./components/JinxiuMarkdown', () => ({ default: () => null }));
+vi.mock('./features/preview/JinxiuMarkdown', () => ({ default: () => null }));
 
 const documentId = '1'.repeat(32);
 const entryToken = 'b'.repeat(64);

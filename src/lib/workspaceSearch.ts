@@ -162,10 +162,9 @@ export function decodeWorkspaceIndexRebuildResponse(value: unknown): WorkspaceIn
   };
 }
 
-export function decodeWorkspaceIndexQueryResponse(value: unknown): WorkspaceIndexQueryResponse {
-  if (
-    !isRecord(value)
-    || !hasExactKeys(value, [
+// 查询响应字段预检：恰好七键且各字段类型合法。
+function queryResponseFieldsInvalid(value: Record<string, unknown>): boolean {
+  return !hasExactKeys(value, [
       'status', 'workspaceToken', 'indexGeneration', 'implementationId', 'schemaId', 'truncated', 'results',
     ])
     || !isStatus(value.status)
@@ -174,17 +173,20 @@ export function decodeWorkspaceIndexQueryResponse(value: unknown): WorkspaceInde
     || !isNonBlankString(value.implementationId)
     || !isNonBlankString(value.schemaId)
     || typeof value.truncated !== 'boolean'
-    || !Array.isArray(value.results)
-  ) return invalidResponse('query');
-  const results = value.results.map(decodeResult);
+    || !Array.isArray(value.results);
+}
+
+export function decodeWorkspaceIndexQueryResponse(value: unknown): WorkspaceIndexQueryResponse {
+  if (!isRecord(value) || queryResponseFieldsInvalid(value)) return invalidResponse('query');
+  const results = (value.results as unknown[]).map(decodeResult);
   if (value.status !== 'ready' && results.length !== 0) return invalidResponse('query');
   return {
-    status: value.status,
-    workspaceToken: value.workspaceToken,
-    indexGeneration: value.indexGeneration,
-    implementationId: value.implementationId,
-    schemaId: value.schemaId,
-    truncated: value.truncated,
+    status: value.status as WorkspaceIndexQueryResponse['status'],
+    workspaceToken: value.workspaceToken as string,
+    indexGeneration: value.indexGeneration as number,
+    implementationId: value.implementationId as string,
+    schemaId: value.schemaId as string,
+    truncated: value.truncated as boolean,
     results,
   };
 }

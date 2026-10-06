@@ -2,7 +2,7 @@ import type { WorkspaceDirectoryEntry, WorkspaceFileEntry } from '../types';
 
 export type WorkspaceFileTreeNode = WorkspaceFileTreeFolder | WorkspaceFileTreeFile;
 
-export interface WorkspaceFileTreeFolder {
+interface WorkspaceFileTreeFolder {
   absolutePath: string;
   kind: 'folder';
   name: string;
@@ -10,7 +10,7 @@ export interface WorkspaceFileTreeFolder {
   children: WorkspaceFileTreeNode[];
 }
 
-export interface WorkspaceFileTreeFile {
+interface WorkspaceFileTreeFile {
   absolutePath: string;
   kind: 'file';
   name: string;

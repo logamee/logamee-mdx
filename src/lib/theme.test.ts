@@ -9,6 +9,7 @@ import {
   decodeThemePreference,
   resolveEffectiveTheme,
   resolveThemeForAppearance,
+  themePreferenceFromSettingsSnapshot,
   type ThemeRoot,
   type ThemeStorage,
 } from './theme';
@@ -168,5 +169,28 @@ describe('theme preference domain', () => {
     expect(root.values.get('data-skin')).toBe('original');
     expect(root.values.get('data-appearance')).toBe('light');
     expect(storage.values.get(THEME_STORAGE_KEY)).toBe(JSON.stringify(DEFAULT_THEME_PREFERENCE));
+  });
+});
+
+describe('themePreferenceFromSettingsSnapshot', () => {
+  it('maps settings skin and follow-system fields onto a theme preference', () => {
+    expect(themePreferenceFromSettingsSnapshot({
+      schemaVersion: 1,
+      revision: 7,
+      settings: { selectedSkin: 'shanshui-yemo', followSystemTheme: true },
+    })).toEqual({ version: 1, selectedSkin: 'shanshui-yemo', followSystem: true });
+  });
+
+  it('rejects payloads without settings, unknown skins, or malformed fields', () => {
+    expect(themePreferenceFromSettingsSnapshot(null)).toBeNull();
+    expect(themePreferenceFromSettingsSnapshot('settings-changed')).toBeNull();
+    expect(themePreferenceFromSettingsSnapshot({ revision: 1 })).toBeNull();
+    expect(themePreferenceFromSettingsSnapshot({ settings: {} })).toBeNull();
+    expect(themePreferenceFromSettingsSnapshot({
+      settings: { selectedSkin: 'not-a-skin', followSystemTheme: false },
+    })).toBeNull();
+    expect(themePreferenceFromSettingsSnapshot({
+      settings: { selectedSkin: 'original', followSystemTheme: 'yes' },
+    })).toBeNull();
   });
 });

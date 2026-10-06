@@ -1,9 +1,8 @@
 import DOMPurify from 'dompurify';
-import {
-  DOCX_ALLOWED_IMAGE_MIME_TYPES,
-  DOCX_PREVIEW_LIMITS,
-  type DocxImageResource,
-} from './docxResources';
+import { getRegisteredImages } from './docxImageRegistry';
+import { DocxSanitizationError } from './docxSanitizerErrors';
+export { DocxSanitizationError } from './docxSanitizerErrors';
+import { DOCX_PREVIEW_LIMITS, type DocxImageResource } from './docxResources';
 
 export const DOCX_ALLOWED_TAGS = Object.freeze([
   'a', 'b', 'blockquote', 'br', 'caption', 'code', 'em', 'h1', 'h2', 'h3', 'h4',
@@ -33,19 +32,9 @@ export interface DocxSanitizationOptions {
   readonly maxSanitizedNodes?: number;
 }
 
-export class DocxSanitizationError extends Error {
-  constructor(message = 'The DOCX did not contain a usable preview.') {
-    super(message);
-    this.name = 'DocxSanitizationError';
-  }
-}
-
 const HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml';
-const REGISTERED_PLACEHOLDER_PATTERN = /^https:\/\/[0-9a-f]{32}\.invalid\/image\/[1-9][0-9]*$/;
-const CANONICAL_BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const DOMPURIFY_ALLOWED_ATTRIBUTE_VALUE_PATTERN = /^\s*(?:https:|mailto:|[+-]?[0-9]+\s*$|(?:col|colgroup|row|rowgroup)\s*$)/i;
 const ALLOWED_TAG_SET: ReadonlySet<string> = new Set(DOCX_ALLOWED_TAGS);
-const ALLOWED_IMAGE_MIME_SET: ReadonlySet<string> = new Set(DOCX_ALLOWED_IMAGE_MIME_TYPES);
 const DECIMAL_INTEGER_PATTERN = /^[+-]?[0-9]+$/;
 const TABLE_SCOPE_VALUES: ReadonlySet<string> = new Set([
   'col', 'colgroup', 'row', 'rowgroup',
@@ -54,60 +43,6 @@ const TABLE_SCOPE_VALUES: ReadonlySet<string> = new Set([
 function getUtf8ByteLength(value: string): number {
   if (value.length > DOCX_PREVIEW_LIMITS.maxHtmlBytes) return value.length;
   return new TextEncoder().encode(value).byteLength;
-}
-
-function expectedBase64Length(byteLength: number): number {
-  return Math.ceil(byteLength / 3) * 4;
-}
-
-function hasCanonicalBase64Length(resource: DocxImageResource): boolean {
-  const encoded = resource.bytesBase64;
-  if (encoded.length !== expectedBase64Length(resource.byteLength)) return false;
-  if (!CANONICAL_BASE64_PATTERN.test(encoded)) return false;
-  if (resource.byteLength % 3 === 0) return !encoded.endsWith('=');
-  if (resource.byteLength % 3 === 1) return encoded.endsWith('==');
-  return encoded.endsWith('=') && !encoded.endsWith('==');
-}
-
-function getRegisteredImages(
-  images: readonly DocxImageResource[],
-): ReadonlyMap<string, DocxImageResource> {
-  if (!Array.isArray(images) || images.length > DOCX_PREVIEW_LIMITS.maxImages) {
-    throw new DocxSanitizationError();
-  }
-
-  const registered = new Map<string, DocxImageResource>();
-  let totalBytes = 0;
-  let totalPixels = 0;
-
-  for (const image of images) {
-    if (image === null || typeof image !== 'object'
-      || !REGISTERED_PLACEHOLDER_PATTERN.test(image.placeholder)
-      || registered.has(image.placeholder)
-      || !ALLOWED_IMAGE_MIME_SET.has(image.mimeType)
-      || !Number.isSafeInteger(image.byteLength)
-      || image.byteLength <= 0
-      || image.byteLength > DOCX_PREVIEW_LIMITS.maxImageBytes
-      || !Number.isSafeInteger(image.width)
-      || !Number.isSafeInteger(image.height)
-      || image.width <= 0
-      || image.height <= 0
-      || image.width > Math.floor(DOCX_PREVIEW_LIMITS.maxImagePixels / image.height)
-      || image.pixelCount !== image.width * image.height
-      || !hasCanonicalBase64Length(image)) {
-      throw new DocxSanitizationError();
-    }
-
-    totalBytes += image.byteLength;
-    totalPixels += image.pixelCount;
-    if (totalBytes > DOCX_PREVIEW_LIMITS.maxTotalImageBytes
-      || totalPixels > DOCX_PREVIEW_LIMITS.maxTotalImagePixels) {
-      throw new DocxSanitizationError();
-    }
-    registered.set(image.placeholder, image);
-  }
-
-  return registered;
 }
 
 function countNodes(root: DocumentFragment, maximum: number): number {

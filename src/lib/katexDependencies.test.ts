@@ -8,7 +8,7 @@ describe('KaTeX dependency alignment', () => {
   it('uses one stylesheet-compatible KaTeX version for Markdown preview rendering', () => {
     const version = packageManifest.dependencies.katex;
 
-    expect(version).toBe('0.18.1');
+    expect(version).toBe('0.19.0');
     expect(packageManifest.overrides).toEqual({
       'rehype-katex': { katex: version },
     });

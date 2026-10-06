@@ -81,12 +81,8 @@ export class DocxWorkerProtocolError extends Error {
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
-function getCanonicalBase64ByteLength(value: string): number {
-  if (value.length === 0 || value.length % 4 !== 0 || !BASE64_PATTERN.test(value)) {
-    throw new DocxResourceLimitError('Invalid DOCX source encoding');
-  }
-
-  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+// 末位填充校验：填充对应的最后 sextet 低位必须为零。
+function assertBase64PaddingValid(value: string, padding: number): void {
   if (padding === 2) {
     const finalSextet = BASE64_ALPHABET.indexOf(value[value.length - 3]!);
     if (finalSextet < 0 || (finalSextet & 0x0f) !== 0) {
@@ -98,7 +94,14 @@ function getCanonicalBase64ByteLength(value: string): number {
       throw new DocxResourceLimitError('Invalid DOCX source encoding');
     }
   }
+}
 
+function getCanonicalBase64ByteLength(value: string): number {
+  if (value.length === 0 || value.length % 4 !== 0 || !BASE64_PATTERN.test(value)) {
+    throw new DocxResourceLimitError('Invalid DOCX source encoding');
+  }
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  assertBase64PaddingValid(value, padding);
   return (value.length / 4) * 3 - padding;
 }
 
@@ -164,6 +167,83 @@ function getRequestId(documentId: string, documentEpoch: number): string {
   return `${documentId}:${documentEpoch}`;
 }
 
+// 落定管线：一次性 resolve/reject 守卫、deadline 定时器与 worker 清理。
+function createDocxSettlement(worker: Worker): {
+  armDeadline: (timeoutMs: number) => void;
+  done: Promise<DocxPreviewResult>;
+  rejectOnce: (reason: unknown) => void;
+  resolveOnce: (result: DocxPreviewResult) => void;
+} {
+  let settled = false;
+  let deadlineId: ReturnType<typeof setTimeout> | undefined;
+  let resolveDone!: (result: DocxPreviewResult) => void;
+  let rejectDone!: (reason: unknown) => void;
+  const cleanup = () => {
+    if (deadlineId !== undefined) clearTimeout(deadlineId);
+    worker.onmessage = null;
+    worker.onerror = null;
+    worker.onmessageerror = null;
+    worker.terminate();
+  };
+  const settle = (finish: () => void) => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    finish();
+  };
+  const done = new Promise<DocxPreviewResult>((resolve, reject) => {
+    resolveDone = resolve;
+    rejectDone = reject;
+  });
+  return {
+    armDeadline: (timeoutMs: number) => {
+      deadlineId = setTimeout(() => settle(() => rejectDone(new DocxDeadlineError())), timeoutMs);
+    },
+    done,
+    rejectOnce: (reason: unknown) => settle(() => rejectDone(reason)),
+    resolveOnce: (result: DocxPreviewResult) => settle(() => resolveDone(result)),
+  };
+}
+
+// worker 事件接线：消息协议校验、转换分级、HTML 净化后落定。
+function attachDocxWorkerHandlers(deps: {
+  rejectOnce: (reason: unknown) => void;
+  requestId: string;
+  resolveOnce: (result: DocxPreviewResult) => void;
+  worker: Worker;
+}): void {
+  const { worker } = deps;
+  worker.onmessage = (event: MessageEvent<unknown>) => {
+    const response = event.data;
+    if (!isWorkerResponse(response) || response.requestId !== deps.requestId) {
+      deps.rejectOnce(new DocxWorkerProtocolError());
+      return;
+    }
+    if (response.type === 'docx-failed') {
+      deps.rejectOnce(new DocxFatalConversionError());
+      return;
+    }
+
+    try {
+      const classification = classifyDocxMessages(response.messages);
+      if (classification.fatal) throw new DocxFatalConversionError();
+      const sanitized = sanitizeDocxHtml(response.rawHtml, response.images);
+      deps.resolveOnce({
+        detectedLoss: classification.detectedLoss,
+        html: sanitized.html,
+        nodeCount: sanitized.nodeCount,
+      });
+    } catch (error) {
+      deps.rejectOnce(error);
+    }
+  };
+  worker.onerror = (event) => {
+    event.preventDefault();
+    deps.rejectOnce(new DocxFatalConversionError());
+  };
+  worker.onmessageerror = () => deps.rejectOnce(new DocxWorkerProtocolError());
+}
+
 export function startDocxPreview({
   bytesBase64,
   documentEpoch,
@@ -175,68 +255,9 @@ export function startDocxPreview({
     new URL('../workers/docxPreview.worker.ts', import.meta.url),
     { name: 'mmd-docx-preview', type: 'module' },
   );
-  let settled = false;
-  let deadlineId: ReturnType<typeof setTimeout> | undefined;
-  let resolveDone!: (result: DocxPreviewResult) => void;
-  let rejectDone!: (reason: unknown) => void;
-
-  const cleanup = () => {
-    if (deadlineId !== undefined) clearTimeout(deadlineId);
-    worker.onmessage = null;
-    worker.onerror = null;
-    worker.onmessageerror = null;
-    worker.terminate();
-  };
-  const resolveOnce = (result: DocxPreviewResult) => {
-    if (settled) return;
-    settled = true;
-    cleanup();
-    resolveDone(result);
-  };
-  const rejectOnce = (reason: unknown) => {
-    if (settled) return;
-    settled = true;
-    cleanup();
-    rejectDone(reason);
-  };
-
-  const done = new Promise<DocxPreviewResult>((resolve, reject) => {
-    resolveDone = resolve;
-    rejectDone = reject;
-  });
-
-  worker.onmessage = (event: MessageEvent<unknown>) => {
-    const response = event.data;
-    if (!isWorkerResponse(response) || response.requestId !== requestId) {
-      rejectOnce(new DocxWorkerProtocolError());
-      return;
-    }
-    if (response.type === 'docx-failed') {
-      rejectOnce(new DocxFatalConversionError());
-      return;
-    }
-
-    try {
-      const classification = classifyDocxMessages(response.messages);
-      if (classification.fatal) throw new DocxFatalConversionError();
-      const sanitized = sanitizeDocxHtml(response.rawHtml, response.images);
-      resolveOnce({
-        detectedLoss: classification.detectedLoss,
-        html: sanitized.html,
-        nodeCount: sanitized.nodeCount,
-      });
-    } catch (error) {
-      rejectOnce(error);
-    }
-  };
-  worker.onerror = (event) => {
-    event.preventDefault();
-    rejectOnce(new DocxFatalConversionError());
-  };
-  worker.onmessageerror = () => rejectOnce(new DocxWorkerProtocolError());
-  deadlineId = setTimeout(() => {
-    rejectOnce(new DocxDeadlineError());
-  }, DOCX_RUNTIME_LIMITS.conversionTimeoutMs);
+  const { armDeadline, done, rejectOnce, resolveOnce } = createDocxSettlement(worker);
+  attachDocxWorkerHandlers({ rejectOnce, requestId, resolveOnce, worker });
+  armDeadline(DOCX_RUNTIME_LIMITS.conversionTimeoutMs);
 
   const request: DocxWorkerRequest = {
     type: 'convert-docx',

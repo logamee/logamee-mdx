@@ -7,7 +7,6 @@ export type WorkspaceFileKind =
   | 'audio'
   | 'pdf'
   | 'docx';
-export type ContentMode = 'text' | 'binary';
 
 export interface FileVersion {
   canonicalPath: string;
@@ -30,7 +29,7 @@ export interface WorkspaceDirectoryEntry {
   name: string;
 }
 
-export interface OpenMarkdownFileResponse {
+interface OpenMarkdownFileResponse {
   kind: 'markdown';
   path: string;
   content_mode: 'text';
@@ -39,7 +38,7 @@ export interface OpenMarkdownFileResponse {
   mime_type?: never;
 }
 
-export interface OpenImageFileResponse {
+interface OpenImageFileResponse {
   kind: 'image';
   path: string;
   content_mode: 'binary';
@@ -48,7 +47,7 @@ export interface OpenImageFileResponse {
   mime_type: string;
 }
 
-export interface OpenHtmlFileResponse {
+interface OpenHtmlFileResponse {
   kind: 'html';
   path: string;
   content_mode: 'text';
@@ -57,7 +56,7 @@ export interface OpenHtmlFileResponse {
   mime_type: string;
 }
 
-export interface OpenExcalidrawFileResponse {
+interface OpenExcalidrawFileResponse {
   kind: 'excalidraw';
   path: string;
   content_mode: 'text';
@@ -66,7 +65,7 @@ export interface OpenExcalidrawFileResponse {
   mime_type?: never;
 }
 
-export interface OpenMediaFileResponse {
+interface OpenMediaFileResponse {
   kind: 'video' | 'audio';
   path: string;
   content_mode: 'binary';
@@ -75,7 +74,7 @@ export interface OpenMediaFileResponse {
   mime_type: string;
 }
 
-export interface OpenBinaryDocumentResponse {
+interface OpenBinaryDocumentResponse {
   kind: 'pdf' | 'docx';
   path: string;
   content_mode: 'binary';
@@ -166,7 +165,7 @@ export interface WorkspaceSnapshot extends WorkspaceDirectoryListing {
 export type WorkspaceIndexStatus = 'ready' | 'cancelled' | 'invalidated';
 export type WorkspaceIndexQueryKind = 'filename' | 'fullText';
 
-export interface WorkspaceIndexLimits {
+interface WorkspaceIndexLimits {
   maxFiles: number;
   maxFileBytes: number;
   maxAggregateBytes: number;
@@ -249,12 +248,12 @@ export type SnapshotReceipt =
   | { status: 'stale'; workspace_token: string; repair_reason: string }
   | { status: 'not-applicable' };
 
-export interface MutationCommitReceipt<T> {
+interface MutationCommitReceipt<T> {
   committed: T;
   workspace: SnapshotReceipt;
 }
 
-export type MutationKind = 'create' | 'delete' | 'rename' | 'write';
+type MutationKind = 'create' | 'delete' | 'rename' | 'write' | 'copy';
 
 export type MutationOutcome<T> =
   | { status: 'confirmed-not-committed'; message: string }
@@ -271,44 +270,12 @@ export interface DeleteWorkspaceEntryResponse {
   deleted_path: string;
 }
 
-export const SETTINGS_SCHEMA_VERSION = 1 as const;
-
-export type SettingsSkinId =
-  | 'original'
-  | 'jinxiu-zhusha'
-  | 'ruyao-tianqing'
-  | 'qinghua-jilan'
-  | 'songke-zhuying'
-  | 'gujuan-nuanxing'
-  | 'zhuying-qingci'
-  | 'jiushu-huangzhi'
-  | 'shanshui-yemo';
-
-export type SettingsLocaleMode = 'system' | 'zh-CN' | 'en';
-
-export interface AppSettings {
-  autosaveEnabled: boolean;
-  autosaveDelayMs: number;
-  spellcheckEnabled: boolean;
-  wikilinksEnabled: boolean;
-  resourceDirectory: string;
-  editorPaneRatio: number;
-  editorFontSize: number;
-  selectedSkin: SettingsSkinId;
-  followSystemTheme: boolean;
-  localeMode: SettingsLocaleMode;
-  shortcuts: Record<string, string>;
-  exportProfiles: Record<string, unknown>;
-}
-
-export interface SettingsEnvelope {
-  schemaVersion: typeof SETTINGS_SCHEMA_VERSION;
-  revision: number;
-  settings: AppSettings;
-}
-
-export interface SettingsError {
-  code: string;
-  message: string;
-  canReset: boolean;
-}
+export { SETTINGS_SCHEMA_VERSION } from './lib/settingsTypes';
+export type {
+  AutosaveMode,
+  AppSettings,
+  SettingsEnvelope,
+  SettingsError,
+  SettingsLocaleMode,
+  SettingsSkinId,
+} from './lib/settingsTypes';

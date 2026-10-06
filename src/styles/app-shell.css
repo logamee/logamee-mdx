@@ -573,7 +573,7 @@
 .settings-field > input[type="range"] { padding: 0; accent-color: var(--accent); }
 .settings-number { width: min(240px, 58%); gap: 7px; }
 .settings-number input { width: 100%; min-width: 0; height: 30px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 4px 8px; background: var(--control-bg); color: var(--chrome-text); }
-.settings-number small { color: var(--text-muted); }
+.settings-number small { color: var(--text-muted); white-space: nowrap; }
 .settings-path-control { width: min(300px, 68%); gap: 6px; }
 .settings-path-control input { width: 100%; min-width: 0; height: 30px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 4px 8px; background: var(--control-bg); color: var(--chrome-text); }
 .settings-skin-picker { min-width: 0; margin: 0; border: 0; padding: 0; }

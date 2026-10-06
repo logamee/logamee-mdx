@@ -31,7 +31,7 @@ function parentPath(path: string): string {
   return normalized.slice(0, separator);
 }
 
-function isSameOrDescendantPath(path: string, parent: string): boolean {
+export function isSameOrDescendantPath(path: string, parent: string): boolean {
   const normalizedPath = normalizePath(path);
   const normalizedParent = normalizePath(parent);
   return normalizedPath === normalizedParent

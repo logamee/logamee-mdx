@@ -106,25 +106,36 @@ export function decodeOpenCommitResult(value: unknown): OpenCommitResult {
   return invalidOpenCommitResult();
 }
 
+// 按状态解码打开提交状态：pending/unknown/committed/not_committed 各自校验键集。
 export function decodeOpenCommitStatus(value: unknown): OpenCommitStatus {
   if (!isRecord(value) || typeof value.status !== 'string') return invalidOpenCommitStatus();
-  if (value.status === 'pending' || value.status === 'unknown') {
-    if (!hasExactKeys(value, ['status'])) return invalidOpenCommitStatus();
-    return { status: value.status };
-  }
-  if (value.status === 'committed') {
-    if (!hasExactKeys(value, ['status', 'recent_files'])) return invalidOpenCommitStatus();
-    try {
-      return { status: 'committed', recent_files: decodeRecentFilesSnapshot(value.recent_files) };
-    } catch {
+  switch (value.status) {
+    case 'pending':
+    case 'unknown':
+      return hasExactKeys(value, ['status'])
+        ? { status: value.status }
+        : invalidOpenCommitStatus();
+    case 'committed':
+      if (!hasExactKeys(value, ['status', 'recent_files'])) return invalidOpenCommitStatus();
+      return decodeCommittedOpenStatus(value);
+    case 'not_committed':
+      return decodeNotCommittedOpenStatus(value);
+    default:
       return invalidOpenCommitStatus();
-    }
   }
-  if (value.status === 'not_committed') {
-    if (!hasExactKeys(value, ['status', 'message']) || typeof value.message !== 'string') {
-      return invalidOpenCommitStatus();
-    }
-    return { status: 'not_committed', message: value.message };
+}
+
+function decodeNotCommittedOpenStatus(value: Record<string, unknown>): OpenCommitStatus {
+  if (!hasExactKeys(value, ['status', 'message']) || typeof value.message !== 'string') {
+    return invalidOpenCommitStatus();
   }
-  return invalidOpenCommitStatus();
+  return { status: 'not_committed', message: value.message };
+}
+
+function decodeCommittedOpenStatus(value: Record<string, unknown>): OpenCommitStatus {
+  try {
+    return { status: 'committed', recent_files: decodeRecentFilesSnapshot(value.recent_files) };
+  } catch {
+    return invalidOpenCommitStatus();
+  }
 }

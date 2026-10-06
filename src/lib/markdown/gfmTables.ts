@@ -6,48 +6,66 @@ function isGfmTableRowLine(line: string): boolean {
   return /^\s*\|/.test(line) || /\|\s*$/.test(line) || GFM_TABLE_SEPARATOR_RE.test(trimmed);
 }
 
-export function escapePipesInInlineCode(text: string): string {
+function escapePipesInInlineCode(text: string): string {
   return text.replace(/`([^`\n]*)`/g, (_match, inner: string) => `\`${inner.replace(/(?<!\\)\|/g, '\\|')}\``);
+}
+
+// 行首跳过空白与可选竖线。
+function skipLeadingPipeAndSpaces(line: string, start: number): number {
+  let i = start;
+  while (i < line.length && /[\t ]/.test(line[i]!)) i += 1;
+  if (line[i] === '|') i += 1;
+  while (i < line.length && /[\t ]/.test(line[i]!)) i += 1;
+  return i;
+}
+
+// 竖线之后的空白终点；到达行尾返回 null。
+function pipeTailIndex(line: string, from: number): number | null {
+  let j = from;
+  while (j < line.length && /[\t ]/.test(line[j]!)) j += 1;
+  return j >= line.length ? null : j;
+}
+
+// 单字符累积：反引号翻转行内代码态，转义成对吞入，其余原样追加。
+function accumulateCellChar(
+  line: string,
+  i: number,
+  state: { buf: string; inBacktick: boolean },
+): number {
+  const ch = line[i]!;
+  if (ch === '`') {
+    state.inBacktick = !state.inBacktick;
+    state.buf += ch;
+    return i + 1;
+  }
+  if (ch === '\\' && i + 1 < line.length) {
+    state.buf += ch + line[i + 1]!;
+    return i + 2;
+  }
+  state.buf += ch;
+  return i + 1;
 }
 
 export function splitGfmTableRow(line: string): string[] {
   const cells: string[] = [];
-  let buf = '';
-  let inBacktick = false;
-  let i = 0;
-  while (i < line.length && /[\t ]/.test(line[i]!)) i += 1;
-  if (line[i] === '|') i += 1;
+  const state = { buf: '', inBacktick: false };
+  let i = skipLeadingPipeAndSpaces(line, 0);
   while (i < line.length) {
     const ch = line[i]!;
-    if (ch === '`') {
-      inBacktick = !inBacktick;
-      buf += ch;
-      i += 1;
-      continue;
-    }
-    if (ch === '\\' && i + 1 < line.length) {
-      buf += ch + line[i + 1]!;
-      i += 2;
-      continue;
-    }
-    if (ch === '|' && !inBacktick) {
-      let j = i + 1;
-      while (j < line.length && /[\t ]/.test(line[j]!)) j += 1;
-      if (j >= line.length) {
-        const trimmed = buf.trim();
+    if (ch === '|' && !state.inBacktick) {
+      if (pipeTailIndex(line, i + 1) === null) {
+        const trimmed = state.buf.trim();
         if (trimmed) cells.push(trimmed);
         return cells;
       }
-      cells.push(buf.trim());
-      buf = '';
-      i += 1;
-      while (i < line.length && /[\t ]/.test(line[i]!)) i += 1;
+      cells.push(state.buf.trim());
+      state.buf = '';
+      i = skipLeadingPipeAndSpaces(line, i + 1);
       continue;
     }
-    buf += ch;
-    i += 1;
+    i = accumulateCellChar(line, i, state);
   }
-  if (buf.length > 0 || cells.length === 0) cells.push(buf.trim().replace(/\|\s*$/, ''));
+  if (state.buf.length > 0 || cells.length === 0) cells.push(state.buf.trim().replace(/\|\s*$/, ''));
   return cells;
 }
 

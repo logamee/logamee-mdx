@@ -1,5 +1,5 @@
 {
-  "source": "mammoth@1.12.0/test/test-data",
+  "source": "mammoth@1.13.0/test/test-data",
   "files": [
     {
       "name": "empty.docx",

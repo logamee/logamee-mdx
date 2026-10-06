@@ -9,10 +9,10 @@ import {
 
 describe('DOCX conversion message policy', () => {
   it('is versioned against the exact installed Mammoth dependency', () => {
-    expect(packageManifest.dependencies.mammoth).toBe('1.12.0');
-    expect(packageLock.packages[''].dependencies.mammoth).toBe('1.12.0');
-    expect(packageLock.packages['node_modules/mammoth']?.version).toBe('1.12.0');
-    expect(MAMMOTH_MESSAGE_POLICY_VERSION).toBe('mammoth@1.12.0');
+    expect(packageManifest.dependencies.mammoth).toBe('1.13.0');
+    expect(packageLock.packages[''].dependencies.mammoth).toBe('1.13.0');
+    expect(packageLock.packages['node_modules/mammoth']?.version).toBe('1.13.0');
+    expect(MAMMOTH_MESSAGE_POLICY_VERSION).toBe('mammoth@1.13.0');
   });
 
   it('detects only dependency-verified exact and prefix warnings that lose content or fidelity', () => {

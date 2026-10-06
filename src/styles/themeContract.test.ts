@@ -14,7 +14,7 @@ const typoraCss = readFileSync(
 const markdownPreviewCss = readFileSync(new URL('./markdown-preview.css', import.meta.url), 'utf8');
 const indexHtml = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
 const jinxiuMarkdownSource = readFileSync(
-  new URL('../components/JinxiuMarkdown.tsx', import.meta.url),
+  new URL('../features/preview/JinxiuMarkdown.tsx', import.meta.url),
   'utf8',
 );
 const applicationCss = [

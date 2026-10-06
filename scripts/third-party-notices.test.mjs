@@ -91,14 +91,14 @@ describe('third-party notice synchronization', () => {
       path.join(projectRoot, 'package.json'),
       'utf8',
     ));
-    expect(MAMMOTH_VERSION).toBe('1.12.0');
-    expect(DOMPURIFY_VERSION).toBe('3.4.12');
+    expect(MAMMOTH_VERSION).toBe('1.13.0');
+    expect(DOMPURIFY_VERSION).toBe('3.4.16');
     expect(EXCALIDRAW_VERSION).toBe('0.18.1');
-    expect(MERMAID_VERSION).toBe('11.16.0');
-    expect(LIBC_VERSION).toBe('0.2.186');
+    expect(MERMAID_VERSION).toBe('12.1.0');
+    expect(LIBC_VERSION).toBe('0.2.190');
     expect(OBJC2_FOUNDATION_VERSION).toBe('0.3.2');
-    expect(WINDOWS_VERSION).toBe('0.61.3');
-    expect(WINDOWS_CORE_VERSION).toBe('0.61.2');
+    expect(WINDOWS_VERSION).toBe('0.62.2');
+    expect(WINDOWS_CORE_VERSION).toBe('0.62.2');
     expect(WINDOWS_SYS_VERSION).toBe('0.61.2');
     expect(packageManifest.scripts).toMatchObject({
       postinstall: 'npm run sync:vendor-assets',
@@ -192,7 +192,7 @@ describe('third-party notice synchronization', () => {
     );
 
     await expect(syncThirdPartyNotices({ projectRoot: fixtureRoot }))
-      .rejects.toThrow('Expected mammoth 1.12.0, found 1.12.1');
+      .rejects.toThrow('Expected mammoth 1.13.0, found 1.12.1');
   });
 
   it('fails closed on native Rust dependency version drift', async () => {
@@ -207,6 +207,6 @@ describe('third-party notice synchronization', () => {
     );
 
     await expect(syncThirdPartyNotices({ projectRoot: fixtureRoot }))
-      .rejects.toThrow('Expected Cargo package libc 0.2.186, found 0.2.187');
+      .rejects.toThrow('Expected Cargo package libc 0.2.190, found 0.2.187');
   });
 });

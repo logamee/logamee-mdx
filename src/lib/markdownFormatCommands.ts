@@ -192,32 +192,55 @@ function isolateBlock(source: string, from: number, to: number, block: string) {
   return { after, before, insert: `${before}${block}${after}` };
 }
 
+// 行前缀命令表：标题/引用/无序/有序/任务列表。
+const LINE_PREFIX_BY_COMMAND: Partial<Record<MarkdownFormatCommandId, (index: number) => string>> = {
+  'blockquote': () => '> ',
+  'bullet-list': () => '- ',
+  'h1': () => '# ',
+  'h2': () => '## ',
+  'h3': () => '### ',
+  'ordered-list': (index) => `${index + 1}. `,
+  'task-list': () => '- [ ] ',
+};
+
+// 围栏块：补齐末尾换行后闭合围栏。
+function fencedBlock(fence: string, selected: string): string {
+  const closingBreak = selected.endsWith('\n') ? '' : '\n';
+  return `${fence}\n${selected}${closingBreak}${fence}`;
+}
+
 function selectedBlock(command: MarkdownFormatCommandId, selected: string): string {
-  if (command === 'h1') return prefixLines(selected, () => '# ');
-  if (command === 'h2') return prefixLines(selected, () => '## ');
-  if (command === 'h3') return prefixLines(selected, () => '### ');
-  if (command === 'blockquote') return prefixLines(selected, () => '> ');
-  if (command === 'bullet-list') return prefixLines(selected, () => '- ');
-  if (command === 'ordered-list') return prefixLines(selected, (index) => `${index + 1}. `);
-  if (command === 'task-list') return prefixLines(selected, () => '- [ ] ');
-  if (command === 'table') return '| Header | Header |\n| --- | --- |\n| Cell | Cell |';
+  const prefix = LINE_PREFIX_BY_COMMAND[command];
+  if (prefix) return prefixLines(selected, prefix);
   if (command === 'code-block') {
-    const fence = '`'.repeat(Math.max(3, longestBacktickRun(selected) + 1));
-    const closingBreak = selected.endsWith('\n') ? '' : '\n';
-    return `${fence}\n${selected}${closingBreak}${fence}`;
+    return fencedBlock('`'.repeat(Math.max(3, longestBacktickRun(selected) + 1)), selected);
   }
   if (command === 'mermaid') {
     const closingBreak = selected.endsWith('\n') ? '' : '\n';
     return `\`\`\`mermaid\n${selected}${closingBreak}\`\`\``;
   }
-  if (command === 'formula-block') {
-    const closingBreak = selected.endsWith('\n') ? '' : '\n';
-    return `$$\n${selected}${closingBreak}$$`;
-  }
+  if (command === 'formula-block') return fencedBlock('$$', selected);
+  if (command === 'table') return '| Header | Header |\n| --- | --- |\n| Cell | Cell |';
   if (command === 'horizontal-rule') return '---';
   const marker = alertMarker(command);
   if (marker) return `> [!${marker}]\n${prefixLines(selected, () => '> ')}`;
   return selected;
+}
+
+// 包裹式行内编辑：光标选中包裹后的原文本。
+function wrappedInlineEdit(
+  from: number,
+  to: number,
+  selected: string,
+  before: string,
+  after: string,
+): MarkdownFormatEdit {
+  return {
+    from,
+    insert: `${before}${selected}${after}`,
+    selection: { anchor: from + before.length, head: from + before.length + selected.length },
+    to,
+  };
 }
 
 export function applyMarkdownFormatCommand(
@@ -229,38 +252,19 @@ export function applyMarkdownFormatCommand(
   const to = Math.max(from, Math.min(Math.max(selection.from, selection.to), source.length));
   const selected = source.slice(from, to);
 
-  if (!selected) {
-    const [template, caretOffset] = EMPTY_TEMPLATES[command];
-    const isolated = BLOCK_COMMANDS.has(command)
-      ? isolateBlock(source, from, to, template)
-      : { before: '', insert: template };
-    const insert = isolated.insert;
-    const caret = from + isolated.before.length + caretOffset;
-    return { from, insert, selection: { anchor: caret, head: caret }, to };
-  }
+  if (!selected) return emptySelectionEdit(source, from, to, command);
 
   if (command === 'inline-code') {
-    const leadingRun = adjacentBacktickRun(source, from - 1, -1);
-    const trailingRun = adjacentBacktickRun(source, to, 1);
-    const [before, after] = inlineCodeWrapper(selected, leadingRun, trailingRun);
-    return {
-      from,
-      insert: `${before}${selected}${after}`,
-      selection: { anchor: from + before.length, head: from + before.length + selected.length },
-      to,
-    };
+    const [before, after] = inlineCodeWrapper(
+      selected,
+      adjacentBacktickRun(source, from - 1, -1),
+      adjacentBacktickRun(source, to, 1),
+    );
+    return wrappedInlineEdit(from, to, selected, before, after);
   }
 
   const wrapper = INLINE_WRAPPERS[command];
-  if (wrapper) {
-    const [before, after] = wrapper;
-    return {
-      from,
-      insert: `${before}${selected}${after}`,
-      selection: { anchor: from + before.length, head: from + before.length + selected.length },
-      to,
-    };
-  }
+  if (wrapper) return wrappedInlineEdit(from, to, selected, wrapper[0], wrapper[1]);
 
   if (command === 'link') {
     const insert = `[${selected}]()`;
@@ -276,7 +280,21 @@ export function applyMarkdownFormatCommand(
 
   const block = selectedBlock(command, selected);
   const isolated = isolateBlock(source, from, to, block);
-  const insert = isolated.insert;
   const caret = from + isolated.before.length + block.length;
-  return { from, insert, selection: { anchor: caret, head: caret }, to };
+  return { from, insert: isolated.insert, selection: { anchor: caret, head: caret }, to };
+}
+
+// 空选区：插入模板，块命令与换行隔离，光标落在模板内偏移处。
+function emptySelectionEdit(
+  source: string,
+  from: number,
+  to: number,
+  command: MarkdownFormatCommandId,
+): MarkdownFormatEdit {
+  const [template, caretOffset] = EMPTY_TEMPLATES[command];
+  const isolated = BLOCK_COMMANDS.has(command)
+    ? isolateBlock(source, from, to, template)
+    : { before: '', insert: template };
+  const caret = from + isolated.before.length + caretOffset;
+  return { from, insert: isolated.insert, selection: { anchor: caret, head: caret }, to };
 }

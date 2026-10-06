@@ -8,10 +8,12 @@
 - 最近审阅：2026-08-14
 - 范围：mdx 前端、Tauri IPC、工作区生命周期和文件类型呈现。
 - 实现证据：`src/App.tsx`、`src/types.ts`、`src/lib/tauriCommands.ts`、
+  `src/features/document/`（打开意图/外部变更/保存流子模块，
+  `useDocumentSession.ts` 为会话组合入口）、
   `src/lib/documentSession.ts`、`src/lib/workspaceFileKind.ts`、
   `src/lib/htmlPreviewPolicy.ts`、`src-tauri/src/lib.rs`、
-  `src-tauri/src/commands.rs`、`src-tauri/src/html_preview_server.rs`、
-  `src-tauri/src/state.rs`。
+  `src-tauri/src/commands/`（按域拆分的命令模块及 tests）、
+  `src-tauri/src/html_preview_server.rs`、`src-tauri/src/state.rs`。
 
 ## 总体分层
 
@@ -57,15 +59,28 @@ Tauri 命令 + AppState
 
 | 责任 | 主归属 | 约束 |
 |---|---|---|
-| 应用编排、当前文档和弹窗协调 | `src/App.tsx`、`src/hooks/` | 处理世代编号/身份过期结果；不绕过领域工具函数 |
-| 文件树、大纲和工作区交互 | `FileSidebar`、`FileTreeRows`、`src/lib/fileTree*` | 仅使用工作区快照和变更回执更新视图 |
-| 编辑表面 | `EditorPane`、CodeMirror 工具函数 | 文本编辑不直接承担保存授权或文件系统访问；长按左 Ctrl 打开格式面板（其他按键/松开/点击即取消）；Ctrl 加斜杠组合被吞掉且不得把斜杠（含全角）落入文档正文 |
-| Markdown 渲染 | `JinxiuMarkdown`、`src/lib/markdown*`、`markdown/` | 预处理只在代码围栏外生效；渲染策略要有格式测试 |
-| 其他预览 | `Workspace*Preview`、`PdfPreview`、`DocxPreview`、`ExcalidrawPane` | 重模块懒加载；资源读取必须有授权和大小边界 |
+| 应用编排、当前文档和弹窗协调 | `src/App.tsx`、`src/features/app/` | 处理世代编号/身份过期结果；不绕过领域工具函数 |
+| 文件树、大纲和工作区交互 | `features/workspace/`（`FileSidebar`、`FileTreeRows`、工作区对话框与格式面板）、`src/lib/fileTree*` | 仅使用工作区快照和变更回执更新视图 |
+| 编辑表面 | `features/workspace/EditorPane`、CodeMirror 工具函数 | 文本编辑不直接承担保存授权或文件系统访问；长按左 Ctrl 打开格式面板（其他按键/松开/点击即取消）；Ctrl 加斜杠组合被吞掉且不得把斜杠（含全角）落入文档正文 |
+| Markdown 渲染 | `features/preview/`（`JinxiuMarkdown` 与 `markdown/` 渲染子模块）、`src/lib/markdown*` | 预处理只在代码围栏外生效；渲染策略要有格式测试 |
+| 其他预览 | `features/preview/`（`Workspace*Preview`、`PdfPreview`、`DocxPreview`、`ExcalidrawPane`） | 重模块懒加载；资源读取必须有授权和大小边界 |
 | 反馈和分支决策 | `src/lib/appFeedback.ts` 与各对话框 | 应用级反馈使用模态对话框；不把错误当作普通状态标签 |
+| 设置域 | `src/features/settings/`（`SettingsDialog` 家族、`useSettings`、`useEditorFontSize`）+ `src/lib/settings.ts`（信封解码） | 设置读写共用统一保存管线；皮肤双入口收敛见 DESIGN.md 待决问题 |
 | IPC 适配 | `src/lib/tauriCommands.ts`、`src/lib/workspaceFileKind.ts` | 严格解码字段、枚举和文件版本；拒绝未知形状 |
-| Tauri 命令与状态 | `src-tauri/src/commands.rs`、`state.rs`、各领域模块 | 不把路径授权逻辑复制到前端或多个命令中 |
-| 授权和文件系统 | `path_auth.rs`、`resource_store.rs`、`workspace_snapshot.rs` | 详见安全约束，任何改动都要有 Rust 回归测试 |
+| Tauri 命令与状态 | `src-tauri/src/commands/`（settings/open_recent/document_save/session/workspace_mutation/media/dialogs 各域）、`state.rs`、各领域模块 | 不把路径授权逻辑复制到前端或多个命令中 |
+| 授权和文件系统 | `path_auth.rs`（门面 + `session_*`、`state_*`、`workspace_snapshot/` 等子模块族）、`resource_store.rs`（含 `staging`、`publish*`、`media_pick`、`excalidraw_publish` 等子模块）、`private_fs.rs`、`durable_write.rs`（含写入/替换/观察阶段子模块） | 详见安全约束，任何改动都要有 Rust 回归测试；子模块保持单一归属，门面文件只做组装与再导出 |
+
+### 前端域间依赖豁免（2026-10-06 记录）
+
+`features/` 域间行为依赖（非类型 import）保持最小豁免集，新增跨域
+行为依赖应下沉 `lib/` 或经 `features/app/` 组装层传递：
+
+- `features/app/` 是组合根，可依赖全部域。
+- `features/feedback/AppDialogStack.tsx` 是对话框渲染枢纽，可跨域
+  引用各域对话框组件（workspace/settings/export）。
+- `preview ↔ workspace` 的窗格表面互引（编辑/预览窗格成对渲染）、
+  `document → preview` 的文档表面装配、`workspace/preview → feedback`
+  的错误规范化，均为既有豁免。
 
 ## 文件类型与呈现矩阵
 

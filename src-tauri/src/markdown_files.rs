@@ -1,11 +1,5 @@
+#[cfg(test)]
 use std::{fs, path::Path};
-
-pub(crate) fn read_markdown_file(path: &Path) -> Result<String, String> {
-    if !path.is_file() {
-        return Err("Path is not a file".into());
-    }
-    fs::read_to_string(path).map_err(|err| format!("Failed to read file: {err}"))
-}
 
 #[cfg(test)]
 mod tests {

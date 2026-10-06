@@ -35,29 +35,48 @@ export async function inlineCssResourceUrls(css: string, baseUrl: string, fetche
   });
 }
 
-export async function collectOfflineExportAssets(root: HTMLElement, fetcher: ExportFetch = fetch): Promise<{
-  assetDataUrls: Record<string, string>;
-  css: string;
-}> {
+// 收集可内嵌图片的 data URL（同源跳过、去重）。
+async function collectImageDataUrls(
+  root: HTMLElement,
+  fetcher: ExportFetch,
+): Promise<Record<string, string>> {
   const assetDataUrls: Record<string, string> = {};
   for (const image of Array.from(root.querySelectorAll<HTMLImageElement>('img'))) {
     const source = image.getAttribute('src') ?? '';
     if (!isEmbeddableUrl(source) || assetDataUrls[source]) continue;
     assetDataUrls[source] = await responseToDataUrl(await fetcher(image.currentSrc || image.src || source));
   }
+  return assetDataUrls;
+}
+
+// 读取单张样式表的规则文本；跨域等不可读时抛出可读错误。
+function readStylesheetCss(sheet: CSSStyleSheet): string {
+  try {
+    return Array.from(sheet.cssRules).map((rule) => rule.cssText).join('\n');
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`Export stylesheet could not be read: ${detail}`);
+  }
+}
+
+// 汇总全部样式表并内嵌其中的资源地址。
+async function collectStylesheetCss(fetcher: ExportFetch): Promise<string> {
   const blocks: string[] = [];
   for (const sheet of Array.from(document.styleSheets)) {
-    let css: string;
-    try {
-      css = Array.from(sheet.cssRules).map((rule) => rule.cssText).join('\n');
-    } catch (cause) {
-      const detail = cause instanceof Error ? cause.message : String(cause);
-      throw new Error(`Export stylesheet could not be read: ${detail}`);
-    }
+    const css = readStylesheetCss(sheet);
     if (!css) continue;
     blocks.push(await inlineCssResourceUrls(css, sheet.href || document.baseURI, fetcher));
   }
-  return { assetDataUrls, css: blocks.join('\n') };
+  return blocks.join('\n');
+}
+
+export async function collectOfflineExportAssets(root: HTMLElement, fetcher: ExportFetch = fetch): Promise<{
+  assetDataUrls: Record<string, string>;
+  css: string;
+}> {
+  const assetDataUrls = await collectImageDataUrls(root, fetcher);
+  const css = await collectStylesheetCss(fetcher);
+  return { assetDataUrls, css };
 }
 
 export function replaceVideoElementsWithExportFallback(

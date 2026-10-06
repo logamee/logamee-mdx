@@ -7,7 +7,7 @@
 - 状态：生效
 - 最近更新：2026-08-14
 - 主要产品界面：本地工作区、Markdown 编辑器、实时预览、文档大纲、文件树、资源预览、导出、设置和可选的独立预览窗口。
-- 已审阅证据：`package.json`、`src-tauri/tauri.conf.json`、`src/App.tsx`、`src/components/AppToolbar.tsx`、`src/components/FileSidebar.tsx`、`src/components/EditorPane.tsx`、`src/components/PreviewPane.tsx`、`src/components/FeedbackDialog.tsx`、`src/lib/theme.ts`、`src/styles/base.css`、`src/styles/app-shell.css`、`src/styles/markdown-preview.css`、`src/styles/responsive.css`、`src/types.ts`，以及 `src-tauri/src/` 下的 Rust 模块。
+- 已审阅证据：`package.json`、`src-tauri/tauri.conf.json`、`src/App.tsx`、`src/features/app/AppToolbar.tsx`、`src/features/workspace/FileSidebar.tsx`、`src/features/workspace/EditorPane.tsx`、`src/features/preview/PreviewPane.tsx`、`src/features/feedback/FeedbackDialog.tsx`、`src/lib/theme.ts`、`src/styles/base.css`、`src/styles/app-shell.css`、`src/styles/markdown-preview.css`、`src/styles/responsive.css`、`src/types.ts`，以及 `src-tauri/src/` 下的 Rust 模块。
 - 已观察事实：mdx 是本地优先的 Tauri 2 桌面应用。它可以编辑 Markdown、HTML 和 Excalidraw 文本文档，预览图片、音频、视频、PDF 和 DOCX，并把工作区、文件、窗口和恢复状态保留在本地应用边界内。
 - 工作假设：当前产品是一款面向单用户的专注型桌面编辑器。除非未来产品决策另有记录，否则云协作、账号身份、服务端持久化、遥测和浏览器优先的信息架构不属于当前版本。
 
@@ -15,6 +15,7 @@
 
 - 品牌性格：安静、可靠、清晰、克制，像一张适合长时间书写的纸面工作台；工具感来自秩序和反馈，而不是装饰。
 - 可信信号：当前文件名和保存状态始终可见，工作区边界明确，外部修改和冲突有明确分支，危险操作有可逆或可恢复路径，预览不掩盖原始文档。
+- 自动保存：设置对话框提供触发方式——延迟后保存（默认，250–60000ms 可调）、编辑器失焦时、窗口失焦时；三种方式共用同一保存管线与冲突/外部变更暂停规则，不引入静默覆盖。
 - 禁止倾向：通用 SaaS 仪表盘、紫蓝渐变主导、霓虹光晕、光球或背景虚化光斑、无限滚动装饰、卡片套卡片、过大的营销首屏、仅靠颜色表达状态、把不确定写入显示成成功，以及与文档无关的插画。
 
 ## 产品目标
@@ -36,6 +37,7 @@
 - 内容层级：当前文档状态 -> 工作区和文件树 -> 编辑表面 -> 预览表面 -> 辅助对话框。文件树与大纲是同一侧栏的两个明确视图，不在编辑内容中插入第二套导航。
 - 文件树空状态：未打开工作区或工作区为空时，侧栏空状态块是可点击按钮，点击等价于菜单中的"打开文件夹"；悬停和键盘焦点需要给出可交互反馈。
 - 文件树展开默认：打开或切换工作区时所有子级文件夹默认折叠，只显示第一层；打开新文档时自动展开其祖先文件夹保证当前文档可见；刷新工作区保留手动展开状态；展开状态不持久化，会话恢复也回到默认；工作区切换失败回滚到原工作区时，恢复离开该工作区时的手动展开状态。
+- 文件树剪贴板与系统互操作：右键菜单和键盘提供复制（⌘C）、剪切（⌘X）、粘贴（⌘V）与"在访达中显示"；剪切等价移动，粘贴进剪贴板条目的原父目录被禁用；复制保持原名，目标已存在时自动派生 " copy" 系列空闲名，不弹确认框。"在访达中显示"对文件/文件夹/工作区根可用。
 
 ## 设计原则
 
@@ -58,7 +60,7 @@
 
 ## 组件
 
-- 优先复用的现有组件：`AppToolbar`、`FileSidebar`、`FileTreeRows`、`EditorPane`、`PreviewPane`、`PaneHeader`、`PaneResizer`、`PopoutPaneShell`、`FeedbackDialog`、`UnsavedExitDialog`、`DocumentSaveConflictDialog`、`ExternalFileChangeDialog`、`CrashDraftRecoveryDialog`、`SettingsDialog`、`ExportDialog`、`WorkspaceSearchDialog`、`WorkspaceEntryDialog`、`WorkspaceMoveDialog`，以及 `src/components/` 下的预览组件。
+- 优先复用的现有组件：`AppToolbar`、`FileSidebar`、`FileTreeRows`、`EditorPane`、`PreviewPane`、`PaneHeader`、`PaneResizer`、`PopoutPaneShell`、`FeedbackDialog`、`UnsavedExitDialog`、`DocumentSaveConflictDialog`、`ExternalFileChangeDialog`、`CrashDraftRecoveryDialog`、`SettingsDialog`、`ExportDialog`、`WorkspaceSearchDialog`、`WorkspaceEntryDialog`、`WorkspaceMoveDialog`，以及 `src/features/preview/` 下的预览组件。
 - 新增或修改组件：优先扩展现有面板、对话框和工作区组件；只有当一个交互跨越多个窗口或文件类型且已有稳定协议时，才抽出共享组件。新组件必须在所属层拥有状态，不得把 Tauri 调用散落到展示层。
 - 变体与状态：Markdown/HTML/Excalidraw 可编辑；`image`、`video`、`audio`、PDF、DOCX 只读预览；支持明暗模式、主题皮肤、中英文、侧栏折叠、编辑器/预览独立窗口，以及 `saved`、`edited`、`working`、加载、空、错误、禁用、确认和不确定变更等状态。
 - 令牌与组件归属：主题令牌归 `src/styles/base.css`、`src/styles/themeTokens.ts` 和 `src/lib/theme.ts`；工作区布局归 `src/styles/app-shell.css`、`responsive.css` 与布局钩子；协议解码归 `src/lib/`；文件系统和授权归 `src-tauri/src/`。不要新建平行令牌层或第二套 IPC 适配器。
@@ -102,6 +104,10 @@
 
 ## 待决问题
 
+- [ ] 产品/工程：主题皮肤目前有原生菜单（显示→外观）与设置对话框两个入口；
+  设置保存已接入主题运行时（2026-10-06），但原生菜单选择皮肤尚未回写
+  设置存储（AppSettings.selectedSkin），两个入口可能出现选中态漂移。
+  长期应收敛为单一事实来源后同步另一入口。
 - [ ] 产品计划：支持在 Markdown 实时预览中嵌入并播放本地音频；视频已支持
   图片样式语法和工作区授权资源播放。视频常见容器按原生
   `<video>` 或 `mpegts.js` 路径处理，授权资源通过带令牌的回环 HTTP 预览服务提供，

@@ -19,6 +19,56 @@ export type ExternalDocumentChangeDecision =
   | { kind: 'close-with-notice'; path: string }
   | { kind: 'ignore' };
 
+// 二进制文档（PDF/DOCX）：换路径与字节，清空文本内容并推进世代。
+function binaryReplacementState(
+  current: DocumentSessionState,
+  file: Exclude<OpenFileResponse, { kind: 'markdown' | 'html' | 'excalidraw' }>,
+  previewRevision: number,
+): DocumentSessionState {
+  return {
+    ...current,
+    activeMimeType: file.mime_type,
+    activePath: file.path,
+    bytesBase64: file.kind === 'pdf' || file.kind === 'docx' ? file.bytes_base64 : null,
+    content: '',
+    documentEpoch: current.documentEpoch + 1,
+    lastSavedContent: '',
+    previewRevision,
+  };
+}
+
+// 内容一致：仅刷新元数据与基线，不推进世代。
+function unchangedContentState(
+  current: DocumentSessionState,
+  file: Extract<OpenFileResponse, { kind: 'markdown' | 'html' | 'excalidraw' }>,
+  previewRevision: number,
+): DocumentSessionState {
+  return {
+    ...current,
+    activeMimeType: file.mime_type ?? null,
+    activePath: file.path,
+    lastSavedContent: file.content,
+    previewRevision,
+  };
+}
+
+// 本地无未保存修改：直接采用外部内容并推进世代。
+function cleanOverwriteState(
+  current: DocumentSessionState,
+  file: Extract<OpenFileResponse, { kind: 'markdown' | 'html' | 'excalidraw' }>,
+  previewRevision: number,
+): DocumentSessionState {
+  return {
+    ...current,
+    activeMimeType: file.mime_type ?? null,
+    activePath: file.path,
+    content: file.content,
+    documentEpoch: current.documentEpoch + 1,
+    lastSavedContent: file.content,
+    previewRevision,
+  };
+}
+
 export function reduceExternalDocumentChange(
   current: DocumentSessionState,
   envelope: ActiveDocumentWatchSnapshotEnvelope,
@@ -39,51 +89,15 @@ export function reduceExternalDocumentChange(
   if (file.kind !== current.activeFileKind) {
     return { kind: 'ignore' };
   }
-
   if (!isEditableOpenFile(file)) {
-    return {
-      kind: 'apply-document',
-      state: {
-        ...current,
-        activeMimeType: file.mime_type,
-        activePath: file.path,
-        bytesBase64: file.kind === 'pdf' || file.kind === 'docx' ? file.bytes_base64 : null,
-        content: '',
-        documentEpoch: current.documentEpoch + 1,
-        lastSavedContent: '',
-        previewRevision,
-      },
-    };
+    return { kind: 'apply-document', state: binaryReplacementState(current, file, previewRevision) };
   }
-
   if (file.content === current.content) {
-    return {
-      kind: 'apply-document',
-      state: {
-        ...current,
-        activeMimeType: file.mime_type ?? null,
-        activePath: file.path,
-        lastSavedContent: file.content,
-        previewRevision,
-      },
-    };
+    return { kind: 'apply-document', state: unchangedContentState(current, file, previewRevision) };
   }
-
   if (current.content === current.lastSavedContent) {
-    return {
-      kind: 'apply-document',
-      state: {
-        ...current,
-        activeMimeType: file.mime_type ?? null,
-        activePath: file.path,
-        content: file.content,
-        documentEpoch: current.documentEpoch + 1,
-        lastSavedContent: file.content,
-        previewRevision,
-      },
-    };
+    return { kind: 'apply-document', state: cleanOverwriteState(current, file, previewRevision) };
   }
-
   return { kind: 'show-conflict', envelope };
 }
 

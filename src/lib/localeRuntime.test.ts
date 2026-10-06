@@ -97,3 +97,53 @@ describe('locale runtime', () => {
     expect(eventApi.listened).toContain(LOCALE_SNAPSHOT_EVENT);
   });
 });
+
+describe('locale runtime error paths', () => {
+  it('reports storage persistence failures and keeps the previous preference', async () => {
+    const storage = new MemoryStorage();
+    storage.setItem = () => { throw new Error('quota'); };
+    const onError = vi.fn<(error: unknown) => void>();
+    const runtime = createLocaleRuntime({
+      role: 'main', root: new FakeRoot(), storage, storageEvents: new FakeStorageEvents(),
+      eventApi: new FakeEventApi(), systemLanguage: 'en-US',
+      initialPreference: preference('system'), revisionSeed: 1, onError,
+    });
+    await runtime.start();
+    expect(runtime.setPreference(preference('zh-CN'))).toBe(false);
+    expect(onError).toHaveBeenCalled();
+    expect(runtime.getSnapshot().preference).toEqual(preference('system'));
+  });
+
+  it('ignores invalid cross-window snapshots and stops without error', async () => {
+    const eventApi = new FakeEventApi();
+    const runtime = createLocaleRuntime({
+      role: 'popout', root: new FakeRoot(), storage: new MemoryStorage(), storageEvents: new FakeStorageEvents(),
+      eventApi, systemLanguage: 'en-US', initialPreference: preference('system'), revisionSeed: 5,
+      onError: vi.fn<(error: unknown) => void>(),
+    });
+    const listener = vi.fn<() => void>();
+    runtime.subscribe(listener);
+    await runtime.start();
+    eventApi.deliver(LOCALE_SNAPSHOT_EVENT, { protocolVersion: 1, revision: 4, preference: preference('en') });
+    eventApi.deliver(LOCALE_SNAPSHOT_EVENT, null);
+    expect(runtime.getSnapshot().revision).toBe(5);
+    runtime.stop();
+    runtime.stop();
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('applies a valid storage event on the main role', async () => {
+    const storageEvents = new FakeStorageEvents();
+    const runtime = createLocaleRuntime({
+      role: 'main', root: new FakeRoot(), storage: new MemoryStorage(), storageEvents,
+      eventApi: new FakeEventApi(), systemLanguage: 'en-US',
+      initialPreference: preference('system'), revisionSeed: 0,
+      onError: vi.fn<(error: unknown) => void>(),
+    });
+    await runtime.start();
+    storageEvents.deliver(LOCALE_STORAGE_KEY, JSON.stringify(preference('en')));
+    expect(runtime.getSnapshot().preference).toEqual(preference('en'));
+    expect(runtime.getSnapshot().effectiveLocale).toBe('en');
+    runtime.stop();
+  });
+});

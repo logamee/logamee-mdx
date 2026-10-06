@@ -103,16 +103,16 @@ jobs:
           --gate durable-write-cas
           --target ${{ matrix.target }}
           --output .m2-evidence/cas.json
-          --filter durable_write::tests::final_compare_race_retains_complete_competing_bytes
-          --filter durable_write::tests::expected_absent_install_race_retains_independent_intended_bytes
-          --filter durable_write::tests::staged_path_substitution_at_native_boundary_preserves_all_complete_images
+          --filter durable_write::group1_tests::final_compare_race_retains_complete_competing_bytes
+          --filter durable_write::group1_tests::expected_absent_install_race_retains_independent_intended_bytes
+          --filter durable_write::group2_tests::staged_path_substitution_at_native_boundary_preserves_all_complete_images
       - name: Native Trash file and directory evidence
         run: >-
           node scripts/ci/lifecycle-evidence.mjs run-cargo-tests
           --gate native-trash
           --target ${{ matrix.target }}
           --output .m2-evidence/trash.json
-          --filter workspace_trash_native::identity_tests::real_native_trash_round_trip_for_file_and_non_empty_directory
+          --filter workspace_trash_native::receipt_identity_tests::real_native_trash_round_trip_for_file_and_non_empty_directory
           --ignored true
         env:
           MMD_RUN_NATIVE_TRASH_SMOKE: '1'

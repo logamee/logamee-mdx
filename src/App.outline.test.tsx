@@ -25,23 +25,23 @@ vi.mock('@tauri-apps/api/event', () => ({
   emitTo: appMocks.emitTo,
   listen: appMocks.listen,
 }));
-vi.mock('./components/EditorPane', () => ({ EditorPane: appMocks.editorPane }));
-vi.mock('./components/ExcalidrawPane', () => ({ ExcalidrawPane: appMocks.excalidrawPane }));
-vi.mock('./components/JinxiuMarkdown', () => ({ default: appMocks.jinxiuMarkdown }));
+vi.mock('./features/workspace/EditorPane', () => ({ EditorPane: appMocks.editorPane }));
+vi.mock('./features/preview/ExcalidrawPane', () => ({ ExcalidrawPane: appMocks.excalidrawPane }));
+vi.mock('./features/preview/JinxiuMarkdown', () => ({ default: appMocks.jinxiuMarkdown }));
 vi.mock('./components/PaneResizer', () => ({ PaneResizer: appMocks.paneResizer }));
-vi.mock('./components/PdfPreview', () => ({ PdfPreview: appMocks.pdfPreview }));
-vi.mock('./components/PreviewPane', () => ({ PreviewPane: appMocks.previewPane }));
-vi.mock('./hooks/useDocumentSession', () => ({
+vi.mock('./features/preview/PdfPreview', () => ({ PdfPreview: appMocks.pdfPreview }));
+vi.mock('./features/preview/PreviewPane', () => ({ PreviewPane: appMocks.previewPane }));
+vi.mock('./features/document/useDocumentSession', () => ({
   useDocumentSession: appMocks.useDocumentSession,
 }));
-vi.mock('./hooks/useCrashDraftRecovery', () => ({
+vi.mock('./features/document/useCrashDraftRecovery', () => ({
   useCrashDraftRecovery: () => ({
     afterConfirmedSave: vi.fn<(documentId: string) => Promise<boolean>>(async () => true), busy: false, canRepairOverflow: false,
     catalog: null, discard: vi.fn<() => void>(), discardAll: vi.fn<() => void>(), error: null,
     overflowRepairProgress: null, repairOverflowBatch: vi.fn<() => void>(), recover: vi.fn<() => void>(), retry: vi.fn<() => void>(),
   }),
 }));
-vi.mock('./hooks/usePanePopouts', () => ({
+vi.mock('./features/app/usePanePopouts', () => ({
   usePanePopouts: () => ({
     closePopoutWindows: vi.fn<() => Promise<void>>(async () => undefined),
     editorPopoutButton: undefined,
@@ -49,7 +49,7 @@ vi.mock('./hooks/usePanePopouts', () => ({
     previewPopoutButton: undefined,
   }),
 }));
-vi.mock('./hooks/usePaneResize', () => ({
+vi.mock('./features/app/usePaneResize', () => ({
   usePaneResize: () => ({
     editorPaneRef: { current: null },
     movePaneResize: vi.fn<() => void>(),
@@ -58,12 +58,12 @@ vi.mock('./hooks/usePaneResize', () => ({
     stopPaneResize: vi.fn<() => void>(),
   }),
 }));
-vi.mock('./hooks/useProgramCloseGuard', () => ({
+vi.mock('./features/app/useProgramCloseGuard', () => ({
   useProgramCloseGuard: () => ({
     forceCloseProgram: vi.fn<() => Promise<void>>(async () => undefined),
   }),
 }));
-vi.mock('./hooks/useSettings', () => ({
+vi.mock('./features/settings/useSettings', () => ({
   useSettings: () => ({
     busy: false,
     recovery: null,

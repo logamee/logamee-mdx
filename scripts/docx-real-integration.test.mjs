@@ -65,9 +65,9 @@ afterEach(() => {
 });
 
 describe('real pinned DOCX fixture integration', () => {
-  it('locks every repo-owned fixture to the exact Mammoth 1.12.0 bytes', async () => {
-    expect(packageManifest.dependencies.mammoth).toBe('1.12.0');
-    expect(fixtureManifest.source).toBe('mammoth@1.12.0/test/test-data');
+  it('locks every repo-owned fixture to the exact Mammoth 1.13.0 bytes', async () => {
+    expect(packageManifest.dependencies.mammoth).toBe('1.13.0');
+    expect(fixtureManifest.source).toBe('mammoth@1.13.0/test/test-data');
     expect(fixtureManifest.files.map(({ name }) => name)).toEqual([
       'empty.docx',
       'external-picture.docx',

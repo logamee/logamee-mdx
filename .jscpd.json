@@ -1,0 +1,25 @@
+{
+  "path": [
+    "src",
+    "src-tauri/src"
+  ],
+  "format": [
+    "typescript",
+    "tsx",
+    "rust"
+  ],
+  "ignore": [
+    "**/*.test.*",
+    "**/*.node-test.*",
+    "**/__snapshots__/**",
+    "**/*_tests.rs",
+    "**/tests/**",
+    "**/test_prelude.rs",
+    "**/tests.rs"
+  ],
+  "threshold": 3.0,
+  "reporters": [
+    "console"
+  ],
+  "silent": true
+}

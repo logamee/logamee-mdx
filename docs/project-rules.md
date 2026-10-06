@@ -14,6 +14,8 @@
 - 文档生命周期规范：[`docs/specs/document-lifecycle.md`](../../docs/specs/document-lifecycle.md)
 - 验证矩阵：[`docs/testing/validation-matrix.md`](../../docs/testing/validation-matrix.md)
 - 性能基线契约：[`docs/performance-baselines.md`](../../docs/performance-baselines.md)
+- 代码质量偿还计划：[`docs/plans/code-quality-refactor-plan.md`](../plans/code-quality-refactor-plan.md)
+- 重构波次实施计划：[`docs/plans/wave-0-cleanup-and-mechanisms.md`](../plans/wave-0-cleanup-and-mechanisms.md)、[波 1](../plans/wave-1-hotspot-decomposition.md)
 
 ## 变更路由
 

@@ -22,7 +22,8 @@ export function isLocalMarkdownHtmlEmbedSource(
   return isLocalMarkdownEmbedSource(src, ['html', 'htm', 'xhtml'], context);
 }
 
-function iframeProperties(rawHtml: string): Properties | null {
+// 从 HTML 中提取唯一 iframe 元素；非单元素或非 iframe 返回 null。
+function soleHtmlIframe(rawHtml: string): HTMLElement | null {
   if (typeof DOMParser === 'undefined') return null;
   const document = new DOMParser().parseFromString(rawHtml.trim(), 'text/html');
   const meaningfulNodes = [...document.body.childNodes].filter((node) => (
@@ -30,8 +31,12 @@ function iframeProperties(rawHtml: string): Properties | null {
   ));
   if (meaningfulNodes.length !== 1) return null;
   const frame = meaningfulNodes[0];
-  if (!(frame instanceof HTMLElement) || frame.tagName !== 'IFRAME') return null;
+  return frame instanceof HTMLElement && frame.tagName === 'IFRAME' ? frame : null;
+}
 
+function iframeProperties(rawHtml: string): Properties | null {
+  const frame = soleHtmlIframe(rawHtml);
+  if (!frame) return null;
   const src = frame.getAttribute('src')?.trim() ?? '';
   if (!isLocalMarkdownHtmlEmbedSource(src)) return null;
 

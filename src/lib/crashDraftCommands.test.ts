@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CrashDraftRecoveryCommands } from '../hooks/useCrashDraftRecovery';
+import type { CrashDraftRecoveryCommands } from '../features/document/useCrashDraftRecovery';
 import {
   crashDraftCommands,
   discardCrashDraft,

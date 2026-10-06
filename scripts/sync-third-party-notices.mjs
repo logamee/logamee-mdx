@@ -3,14 +3,14 @@ import { copyFile, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const MAMMOTH_VERSION = '1.12.0';
-export const DOMPURIFY_VERSION = '3.4.12';
+export const MAMMOTH_VERSION = '1.13.0';
+export const DOMPURIFY_VERSION = '3.4.16';
 export const EXCALIDRAW_VERSION = '0.18.1';
-export const MERMAID_VERSION = '11.16.0';
-export const LIBC_VERSION = '0.2.186';
+export const MERMAID_VERSION = '12.1.0';
+export const LIBC_VERSION = '0.2.190';
 export const OBJC2_FOUNDATION_VERSION = '0.3.2';
-export const WINDOWS_VERSION = '0.61.3';
-export const WINDOWS_CORE_VERSION = '0.61.2';
+export const WINDOWS_VERSION = '0.62.2';
+export const WINDOWS_CORE_VERSION = '0.62.2';
 export const WINDOWS_SYS_VERSION = '0.61.2';
 
 function cargoNotice({ destination, license, packageName, sha256, sourceName, version }) {
@@ -70,7 +70,7 @@ export const NOTICE_SPECS = Object.freeze([
     license: '(MIT OR Apache-2.0)',
     packageName: 'libc',
     sha256: '62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a',
-    sourceName: 'libc-0.2.186-LICENSE-APACHE',
+    sourceName: 'libc-0.2.190-LICENSE-APACHE',
     version: LIBC_VERSION,
   }),
   cargoNotice({
@@ -78,7 +78,7 @@ export const NOTICE_SPECS = Object.freeze([
     license: '(MIT OR Apache-2.0)',
     packageName: 'libc',
     sha256: '123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e',
-    sourceName: 'libc-0.2.186-LICENSE-MIT',
+    sourceName: 'libc-0.2.190-LICENSE-MIT',
     version: LIBC_VERSION,
   }),
   cargoNotice({

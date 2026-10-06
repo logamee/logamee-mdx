@@ -36,7 +36,7 @@ function shouldTreatAsInlineMath(src: string, start: number, end: number): boole
   return true;
 }
 
-export function escapeCurrencyDollarSigns(src: string): string {
+function escapeCurrencyDollarSigns(src: string): string {
   let output = '';
   for (let i = 0; i < src.length; i += 1) {
     if (src[i] !== '$' || isEscapedAt(src, i)) {

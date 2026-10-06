@@ -9,7 +9,7 @@ export function isMemeMarkdownImageTitle(value: unknown): boolean {
     && value.trim().toLowerCase() === MARKDOWN_MEME_IMAGE_MARKER;
 }
 
-export const MEME_IMAGE_FALLBACK_ALT = '梗图';
+const MEME_IMAGE_FALLBACK_ALT = '梗图';
 
 export function memeImageAlt(alt: unknown): string {
   if (typeof alt !== 'string') return MEME_IMAGE_FALLBACK_ALT;

@@ -1,7 +1,7 @@
 # logamee-mdx（简称 mdx）文档索引
 
 本目录记录 mdx 的架构、行为约束和验证方式。新增或移动文档时，必须
-在本页和 `.codex/rules/project-rules.md` 同步补充索引。
+在本页和 `docs/project-rules.md` 同步补充索引。
 
 ## 快速查找
 
@@ -13,6 +13,9 @@
 | 路径授权、工作区令牌、资源、HTML 沙箱、写入和 CSP | [`constraints/security-and-file-access.md`](constraints/security-and-file-access.md) |
 | 打开、编辑、保存、外部变化、恢复和导出行为 | [`specs/document-lifecycle.md`](specs/document-lifecycle.md) |
 | 测试分层、命令、发布和性能证据 | [`testing/validation-matrix.md`](testing/validation-matrix.md) |
+| 代码质量门禁语义与阈值 | 同上「代码质量门禁」一节 |
+| 代码质量存量违规偿还计划 | [`plans/code-quality-refactor-plan.md`](plans/code-quality-refactor-plan.md) |
+| 重构分波实施计划 | [`plans/wave-0-cleanup-and-mechanisms.md`](plans/wave-0-cleanup-and-mechanisms.md)（波 0，后续波次同目录命名） |
 | 10k/100k 工作区索引性能基线 | [`performance-baselines.md`](performance-baselines.md) |
 
 ## 文档关系
@@ -28,6 +31,7 @@ AGENTS.md                         工作入口、变更纪律、文档路由
                 ├── constraints/security-and-file-access.md
                 ├── specs/document-lifecycle.md
                 ├── testing/validation-matrix.md
+                ├── plans/code-quality-refactor-plan.md
                 └── performance-baselines.md
 ```
 
@@ -41,6 +45,8 @@ AGENTS.md                         工作入口、变更纪律、文档路由
   行为是否真的要变，再改规范和测试。
 - `testing/` 记录验证命令、覆盖范围和证据要求，不以“编译通过”替代
   业务行为测试。
+- `plans/` 记录带完成判据的分阶段偿还计划；每阶段完成后回写实测
+  数字，不写开放式想法清单。
 - `performance-baselines.md` 只记录由脚本生成的性能产物和门禁语义；
   不把基线数字写成产品体验承诺。
 - 文档中的“必须/不得”是约束，“当前实现”是事实，“待决”是尚未

@@ -1,0 +1,9 @@
+{
+  "rules": {
+    "react/refs": "off",
+    "react/immutability": "off",
+    "react/set-state-in-effect": "off",
+    "react/globals": "off",
+    "react/preserve-manual-memoization": "off"
+  }
+}

@@ -7,7 +7,7 @@ import { decodeWorkspaceSnapshot } from './workspaceFileKind';
 export const OPEN_INTENT_PENDING_EVENT = 'mmd:open-intent-pending';
 export const OPEN_INTENT_FOCUS_EVENT = 'mmd:open-intent-focus';
 
-export type OpenIntentSource =
+type OpenIntentSource =
   | 'startup_args'
   | 'secondary_instance'
   | 'opened_event'
@@ -22,7 +22,7 @@ export interface OpenIntentPreview {
   targetKind: OpenIntentTargetKind;
 }
 
-export interface WorkspaceSearchOpenSelection {
+interface WorkspaceSearchOpenSelection {
   workspaceToken: string;
   workspaceRoot: string;
   indexGeneration: number;
@@ -138,49 +138,64 @@ export function decodeOpenIntentPreview(value: unknown): OpenIntentPreview {
   };
 }
 
+// 文件意图：恰好两键且 prepared 可解码。
+function decodeFileResolution(value: Record<string, unknown>): ResolvedOpenIntent {
+  if (!hasExactKeys(value, ['kind', 'prepared'])) return invalidResolution();
+  try {
+    return { kind: 'file', prepared: decodePreparedOpenFileResponse(value.prepared) };
+  } catch {
+    return invalidResolution();
+  }
+}
+
+// 会话恢复意图：restore 与回执互斥（restore 为空时回执必为空）。
+function decodeSessionRestoreResolution(value: Record<string, unknown>): ResolvedOpenIntent {
+  if (!hasExactKeys(value, ['kind', 'restore', 'workspace_open_receipt'])) {
+    return invalidResolution();
+  }
+  try {
+    const restore = decodeWorkspaceSessionRestore(value.restore);
+    if (
+      (restore === null && value.workspace_open_receipt !== null)
+      || (restore !== null && !isWorkspaceOpenReceipt(value.workspace_open_receipt))
+    ) return invalidResolution();
+    return {
+      kind: 'session_restore',
+      restore,
+      workspace_open_receipt: value.workspace_open_receipt as string | null,
+    };
+  } catch {
+    return invalidResolution();
+  }
+}
+
 export function decodeResolvedOpenIntent(value: unknown): ResolvedOpenIntent {
   if (!isRecord(value) || typeof value.kind !== 'string') return invalidResolution();
-  if (value.kind === 'file') {
-    if (!hasExactKeys(value, ['kind', 'prepared'])) return invalidResolution();
-    try {
-      return { kind: 'file', prepared: decodePreparedOpenFileResponse(value.prepared) };
-    } catch {
+  switch (value.kind) {
+    case 'file':
+      return decodeFileResolution(value);
+    case 'directory':
+      return decodeDirectoryResolution(value);
+    case 'session_restore':
+      return decodeSessionRestoreResolution(value);
+    default:
       return invalidResolution();
-    }
   }
-  if (value.kind === 'directory') {
-    if (
-      !hasExactKeys(value, ['kind', 'workspace', 'workspace_open_receipt'])
-      || !isWorkspaceOpenReceipt(value.workspace_open_receipt)
-    ) return invalidResolution();
-    try {
-      return {
-        kind: 'directory',
-        workspace: decodeWorkspaceSnapshot(value.workspace),
-        workspace_open_receipt: value.workspace_open_receipt,
-      };
-    } catch {
-      return invalidResolution();
-    }
+}
+
+// 目录意图：恰好三键、回执格式合法且快照可解码。
+function decodeDirectoryResolution(value: Record<string, unknown>): ResolvedOpenIntent {
+  if (
+    !hasExactKeys(value, ['kind', 'workspace', 'workspace_open_receipt'])
+    || !isWorkspaceOpenReceipt(value.workspace_open_receipt)
+  ) return invalidResolution();
+  try {
+    return {
+      kind: 'directory',
+      workspace: decodeWorkspaceSnapshot(value.workspace),
+      workspace_open_receipt: value.workspace_open_receipt,
+    };
+  } catch {
+    return invalidResolution();
   }
-  if (value.kind === 'session_restore') {
-    if (!hasExactKeys(value, ['kind', 'restore', 'workspace_open_receipt'])) {
-      return invalidResolution();
-    }
-    try {
-      const restore = decodeWorkspaceSessionRestore(value.restore);
-      if (
-        (restore === null && value.workspace_open_receipt !== null)
-        || (restore !== null && !isWorkspaceOpenReceipt(value.workspace_open_receipt))
-      ) return invalidResolution();
-      return {
-        kind: 'session_restore',
-        restore,
-        workspace_open_receipt: value.workspace_open_receipt as string | null,
-      };
-    } catch {
-      return invalidResolution();
-    }
-  }
-  return invalidResolution();
 }

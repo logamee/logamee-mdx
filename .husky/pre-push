@@ -1,0 +1,4 @@
+# Pre-push gate: the full documented local validation sequence, same as
+# running npm run ci:local manually. Bypass deliberately with
+# git push --no-verify.
+npm run ci:local

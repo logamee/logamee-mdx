@@ -80,6 +80,29 @@ function plainHeadingText(source: string): string {
     .trim();
 }
 
+// 条目数值字段：深度 0~5、协议 id、标题级别、行号/偏移/序号安全整数。
+function outlineItemShapeInvalid(
+  depth: unknown,
+  id: unknown,
+  level: unknown,
+  line: unknown,
+  offset: unknown,
+  ordinal: unknown,
+): boolean {
+  return !isNonNegativeSafeInteger(depth)
+    || depth > 5
+    || !isProtocolId(id)
+    || !isHeadingLevel(level)
+    || !isPositiveSafeInteger(line)
+    || !isNonNegativeSafeInteger(offset)
+    || !isNonNegativeSafeInteger(ordinal);
+}
+
+// 条目文本：非空且 ≤4096 字符。
+function outlineItemTextInvalid(text: unknown): boolean {
+  return typeof text !== 'string' || text.length === 0 || text.length > 4096;
+}
+
 export function decodeMarkdownOutlineJump(value: unknown): MarkdownOutlineJump | null {
   if (
     !isRecord(value)
@@ -96,32 +119,22 @@ export function decodeMarkdownOutlineJump(value: unknown): MarkdownOutlineJump |
   ) return null;
 
   const { depth, id, level, line, offset, ordinal, text } = item;
-  if (
-    !isNonNegativeSafeInteger(depth)
-    || depth > 5
-    || !isProtocolId(id)
-    || !isHeadingLevel(level)
-    || !isPositiveSafeInteger(line)
-    || !isNonNegativeSafeInteger(offset)
-    || !isNonNegativeSafeInteger(ordinal)
-    || typeof text !== 'string'
-    || text.length === 0
-    || text.length > 4096
-  ) return null;
+  if (outlineItemShapeInvalid(depth, id, level, line, offset, ordinal)
+    || outlineItemTextInvalid(text)) return null;
 
   return {
-    documentEpoch,
-    documentId,
+    documentEpoch: documentEpoch as number,
+    documentId: documentId as string,
     item: {
-      depth,
-      id,
-      level,
-      line,
-      offset,
-      ordinal,
-      text,
+      depth: depth as number,
+      id: id as string,
+      level: level as MarkdownOutlineJump['item']['level'],
+      line: line as number,
+      offset: offset as number,
+      ordinal: ordinal as number,
+      text: text as string,
     },
-    requestId,
+    requestId: requestId as number,
   };
 }
 

@@ -23,12 +23,8 @@ export function assertPngDimensions(width: number, height: number, scale: PngSca
   return scaled;
 }
 
-export async function renderElementToLongPng(element: HTMLElement, options: LongPngExportOptions): Promise<Blob> {
-  const rect = element.getBoundingClientRect();
-  const sourceWidth = options.sourceWidth ?? rect.width;
-  const sourceHeight = options.sourceHeight ?? element.scrollHeight ?? rect.height;
-  const dimensions = assertPngDimensions(sourceWidth, sourceHeight, options.scale, options.maxPixels);
-  options.onProgress?.(0.1);
+// 将元素渲染为图片并等待解码完成。
+async function decodeElementImage(element: HTMLElement, options: LongPngExportOptions, dimensions: { width: number; height: number }, sourceWidth: number, sourceHeight: number): Promise<HTMLImageElement> {
   const serialized = new XMLSerializer().serializeToString(element);
   const css = (options.cssText ?? '').replace(/<\/style/giu, '<\\/style');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${dimensions.width}" height="${dimensions.height}" viewBox="0 0 ${sourceWidth} ${sourceHeight}" data-appearance="${options.appearance}" data-skin="${options.skin}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml"><style>${css}</style>${serialized}</div></foreignObject></svg>`;
@@ -36,7 +32,11 @@ export async function renderElementToLongPng(element: HTMLElement, options: Long
   image.decoding = 'async';
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   await image.decode();
-  options.onProgress?.(0.65);
+  return image;
+}
+
+// 画布绘制：可选背景填充后按尺寸绘制图片。
+function drawPngCanvas(image: HTMLImageElement, options: LongPngExportOptions, dimensions: { width: number; height: number }): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = dimensions.width;
   canvas.height = dimensions.height;
@@ -47,6 +47,18 @@ export async function renderElementToLongPng(element: HTMLElement, options: Long
     context.fillRect(0, 0, dimensions.width, dimensions.height);
   }
   context.drawImage(image, 0, 0, dimensions.width, dimensions.height);
+  return canvas;
+}
+
+export async function renderElementToLongPng(element: HTMLElement, options: LongPngExportOptions): Promise<Blob> {
+  const rect = element.getBoundingClientRect();
+  const sourceWidth = options.sourceWidth ?? rect.width;
+  const sourceHeight = options.sourceHeight ?? element.scrollHeight ?? rect.height;
+  const dimensions = assertPngDimensions(sourceWidth, sourceHeight, options.scale, options.maxPixels);
+  options.onProgress?.(0.1);
+  const image = await decodeElementImage(element, options, dimensions, sourceWidth, sourceHeight);
+  options.onProgress?.(0.65);
+  const canvas = drawPngCanvas(image, options, dimensions);
   options.onProgress?.(0.9);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob || blob.size === 0) throw new Error('PNG export produced an empty image');

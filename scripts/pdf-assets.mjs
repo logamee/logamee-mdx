@@ -3,7 +3,7 @@ import { cp, mkdir, readFile, readdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const PDFJS_VERSION = '6.1.200';
+export const PDFJS_VERSION = '6.4.299';
 export const PDF_ASSET_ROOT = `/vendor/pdfjs/${PDFJS_VERSION}/`;
 export const PDF_ASSET_MANIFEST_PATH = `vendor/pdfjs/${PDFJS_VERSION}/manifest.json`;
 export const PDF_ASSET_MANIFEST_URL = `/${PDF_ASSET_MANIFEST_PATH}`;

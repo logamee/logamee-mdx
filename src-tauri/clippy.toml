@@ -1,0 +1,6 @@
+# Thresholds for the code-size contracts in AGENTS.md. The lints themselves
+# are allow-by-default in some profiles, so the gate command in package.json
+# (`lint:rust-quality`) enables them at deny level:
+#   cargo clippy -- -D clippy::too_many_lines -D clippy::cognitive_complexity
+too-many-lines-threshold = 80
+cognitive-complexity-threshold = 10

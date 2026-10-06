@@ -1,0 +1,8 @@
+# Code-quality pre-commit gate: staged-diff size habit, lint on staged
+# files, whole-project typecheck, and the code-size ratchet so no new
+# function-length/file-length/complexity debt lands. Bypass deliberately
+# with git commit --no-verify.
+node scripts/ci/check-commit-size.mjs
+npx lint-staged
+npm run typecheck
+node scripts/ci/check-code-size.mjs

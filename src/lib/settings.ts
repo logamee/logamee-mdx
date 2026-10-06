@@ -1,6 +1,7 @@
 import {
   SETTINGS_SCHEMA_VERSION,
   type AppSettings,
+  type AutosaveMode,
   type SettingsEnvelope,
   type SettingsError,
   type SettingsLocaleMode,
@@ -10,6 +11,7 @@ import {
 const SETTINGS_KEYS = [
   'autosaveEnabled',
   'autosaveDelayMs',
+  'autosaveMode',
   'spellcheckEnabled',
   'wikilinksEnabled',
   'resourceDirectory',
@@ -21,6 +23,11 @@ const SETTINGS_KEYS = [
   'shortcuts',
   'exportProfiles',
 ] as const;
+const AUTOSAVE_MODES: readonly AutosaveMode[] = [
+  'afterDelay',
+  'onFocusChange',
+  'onWindowChange',
+];
 const ENVELOPE_KEYS = ['schemaVersion', 'revision', 'settings'] as const;
 const SKINS: readonly SettingsSkinId[] = [
   'original',
@@ -56,39 +63,65 @@ function isLocale(value: unknown): value is SettingsLocaleMode {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
 }
 
-function decodeAppSettings(value: unknown): AppSettings | null {
-  if (!isRecord(value) || !hasExactKeys(value, SETTINGS_KEYS)) return null;
-  if (
-    typeof value.autosaveEnabled !== 'boolean'
-    || typeof value.autosaveDelayMs !== 'number'
-    || !Number.isFinite(value.autosaveDelayMs)
+function isAutosaveMode(value: unknown): value is AutosaveMode {
+  return typeof value === 'string' && (AUTOSAVE_MODES as readonly string[]).includes(value);
+}
+
+// 数值字段：有限数。
+function finiteNumber(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+// 开关与文本字段：布尔与字符串。
+function appSettingsPrimitivesInvalid(value: Record<string, unknown>): boolean {
+  return typeof value.autosaveEnabled !== 'boolean'
     || typeof value.spellcheckEnabled !== 'boolean'
     || typeof value.wikilinksEnabled !== 'boolean'
     || typeof value.resourceDirectory !== 'string'
-    || typeof value.editorPaneRatio !== 'number'
-    || !Number.isFinite(value.editorPaneRatio)
-    || typeof value.editorFontSize !== 'number'
-    || !Number.isFinite(value.editorFontSize)
+    || typeof value.followSystemTheme !== 'boolean';
+}
+
+// 数值与枚举字段：有限数、触发方式、皮肤与语言。
+function appSettingsEnumsInvalid(value: Record<string, unknown>): boolean {
+  return !finiteNumber(value.autosaveDelayMs)
+    || !isAutosaveMode(value.autosaveMode)
+    || !finiteNumber(value.editorPaneRatio)
+    || !finiteNumber(value.editorFontSize)
     || !isSkin(value.selectedSkin)
-    || typeof value.followSystemTheme !== 'boolean'
-    || !isLocale(value.localeMode)
-    || !isStringMap(value.shortcuts)
-    || !isRecord(value.exportProfiles)
-  ) return null;
+    || !isLocale(value.localeMode);
+}
+
+// 映射字段：快捷键字符串表与导出配置对象。
+function appSettingsMapsInvalid(value: Record<string, unknown>): boolean {
+  return !isStringMap(value.shortcuts)
+    || !isRecord(value.exportProfiles);
+}
+
+// 设置字段预检：布尔/数值/枚举/映射逐项校验。
+function appSettingsFieldsInvalid(value: Record<string, unknown>): boolean {
+  return appSettingsPrimitivesInvalid(value)
+    || appSettingsEnumsInvalid(value)
+    || appSettingsMapsInvalid(value);
+}
+
+function decodeAppSettings(value: unknown): AppSettings | null {
+  if (!isRecord(value) || !hasExactKeys(value, SETTINGS_KEYS)) return null;
+  if (appSettingsFieldsInvalid(value)) return null;
 
   return {
-    autosaveEnabled: value.autosaveEnabled,
-    autosaveDelayMs: value.autosaveDelayMs,
-    spellcheckEnabled: value.spellcheckEnabled,
-    wikilinksEnabled: value.wikilinksEnabled,
-    resourceDirectory: value.resourceDirectory,
-    editorPaneRatio: value.editorPaneRatio,
-    editorFontSize: value.editorFontSize,
-    selectedSkin: value.selectedSkin,
-    followSystemTheme: value.followSystemTheme,
-    localeMode: value.localeMode,
-    shortcuts: value.shortcuts,
-    exportProfiles: value.exportProfiles,
+    autosaveEnabled: value.autosaveEnabled as boolean,
+    autosaveDelayMs: value.autosaveDelayMs as number,
+    autosaveMode: value.autosaveMode as AppSettings['autosaveMode'],
+    spellcheckEnabled: value.spellcheckEnabled as boolean,
+    wikilinksEnabled: value.wikilinksEnabled as boolean,
+    resourceDirectory: value.resourceDirectory as string,
+    editorPaneRatio: value.editorPaneRatio as number,
+    editorFontSize: value.editorFontSize as number,
+    selectedSkin: value.selectedSkin as AppSettings['selectedSkin'],
+    followSystemTheme: value.followSystemTheme as boolean,
+    localeMode: value.localeMode as AppSettings['localeMode'],
+    shortcuts: value.shortcuts as AppSettings['shortcuts'],
+    exportProfiles: value.exportProfiles as AppSettings['exportProfiles'],
   };
 }
 

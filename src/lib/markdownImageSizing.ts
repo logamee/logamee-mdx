@@ -27,17 +27,48 @@ export function toAuthorReadingImageCssSize(value: unknown): number | string | u
   return hasMeaningfulCssSize(trimmed) ? trimmed : undefined;
 }
 
+interface ReadingImageFacts {
+  aspectRatio: number | null;
+  hasAuthorSize: boolean;
+  loadState: ReadingImageLoadState;
+  naturalHeight: number | null;
+  naturalWidth: number | null;
+}
+
+// 各桶判定按优先级排列；首条命中即返回。
+const READING_IMAGE_BUCKETS: ReadonlyArray<{
+  bucket: ReadingImageBucket;
+  when: (facts: ReadingImageFacts) => boolean;
+}> = [
+  { bucket: 'author', when: (f) => f.hasAuthorSize },
+  { bucket: 'loading', when: (f) => f.loadState === 'loading' },
+  { bucket: 'fallback', when: (f) => !f.naturalWidth || !f.naturalHeight || f.loadState === 'error' },
+  { bucket: 'icon', when: (f) => (f.naturalWidth ?? 0) <= 240 && (f.naturalHeight ?? 0) <= 240 },
+  { bucket: 'formula', when: (f) => f.aspectRatio !== null && (f.naturalHeight ?? 0) <= 180 && f.aspectRatio >= 2.8 },
+  {
+    bucket: 'tall',
+    when: (f) => f.aspectRatio !== null
+      && (f.aspectRatio <= 0.55 || ((f.naturalHeight ?? 0) >= 1600 && f.aspectRatio <= 0.72)),
+  },
+  {
+    bucket: 'portrait',
+    when: (f) => f.aspectRatio !== null && f.aspectRatio <= 0.78 && (f.naturalHeight ?? 0) >= 900,
+  },
+  { bucket: 'wide', when: (f) => f.aspectRatio !== null && f.aspectRatio >= 2.35 },
+];
+
 export function classifyReadingImageSize(input: { naturalWidth?: number | null; naturalHeight?: number | null; hasAuthorSize?: boolean; loadState?: ReadingImageLoadState }): { bucket: ReadingImageBucket; naturalWidth: number | null; naturalHeight: number | null; aspectRatio: number | null } {
   const naturalWidth = toPositive(input.naturalWidth);
   const naturalHeight = toPositive(input.naturalHeight);
   const aspectRatio = naturalWidth && naturalHeight ? naturalWidth / naturalHeight : null;
-  if (input.hasAuthorSize) return { bucket: 'author', naturalWidth, naturalHeight, aspectRatio };
-  if (input.loadState === 'loading') return { bucket: 'loading', naturalWidth, naturalHeight, aspectRatio };
-  if (!naturalWidth || !naturalHeight || input.loadState === 'error') return { bucket: 'fallback', naturalWidth, naturalHeight, aspectRatio };
-  if (naturalWidth <= 240 && naturalHeight <= 240) return { bucket: 'icon', naturalWidth, naturalHeight, aspectRatio };
-  if (aspectRatio !== null && naturalHeight <= 180 && aspectRatio >= 2.8) return { bucket: 'formula', naturalWidth, naturalHeight, aspectRatio };
-  if (aspectRatio !== null && (aspectRatio <= 0.55 || (naturalHeight >= 1600 && aspectRatio <= 0.72))) return { bucket: 'tall', naturalWidth, naturalHeight, aspectRatio };
-  if (aspectRatio !== null && aspectRatio <= 0.78 && naturalHeight >= 900) return { bucket: 'portrait', naturalWidth, naturalHeight, aspectRatio };
-  if (aspectRatio !== null && aspectRatio >= 2.35) return { bucket: 'wide', naturalWidth, naturalHeight, aspectRatio };
-  return { bucket: 'standard', naturalWidth, naturalHeight, aspectRatio };
+  const facts: ReadingImageFacts = {
+    aspectRatio,
+    hasAuthorSize: Boolean(input.hasAuthorSize),
+    loadState: input.loadState ?? 'loaded',
+    naturalHeight,
+    naturalWidth,
+  };
+  const matched = READING_IMAGE_BUCKETS.find(({ when }) => when(facts));
+  const bucket = matched ? matched.bucket : 'standard';
+  return { bucket, naturalWidth, naturalHeight, aspectRatio };
 }

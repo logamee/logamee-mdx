@@ -6,7 +6,12 @@ import tauriConfig from '../../src-tauri/tauri.conf.json';
 
 const cargoManifest = readFileSync(new URL('../../src-tauri/Cargo.toml', import.meta.url), 'utf8');
 const tauriRustLib = readFileSync(new URL('../../src-tauri/src/lib.rs', import.meta.url), 'utf8');
-const resourceStore = readFileSync(new URL('../../src-tauri/src/resource_store.rs', import.meta.url), 'utf8');
+const resourceStore = [
+  '../../src-tauri/src/resource_store.rs',
+  '../../src-tauri/src/resource_store/secure_fs_unix.rs',
+]
+  .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'))
+  .join('\n');
 
 function releaseProfiles() {
   return [...cargoManifest.matchAll(
@@ -52,7 +57,7 @@ describe('Tauri capabilities', () => {
       rank: 'Default',
       role: 'Editor',
     }]);
-    expect(cargoManifest.match(/^tauri-plugin-single-instance = "=2\.4\.3"$/gm)).toHaveLength(1);
+    expect(cargoManifest.match(/^tauri-plugin-single-instance = "=2\.5\.2"$/gm)).toHaveLength(1);
     expect(tauriRustLib.indexOf('.plugin(tauri_plugin_single_instance::init(')).toBeGreaterThan(0);
     expect(tauriRustLib.indexOf('.plugin(tauri_plugin_single_instance::init('))
       .toBeLessThan(tauriRustLib.indexOf('.plugin(tauri_plugin_dialog::init())'));
@@ -91,7 +96,7 @@ describe('Tauri capabilities', () => {
   });
 
   it('registers only the process permission needed to relaunch after an update', () => {
-    expect(cargoManifest).toMatch(/^tauri-plugin-process = "=2\.3\.1"$/m);
+    expect(cargoManifest).toMatch(/^tauri-plugin-process = "=2\.4\.0"$/m);
     expect(tauriRustLib).toContain('.plugin(tauri_plugin_process::init())');
     expect(capability.permissions.filter((permission) => permission.startsWith('process:')))
       .toEqual(['process:allow-restart']);

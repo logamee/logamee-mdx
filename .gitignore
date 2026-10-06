@@ -40,3 +40,8 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Local agent tooling state
+.video_agent/
+.husky/_/
+.superpowers/

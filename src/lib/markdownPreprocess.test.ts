@@ -29,4 +29,26 @@ describe('markdown preprocessing', () => {
 
     expect(preprocessMarkdown(source)).toBe(['> first line  ', '> second line'].join('\n'));
   });
+
+  it('converts leading bullet characters into list items outside fences', () => {
+    expect(preprocessMarkdown('• 圆点列表项')).toBe('- 圆点列表项');
+  });
+
+  it('splits prefixed inline bullet points into a list', () => {
+    expect(preprocessMarkdown('要点：- 甲 - 乙 - 丙')).toBe('要点：\n- 甲\n- 乙\n- 丙');
+  });
+
+  it('rewrites bare autolinks followed by fullwidth punctuation into explicit links', () => {
+    expect(preprocessMarkdown('https://x.cn/a。')).toBe('[https://x.cn/a](https://x.cn/a)。');
+  });
+
+  it('converts complete br tags into hard breaks outside fences', () => {
+    expect(preprocessMarkdown('段落中间文字<br>第二行。')).toBe('段落中间文字  \n第二行。');
+  });
+
+  it('does not apply the writing-tolerance rules inside fenced code blocks', () => {
+    const source = ['```md', '• 围栏内圆点', '要点：- 甲 - 乙', 'https://x.cn/a。', 'a<br>b', '```'].join('\n');
+
+    expect(preprocessMarkdown(source)).toBe(source);
+  });
 });

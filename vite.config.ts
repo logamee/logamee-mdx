@@ -16,6 +16,11 @@ export default defineConfig({
   },
   test: {
     maxWorkers: 2,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text'],
+      reportsDirectory: 'coverage',
+    },
     exclude: [
       ...configDefaults.exclude,
       'scripts/check-release-version.test.mjs',

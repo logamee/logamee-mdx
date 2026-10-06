@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SettingsEnvelope } from '../types';
+import { currentSettingsEnvelope } from './settingsFixtures';
 import {
   applyEditorFontSize,
   decodeSettingsEnvelope,
@@ -9,25 +9,6 @@ import {
   projectSettingsError,
   stepEditorFontSize,
 } from './settings';
-
-export const currentSettingsEnvelope: SettingsEnvelope = {
-  schemaVersion: 1,
-  revision: 4,
-  settings: {
-    autosaveEnabled: true,
-    autosaveDelayMs: 1500,
-    spellcheckEnabled: true,
-    wikilinksEnabled: false,
-    resourceDirectory: 'assets',
-    editorPaneRatio: 0.5,
-    editorFontSize: 16,
-    selectedSkin: 'jinxiu-zhusha',
-    followSystemTheme: false,
-    localeMode: 'system',
-    shortcuts: {},
-    exportProfiles: {},
-  },
-};
 
 describe('settings projection', () => {
   it('projects the complete current Rust settings envelope without changing values', () => {
