@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPaneProtocolId } from '../../lib/tauriPaneReplication';
 import { useI18n } from '../../lib/i18n';
 import { useObservedEffectiveTheme } from '../../lib/themeObservation';
 import { isTauriRuntime } from '../../lib/activeDocumentWatch';
+import { applyEditorFontSize } from '../../lib/settings';
 import { getPaneLayoutStyle } from '../../lib/paneLayout';
 import { parsePopoutInstanceId, parsePopoutPane } from '../../lib/paneLayout';
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH } from '../../lib/sidebarLayout';
@@ -78,6 +79,14 @@ function useAppWindowShell() {
   const paneLayoutStyle = useMemo(() => getPaneLayoutStyle(editorPaneRatio), [editorPaneRatio]);
   const settingsState = useSettings();
   const editorFontSize = useEditorFontSize(settingsState.settings, settingsState.updateSettings);
+  // 设置 → 本地 UI 状态/DOM 同步：字号经 --editor-font-size 注入根节点（编辑器
+  // 与弹出编辑器共用），窗格比例推进本地布局状态。设置四个入口都只推进设置，
+  // 生效统一收口在这里。
+  useEffect(() => {
+    if (!settingsState.settings) return;
+    setEditorPaneRatio(settingsState.settings.editorPaneRatio);
+    applyEditorFontSize(document.documentElement, settingsState.settings.editorFontSize);
+  }, [settingsState.settings]);
   const workspaceUiStates = useWorkspaceUiStates();
   const previewPaneRefHolder = useRef<React.RefObject<HTMLElement | null> | null>(null);
   return {

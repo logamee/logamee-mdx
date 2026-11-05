@@ -165,6 +165,23 @@ describe('App editor font size shortcuts', () => {
     await act(async () => { await new Promise((resolve) => globalThis.setTimeout(resolve, 1)); });
   };
 
+  it('applies the loaded and updated editor font size to the document root', async () => {
+    // 设置对话框、快捷键、状态栏步进与格式面板共用这条生效链路：
+    // 写入推进设置后，--editor-font-size 必须同步到根节点，编辑器字号才会变。
+    appMocks.settings = { ...baseSettings, editorFontSize: 21, editorPaneRatio: 0.7 };
+    await act(async () => root.render(<App />));
+    expect(document.documentElement.style.getPropertyValue('--editor-font-size')).toBe('21px');
+
+    appMocks.settings = { ...baseSettings, editorFontSize: 22, editorPaneRatio: 0.7 };
+    await act(async () => root.render(<App />));
+    expect(document.documentElement.style.getPropertyValue('--editor-font-size')).toBe('22px');
+
+    // 同一条丢失的同步链路还负责把持久化的窗格比例推进布局变量。
+    const ratioApplied = Array.from(container.querySelectorAll<HTMLElement>('*'))
+      .some((el) => el.style.getPropertyValue('--editor-pane-ratio') === '70%');
+    expect(ratioApplied).toBe(true);
+  });
+
   it('steps and resets the editor font size from zoom-style shortcuts', async () => {
     await act(async () => root.render(<App />));
 
