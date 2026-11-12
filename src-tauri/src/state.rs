@@ -28,6 +28,7 @@ pub(crate) struct AppState {
     packaged_evidence: Mutex<()>,
     native_menu: Mutex<NativeMenuState>,
     recent_files: OnceLock<RecentFilesState>,
+    startup_error: Mutex<Option<String>>,
     settings: OnceLock<SettingsStore>,
     workspace_session: OnceLock<WorkspaceSessionState>,
     workspace_index: WorkspaceIndexRuntime,
@@ -144,6 +145,27 @@ impl AppState {
             .map_err(|_| "Recent files state is already initialized".to_string())
     }
 
+    pub(crate) fn load_startup_recent_files(&self) {
+        let error = match self.recent_files().and_then(RecentFilesState::list) {
+            Ok(snapshot) => {
+                self.set_native_recent_files(snapshot);
+                None
+            }
+            Err(_) => Some("Recent files unavailable at startup".to_string()),
+        };
+        *self
+            .startup_error
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = error;
+    }
+
+    pub(crate) fn startup_error(&self) -> Option<String> {
+        self.startup_error
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
     pub(crate) fn recent_files(&self) -> Result<&RecentFilesState, String> {
         self.recent_files
             .get()
@@ -209,6 +231,90 @@ mod tests {
         assert!(state.native_menu_state().follow_system());
         assert_eq!(state.native_menu_state().locale_mode(), "zh-CN");
         assert_eq!(state.native_menu_state().effective_locale(), "zh-CN");
+    }
+
+    #[test]
+    fn recent_files_startup_failure_retains_state_and_can_recover_without_resetting_history() {
+        let directory = TempDir::new().unwrap();
+        let root = directory.path().join("app-data");
+        fs::write(&root, b"blocked storage").unwrap();
+        let state = AppState::default();
+        state.initialize_recent_files(root.clone()).unwrap();
+
+        state.load_startup_recent_files();
+
+        assert!(state.recent_files().is_ok());
+        assert!(state.native_menu_state().recent_files().entries.is_empty());
+        assert_eq!(
+            state.startup_error().as_deref(),
+            Some("Recent files unavailable at startup")
+        );
+        // A remounted frontend can query again without losing the diagnostic.
+        assert!(state.startup_error().is_some());
+        assert_eq!(fs::read(&root).unwrap(), b"blocked storage");
+
+        fs::remove_file(&root).unwrap();
+        fs::create_dir(&root).unwrap();
+        state.load_startup_recent_files();
+        assert_eq!(state.startup_error(), None);
+        assert!(state.recent_files().unwrap().list().is_ok());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_recent_files_lock_contention_does_not_abort_startup() {
+        use std::{fs::OpenOptions, os::windows::fs::OpenOptionsExt};
+
+        let directory = TempDir::new().unwrap();
+        let root = directory.path().join("app-data");
+        let document = directory.path().join("remembered.md");
+        fs::write(&document, b"# preserved document").unwrap();
+        let bootstrap = AppState::default();
+        bootstrap.initialize_recent_files(root.clone()).unwrap();
+        let recent = bootstrap.recent_files().unwrap();
+        let receipt = recent.issue_open("main", &document).unwrap();
+        let committed = recent
+            .commit_open(
+                &receipt.open_receipt,
+                "main",
+                bootstrap.file_authorization(),
+            )
+            .unwrap();
+        let crate::models::OpenCommitResult::Committed {
+            recent_files: expected,
+        } = committed
+        else {
+            panic!("cannot seed recent history: {committed:?}");
+        };
+        assert_eq!(expected.entries.len(), 1);
+        let stored = fs::read(root.join("recent-files-v1.json")).unwrap();
+        drop(bootstrap);
+
+        let state = AppState::default();
+        state.initialize_recent_files(root.clone()).unwrap();
+        let held = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .share_mode(0)
+            .open(root.join("recent-files-v1.lock"))
+            .unwrap();
+
+        state.load_startup_recent_files();
+        assert!(state.startup_error().is_some());
+        assert!(state.native_menu_state().recent_files().entries.is_empty());
+        assert_eq!(fs::read(root.join("recent-files-v1.json")).unwrap(), stored);
+
+        drop(held);
+        state.load_startup_recent_files();
+        assert_eq!(state.startup_error(), None);
+        assert_eq!(state.native_menu_state().recent_files(), &expected);
+        assert_eq!(fs::read(root.join("recent-files-v1.json")).unwrap(), stored);
+        assert_eq!(fs::read(&document).unwrap(), b"# preserved document");
+        assert!(state
+            .file_authorization()
+            .exact_write_grant_snapshot_for_test(&document.canonicalize().unwrap())
+            .unwrap()
+            .is_none());
     }
 
     #[test]

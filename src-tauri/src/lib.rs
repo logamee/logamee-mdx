@@ -204,13 +204,22 @@ fn setup_app(
     if let Some(result) = startup_open_intent {
         deliver_open_intent_result(app.handle(), result);
     }
-    let recent_files = state.recent_files()?.list()?;
-    state.set_native_recent_files(recent_files);
+    // History is optional at startup; report a storage failure after the UI is listening.
+    state.load_startup_recent_files();
     app.set_menu(native_menu::build_app_menu(
         app.handle(),
         &state.native_menu_state(),
     )?)?;
     Ok(state)
+}
+
+#[tauri::command]
+fn get_startup_error(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    open_intent_commands::validate_main_owner(window.label())?;
+    Ok(state.startup_error())
 }
 
 fn handle_menu_event(app: &tauri::AppHandle, event: &tauri::menu::MenuEvent) {

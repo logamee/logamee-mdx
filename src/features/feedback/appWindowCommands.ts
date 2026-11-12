@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { normalizeAppError } from '../../lib/appFeedback';
 import type { EffectiveLocale } from '../../lib/locale';
@@ -7,6 +7,7 @@ import {
   decodeNativeMenuCommand,
   NATIVE_MENU_EVENT } from '../../lib/nativeMenu';
 import { setNativeSaveMenuEnabled } from '../../lib/tauriCommands';
+import { getStartupError } from '../../lib/tauriCommands/startup';
 import {
   resolveShortcutProfile,
   shortcutMatchesEvent,
@@ -62,6 +63,7 @@ function useAppFeedbackErrorEvents(deps: {
   setNotice: (message: string | null) => void;
 }): void {
   const { setError, setNotice } = deps;
+  const startupFeedbackDelivered = useRef(false);
   useEffect(() => {
     const handleFeedbackError = (event: Event) => {
       if (event instanceof CustomEvent && typeof event.detail === 'string') {
@@ -77,13 +79,25 @@ function useAppFeedbackErrorEvents(deps: {
     if (deps.isPopout) return undefined;
     let disposed = false;
     let unlistenFeedback: (() => void) | undefined;
-    listen<string>(APP_FEEDBACK_ERROR_EVENT, (event) => {
-      setError(normalizeAppError(event.payload, deps.locale));
+    const showError = (error: unknown) => {
+      if (disposed) return;
+      setError(normalizeAppError(error, deps.locale));
       setNotice(null);
-    }).then((fn) => {
-      if (disposed) fn();
-      else unlistenFeedback = fn;
-    }).catch((err: unknown) => setError(normalizeAppError(err, deps.locale)));
+    };
+    listen<string>(APP_FEEDBACK_ERROR_EVENT, (event) => {
+      showError(event.payload);
+    }).then(async (fn) => {
+      if (disposed) {
+        fn();
+        return;
+      }
+      unlistenFeedback = fn;
+      if (startupFeedbackDelivered.current) return;
+      const error = await getStartupError();
+      if (disposed) return;
+      if (error !== null) showError(error);
+      startupFeedbackDelivered.current = true;
+    }).catch(showError);
     return () => {
       disposed = true;
       unlistenFeedback?.();

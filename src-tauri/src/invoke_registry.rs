@@ -10,6 +10,7 @@ macro_rules! app_invoke_handler {
 
             clear_recent_files,
             get_settings,
+            get_startup_error,
             update_settings,
             reset_settings,
             set_native_save_menu_enabled,

@@ -72,6 +72,15 @@ describe('app feedback dialog', () => {
     );
   });
 
+  it.each([
+    ['zh-CN', '最近文件历史列表暂不可用。请稍后重新启动 mdx 再试。'],
+    ['en', 'The recent files list is temporarily unavailable. Restart mdx later and try again.'],
+  ] as const)('keeps startup history feedback friendly through the %s modal', (locale, message) => {
+    const error = normalizeAppError('Recent files unavailable at startup', locale);
+    expect(error).toBe(message);
+    expect(getFeedbackDialog({ notice: null, error }, locale)?.message).toBe(message);
+  });
+
   it('normalizes recent-file contention and stale entries', () => {
     expect(normalizeAppError('Recent files store is busy')).toBe(
       '最近文件列表正在被另一个应用进程更新。请稍后重试。',

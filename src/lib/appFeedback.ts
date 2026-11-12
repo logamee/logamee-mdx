@@ -27,6 +27,7 @@ function stringifyError(error: unknown): string {
 
 
 const ZH_ERROR_RULES = Object.freeze([
+  { keywords: ['recent files unavailable at startup'], message: '最近文件历史列表暂不可用。请稍后重新启动 mdx 再试。' },
   { keywords: ['recent files store is busy'], message: '最近文件列表正在被另一个应用进程更新。请稍后重试。' },
   { keywords: ['recent file is no longer available', 'open target is no longer a supported file'], message: '最近文件已移动、删除或不再受支持。请从更新后的列表中重新选择。' },
   { keywords: ['recent files menu synchronization failed'], message: '最近文件已更新，但系统菜单暂时无法同步。请重试最近文件操作，或重新启动应用。' },
@@ -69,6 +70,7 @@ const ZH_ERROR_RULES = Object.freeze([
 ] as const);
 
 const EN_ERROR_RULES = Object.freeze([
+  { keywords: ['recent files unavailable at startup', 'recent files list is temporarily unavailable'], message: 'The recent files list is temporarily unavailable. Restart mdx later and try again.' },
   { keywords: ['recent file'], message: 'The recent file is no longer available. Choose it again from the updated list.' },
   { keywords: ['exact write authority'], message: 'The file was replaced externally with an unsupported object, so it cannot be saved here. Reopen the document and try again.' },
   { keywords: ['failed to write file'], message: 'The file could not be saved. Confirm that it is still writable, then try again.' },

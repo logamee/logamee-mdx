@@ -73,6 +73,9 @@ vi.mock('./features/settings/useSettings', () => ({
     updateSettings: vi.fn<(settings: unknown) => Promise<void>>(async () => undefined),
   }),
 }));
+vi.mock('./lib/tauriCommands/startup', () => ({
+  getStartupError: vi.fn<() => Promise<string | null>>(async () => null),
+}));
 vi.mock('./lib/tauriCommands', () => ({
   setNativeSaveMenuEnabled: appMocks.setNativeSaveMenuEnabled,
 }));

@@ -27,6 +27,9 @@ vi.mock('./features/document/useDocumentSession', () => ({
 vi.mock('./features/document/useCrashDraftRecovery', () => ({
   useCrashDraftRecovery: appMocks.useCrashDraftRecovery,
 }));
+vi.mock('./lib/tauriCommands/startup', () => ({
+  getStartupError: vi.fn<() => Promise<string | null>>(async () => null),
+}));
 vi.mock('./lib/tauriCommands', () => ({
   setNativeSaveMenuEnabled: appMocks.setNativeSaveMenuEnabled,
 }));

@@ -33,6 +33,9 @@ vi.mock('./lib/crashDraftCommands', () => ({
     reset: mocks.reset, resetOverflowBatch: mocks.resetOverflowBatch, write: mocks.write,
   },
 }));
+vi.mock('./lib/tauriCommands/startup', () => ({
+  getStartupError: vi.fn<() => Promise<string | null>>(async () => null),
+}));
 vi.mock('./lib/tauriCommands', () => ({
   setNativeSaveMenuEnabled: vi.fn<(enabled: boolean) => Promise<void>>(async () => undefined),
 }));

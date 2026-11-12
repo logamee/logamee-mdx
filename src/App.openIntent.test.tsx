@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   discardOpenIntent: vi.fn<(id: string) => Promise<boolean>>(),
   focusMainWindow: vi.fn<(intentId?: string, coalesced?: boolean) => Promise<void>>(),
   getPackagedOpenE2eConfig: vi.fn<() => Promise<unknown>>(),
+  getStartupError: vi.fn<() => Promise<string | null>>(),
   fileSwitchCancelHandler: null as null | (() => void),
   fileSwitchQuitHandler: null as null | (() => void),
   listen: vi.fn<(event: string, callback: (event: { payload: unknown }) => void) => Promise<() => void>>(),
@@ -47,6 +48,7 @@ vi.mock('@tauri-apps/api/event', () => ({
   listen: mocks.listen,
 }));
 vi.mock('./features/document/useDocumentSession', () => ({ useDocumentSession: mocks.useDocumentSession }));
+vi.mock('./lib/tauriCommands/startup', () => ({ getStartupError: mocks.getStartupError }));
 vi.mock('./lib/tauriCommands', () => ({
   discardOpenIntent: mocks.discardOpenIntent,
   focusMainWindow: mocks.focusMainWindow,
@@ -268,6 +270,7 @@ describe('App open intent routing', () => {
     mocks.fileSwitchCancelHandler = null;
     mocks.fileSwitchQuitHandler = null;
     mocks.getPackagedOpenE2eConfig.mockReset().mockResolvedValue(null);
+    mocks.getStartupError.mockReset().mockResolvedValue(null);
     mocks.peekOpenIntent.mockReset();
     mocks.requestSessionRestore.mockReset().mockResolvedValue(true);
     mocks.resolveOpenIntentRequest.mockReset().mockResolvedValue('accepted');
@@ -309,6 +312,22 @@ describe('App open intent routing', () => {
     expect(mocks.discardOpenIntent).not.toHaveBeenCalled();
     expect(mocks.focusMainWindow).toHaveBeenCalledWith(preview.id, false);
     expect(mocks.requestSessionRestore).toHaveBeenCalledOnce();
+  });
+
+  it('restores the session while the startup feedback query is still pending', async () => {
+    const query = deferred<string | null>();
+    const session = createSession(false);
+    mocks.getStartupError.mockReturnValue(query.promise);
+    mocks.useDocumentSession.mockReturnValue(session);
+    mocks.peekOpenIntent.mockResolvedValue(null);
+
+    await act(async () => root.render(<App />));
+
+    expect(mocks.getStartupError).toHaveBeenCalledOnce();
+    expect(mocks.requestSessionRestore).toHaveBeenCalledOnce();
+    expect(session.setError).not.toHaveBeenCalled();
+    await act(async () => query.resolve(null));
+    expect(session.setError).not.toHaveBeenCalled();
   });
 
   it('settles the startup gate when explicit startup arguments skip session restore', async () => {
