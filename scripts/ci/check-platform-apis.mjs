@@ -11,6 +11,7 @@
 // Individual lines can opt out with a `platform-audit: allow` comment.
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const PLATFORM_PATTERNS = [
   { regex: /\bos::unix\b/, label: 'os::unix' },
@@ -278,11 +279,11 @@ export async function collectPlatformApiViolations(rootDirectories) {
 }
 
 function isMainProcess() {
-  return process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;
+  return process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 }
 
 if (isMainProcess()) {
-  const repoRoot = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), '../..');
+  const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
   const roots = [
     path.join(repoRoot, 'src-tauri/src'),
     path.join(repoRoot, 'src-tauri/tests'),

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { runBashSync } from './ci/bash-test-helpers.mjs';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -8,8 +8,12 @@ const workflowPath = fileURLToPath(
   new URL('../.github/workflows/release.yml', import.meta.url),
 );
 
+async function readWorkflow() {
+  return (await readFile(workflowPath, 'utf8')).replaceAll('\r\n', '\n');
+}
+
 async function readPublisher() {
-  const workflow = await readFile(workflowPath, 'utf8');
+  const workflow = await readWorkflow();
   const publisherStart = workflow.indexOf('\n  publish-latest:');
 
   assert.notEqual(publisherStart, -1, 'publish-latest job is missing');
@@ -98,7 +102,7 @@ test('draft candidate metadata is read by release ID instead of the published-ta
 });
 
 test('embedded publish transaction is valid Bash', async () => {
-  const result = spawnSync('bash', ['-n'], {
+  const result = runBashSync(['-n'], {
     input: await readPublishScript(),
     encoding: 'utf8',
   });
@@ -107,7 +111,7 @@ test('embedded publish transaction is valid Bash', async () => {
 });
 
 test('release smoke jobs use non-instrumented mode and pass every required native target', async () => {
-  const workflow = await readFile(workflowPath, 'utf8');
+  const workflow = await readWorkflow();
 
   assert.match(
     workflow,
@@ -128,7 +132,7 @@ test('release smoke jobs use non-instrumented mode and pass every required nativ
 });
 
 test('release builds fall back to unsigned installers without weakening trusted releases', async () => {
-  const workflow = await readFile(workflowPath, 'utf8');
+  const workflow = await readWorkflow();
   assert.match(workflow, /release-ready: \$\{\{ steps\.release-trust\.outputs\.ready \}\}/);
   assert.match(workflow, /id: release-trust[\s\S]*check-release-trust\.mjs --github-output/);
   assert.doesNotMatch(
@@ -170,7 +174,7 @@ test('release builds fall back to unsigned installers without weakening trusted 
 });
 
 test('every release build publishes a strictly verified artifact manifest', async () => {
-  const workflow = await readFile(workflowPath, 'utf8');
+  const workflow = await readWorkflow();
   const jobs = [
     'build-macos-arm64',
     'build-macos-x64',
@@ -228,7 +232,7 @@ test('publisher verifies release artifacts in isolated directories before flatte
 });
 
 test('keeps CI-only lifecycle instrumentation out of release packages', async () => {
-  const workflow = await readFile(workflowPath, 'utf8');
+  const workflow = await readWorkflow();
 
   assert.doesNotMatch(workflow, /packaged-lifecycle-e2e/);
   assert.doesNotMatch(workflow, /VITE_MMD_PACKAGED_LIFECYCLE_E2E/);
@@ -236,7 +240,7 @@ test('keeps CI-only lifecycle instrumentation out of release packages', async ()
 });
 
 test('installs Linux desktop smoke dependencies in the release workflow', async () => {
-  const workflow = await readFile(workflowPath, 'utf8');
+  const workflow = await readWorkflow();
 
   assert.match(workflow, /apt-get install -y[^\n]*desktop-file-utils/);
   assert.match(workflow, /apt-get install -y[^\n]*openbox/);

@@ -8,19 +8,20 @@ use std::{
     thread,
 };
 
-use ::windows::{ // platform-audit: allow (platform-gated trash transport)
+use ::windows::{
+    // platform-audit: allow (platform-gated trash transport)
     core::{implement, Ref, Result as WinResult, HRESULT, PCWSTR},
     Win32::{
         Foundation::{E_ABORT, E_FAIL},
         System::Com::{
-            CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize,
-            CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
+            CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER,
+            COINIT_APARTMENTTHREADED,
         },
         UI::Shell::{
             FileOperation, IFileOperation, IFileOperationProgressSink,
             IFileOperationProgressSink_Impl, IShellItem, SHCreateItemFromParsingName,
-            FOFX_EARLYFAILURE, FOFX_RECYCLEONDELETE, FOF_NOCONFIRMATION, FOF_NOERRORUI,
-            FOF_SILENT, SIGDN_FILESYSPATH,
+            FOFX_EARLYFAILURE, FOFX_RECYCLEONDELETE, FOF_NOCONFIRMATION, FOF_NOERRORUI, FOF_SILENT,
+            SIGDN_FILESYSPATH,
         },
     },
 };
@@ -43,12 +44,10 @@ pub(super) fn shell_parsing_name(
     let shell_wide = windows_shell_parsing_name_from_wide(&source_wide)
         .map_err(|error| NativeTrashError::new("prepare Windows shell item path", error))?;
     let shell_source = PathBuf::from(OsString::from_wide(&shell_wide));
-    let canonical_source = fs::canonicalize(source).map_err(|error| {
-        NativeTrashError::new("revalidate Windows shell item source", error)
-    })?;
-    let canonical_shell_source = fs::canonicalize(&shell_source).map_err(|error| {
-        NativeTrashError::new("revalidate Windows shell parsing path", error)
-    })?;
+    let canonical_source = fs::canonicalize(source)
+        .map_err(|error| NativeTrashError::new("revalidate Windows shell item source", error))?;
+    let canonical_shell_source = fs::canonicalize(&shell_source)
+        .map_err(|error| NativeTrashError::new("revalidate Windows shell parsing path", error))?;
     if canonical_shell_source != canonical_source {
         return Err(NativeTrashError::new(
             "revalidate Windows shell parsing path",
@@ -126,25 +125,20 @@ fn operation_error_with_sink_detail(
 
 #[allow(non_snake_case)]
 
-
 pub(super) fn move_to_trash(
     source: &Path,
     kind: TrashEntryKind,
     source_identity: NativeSourceIdentity,
 ) -> MoveToTrash<NativeTrashReceipt, NativeTrashError> {
     let source = source.to_path_buf();
-    let result =
-        match thread::spawn(move || unsafe { move_on_sta(source, kind, source_identity) })
-            .join()
-        {
-            Ok(result) => result,
-            Err(_) => MoveToTrash::Rejected {
-                error: NativeTrashError::new(
-                    "start Windows Trash operation",
-                    "STA thread panicked",
-                ),
-            },
-        };
+    let result = match thread::spawn(move || unsafe { move_on_sta(source, kind, source_identity) })
+        .join()
+    {
+        Ok(result) => result,
+        Err(_) => MoveToTrash::Rejected {
+            error: NativeTrashError::new("start Windows Trash operation", "STA thread panicked"),
+        },
+    };
     result
 }
 
@@ -193,11 +187,8 @@ unsafe fn move_on_sta(
                 }
             }
         };
-    let flags = FOFX_RECYCLEONDELETE
-        | FOFX_EARLYFAILURE
-        | FOF_NOCONFIRMATION
-        | FOF_NOERRORUI
-        | FOF_SILENT;
+    let flags =
+        FOFX_RECYCLEONDELETE | FOFX_EARLYFAILURE | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
     if let Err(error) = operation.SetOperationFlags(flags) {
         return MoveToTrash::Rejected {
             error: NativeTrashError::new("configure Windows Trash operation", error),
@@ -214,34 +205,43 @@ unsafe fn move_on_sta(
             error: NativeTrashError::new("queue Windows Trash operation", error),
         };
     }
+    complete_trash_operation(&operation, &state, kind, source_identity)
+}
+
+unsafe fn complete_trash_operation(
+    operation: &IFileOperation,
+    state: &Arc<Mutex<SinkState>>,
+    kind: TrashEntryKind,
+    source_identity: NativeSourceIdentity,
+) -> MoveToTrash<NativeTrashReceipt, NativeTrashError> {
     if let Err(error) = operation.PerformOperations() {
         return MoveToTrash::PossiblyMoved {
-            recovery_receipt: receipt_from_state(&state, kind, &source_identity),
+            recovery_receipt: receipt_from_state(state, kind, &source_identity),
             error: operation_error_with_sink_detail(
                 "perform Windows Trash operation",
                 error,
-                &state,
+                state,
             ),
         };
     }
     match operation.GetAnyOperationsAborted() {
         Ok(aborted) if aborted.as_bool() => {
             return MoveToTrash::PossiblyMoved {
-                recovery_receipt: receipt_from_state(&state, kind, &source_identity),
+                recovery_receipt: receipt_from_state(state, kind, &source_identity),
                 error: operation_error_with_sink_detail(
                     "perform Windows Trash operation",
                     "operation was aborted",
-                    &state,
+                    state,
                 ),
             }
         }
         Err(error) => {
             return MoveToTrash::PossiblyMoved {
-                recovery_receipt: receipt_from_state(&state, kind, &source_identity),
+                recovery_receipt: receipt_from_state(state, kind, &source_identity),
                 error: operation_error_with_sink_detail(
                     "inspect Windows Trash completion",
                     error,
-                    &state,
+                    state,
                 ),
             }
         }

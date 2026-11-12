@@ -6,6 +6,24 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Assert-ReleaseStartup([string]$AppPath, [string]$Label) {
+  $stderr = Join-Path $ArtifactDirectory "$Label-stderr.log"
+  $stdout = Join-Path $ArtifactDirectory "$Label-stdout.log"
+  $app = Start-Process -FilePath $AppPath -PassThru -RedirectStandardError $stderr -RedirectStandardOutput $stdout
+  $null = $app.Handle
+  try {
+    if ($app.WaitForExit(10000)) {
+      throw "Installed mdx exited during $Label with code $($app.ExitCode); see $stderr"
+    }
+    $app.Refresh()
+    if ($app.MainWindowHandle -eq 0) { throw "Installed mdx has no main window during $Label" }
+  } finally {
+    if (-not $app.HasExited) { $app.Kill() }
+    $app.WaitForExit()
+    $app.Dispose()
+  }
+}
+
 if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64') {
   throw "Expected Windows x64, found $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)"
 }
@@ -18,7 +36,7 @@ $signature = Get-AuthenticodeSignature -LiteralPath $installers[0].FullName
 "Windows Authenticode classification: $($signature.Status)"
 if ($signature.Status -notin @('Valid', 'NotSigned')) { throw "Unexpected Authenticode status: $($signature.Status)" }
 
-$install = Start-Process -FilePath $installers[0].FullName -ArgumentList '/S' -Wait -PassThru
+$install = Start-Process -FilePath $installers[0].FullName -ArgumentList '/S' -Wait -PassThru -NoNewWindow
 if ($install.ExitCode -ne 0) { throw "NSIS install failed with exit code $($install.ExitCode)" }
 
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\mdx'
@@ -31,11 +49,19 @@ $appPath = Join-Path $installDirectory $mainBinary
 if (-not (Test-Path -LiteralPath $appPath -PathType Leaf)) { throw "Installed application is missing: $appPath" }
 
 if ($Mode -eq 'release') {
-  $app = Start-Process -FilePath $appPath -PassThru
-  Start-Sleep -Seconds 5
-  if ($app.HasExited) { throw "Installed mdx exited early with code $($app.ExitCode)" }
-  $app.Kill()
-  $app.WaitForExit()
+  Assert-ReleaseStartup $appPath 'normal-startup'
+  $appData = [Environment]::GetFolderPath([Environment+SpecialFolder]::ApplicationData)
+  $historyLockPath = Join-Path $appData 'local.mmd.editor\recent-files-v1.lock'
+  if (-not (Test-Path -LiteralPath $historyLockPath -PathType Leaf)) {
+    throw 'Installed mdx did not initialize its recent-file storage'
+  }
+  $historyLock = [IO.File]::Open($historyLockPath, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+  try {
+    Assert-ReleaseStartup $appPath 'recent-files-locked'
+  } finally {
+    $historyLock.Dispose()
+  }
+  Assert-ReleaseStartup $appPath 'recent-files-released'
 } else {
   $localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
   if ([string]::IsNullOrWhiteSpace($localAppData)) {
@@ -91,6 +117,6 @@ if ($Mode -eq 'release') {
 
 $uninstaller = Join-Path $installDirectory 'uninstall.exe'
 if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) { throw 'NSIS uninstaller is missing' }
-$uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
+$uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru -NoNewWindow
 if ($uninstall.ExitCode -ne 0) { throw "NSIS uninstall failed with exit code $($uninstall.ExitCode)" }
 if (Test-Path -LiteralPath $uninstallKey) { throw 'NSIS uninstall registry entry was not removed' }

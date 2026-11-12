@@ -1,2 +1,4 @@
+.husky/* text eol=lf
 scripts/licenses/** -text
 public/vendor/notices/** -text -whitespace
+public/vendor/pdfjs/** -text -whitespace

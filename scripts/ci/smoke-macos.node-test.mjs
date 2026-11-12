@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { spawnSync } from 'node:child_process';
+import { bashPath, nativePath, mockBashEnvironment, runBashScriptSync } from './bash-test-helpers.mjs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -45,9 +45,9 @@ exit 0
   await writeExecutable(
     path.join(binDir, 'find'),
     `case "$*" in
-  *"*.dmg"*) printf '%s\\n' ${JSON.stringify(path.join(artifactDir, 'mdx.dmg'))} ;;
+  *"*.dmg"*) printf '%s\\n' ${JSON.stringify(bashPath(path.join(artifactDir, 'mdx.dmg')))} ;;
   *"Contents/MacOS"*) printf '%s\\n' "$1/mdx" ;;
-  *"mdx.app"*) printf '%s\\n' ${JSON.stringify(sourceApp)} ;;
+  *"mdx.app"*) printf '%s\\n' ${JSON.stringify(bashPath(sourceApp))} ;;
   *) exit 1 ;;
 esac
 `,
@@ -56,7 +56,7 @@ esac
     path.join(binDir, 'hdiutil'),
     `if [[ "$1" == attach ]]; then
   printf 'attach\\n' >> "$EVENT_LOG"
-  printf '/dev/disk9 Apple_HFS %s\\n' ${JSON.stringify(mountPoint)}
+  printf '/dev/disk9 Apple_HFS %s\\n' ${JSON.stringify(bashPath(mountPoint))}
 else
   printf 'detach:%s\\n' "$2" >> "$EVENT_LOG"
 fi
@@ -77,18 +77,12 @@ fi
   );
 
   try {
-    const result = spawnSync(
-      '/bin/bash',
-      ['scripts/ci/smoke-macos.sh', artifactDir, 'arm64', 'aarch64-apple-darwin'],
+    const result = runBashScriptSync(
+      path.join(repoRoot, 'scripts/ci/smoke-macos.sh'),
+      [artifactDir, 'arm64', 'aarch64-apple-darwin'],
       {
         cwd: repoRoot,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          EVENT_LOG: eventLog,
-          PATH: `${binDir}:${process.env.PATH}`,
-          RUNNER_TEMP: runnerTemp,
-        },
+        env: mockBashEnvironment(binDir, { EVENT_LOG: eventLog, RUNNER_TEMP: runnerTemp }),
         timeout: 10_000,
       },
     );
@@ -109,8 +103,8 @@ fi
     assert.ok(detachIndex < launchIndex);
     assert.ok(!events.some((event) => event.startsWith('sleep:5')));
 
-    const installedApp = events[dittoIndex].split(':').slice(2).join(':');
-    const launchedBinary = events[launchIndex].slice('launch:'.length);
+    const installedApp = nativePath(events[dittoIndex].split(':').slice(2).join(':'));
+    const launchedBinary = nativePath(events[launchIndex].slice('launch:'.length));
     assert.ok(installedApp.startsWith(`${runnerTemp}${path.sep}`));
     assert.equal(launchedBinary, path.join(installedApp, 'Contents', 'MacOS', 'mdx'));
     assert.ok(!launchedBinary.includes(`${path.sep}Volumes${path.sep}`));

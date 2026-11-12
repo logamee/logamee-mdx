@@ -80,16 +80,12 @@ pub(crate) fn apply_and_verify_private_windows_dacl(
     use windows_sys::Win32::{
         Foundation::LocalFree,
         Security::{
-            AclSizeInformation,
             Authorization::{
                 ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
             },
-            GetAclInformation, GetFileSecurityW, GetSecurityDescriptorControl,
-            GetSecurityDescriptorDacl, SetFileSecurityW, ACL_SIZE_INFORMATION,
-            DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
-            SE_DACL_PROTECTED,
+            GetFileSecurityW, SetFileSecurityW, DACL_SECURITY_INFORMATION,
+            PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
         },
-        Storage::FileSystem::FILE_ALL_ACCESS,
     };
 
     let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
@@ -147,52 +143,69 @@ pub(crate) fn apply_and_verify_private_windows_dacl(
             return Err(io::Error::last_os_error());
         }
         let observed = security.as_mut_ptr().cast();
-        let mut control = 0u16;
-        let mut revision = 0u32;
-        if unsafe { GetSecurityDescriptorControl(observed, &mut control, &mut revision) } == 0
-            || control & SE_DACL_PROTECTED == 0
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "private DACL protection could not be verified",
-            ));
-        }
-        let mut present = 0;
-        let mut defaulted = 0;
-        let mut dacl = ptr::null_mut();
-        if unsafe { GetSecurityDescriptorDacl(observed, &mut present, &mut dacl, &mut defaulted) }
-            == 0
-            || present == 0
-            || dacl.is_null()
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "private DACL presence could not be verified",
-            ));
-        }
-        let mut acl_info = ACL_SIZE_INFORMATION::default();
-        if unsafe {
-            GetAclInformation(
-                dacl,
-                (&mut acl_info as *mut ACL_SIZE_INFORMATION).cast(),
-                mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
-                AclSizeInformation,
-            )
-        } == 0
-            || acl_info.AceCount != 4
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "private DACL entries could not be verified",
-            ));
-        }
-        verify_private_windows_aces(dacl, expected_ace_flags, FILE_ALL_ACCESS)?;
+        verify_private_windows_security_descriptor(observed, expected_ace_flags)?;
         Ok(())
     })();
     unsafe {
         LocalFree(descriptor);
     }
     result
+}
+
+#[cfg(windows)]
+fn verify_private_windows_security_descriptor(
+    observed: windows_sys::Win32::Security::PSECURITY_DESCRIPTOR,
+    expected_ace_flags: u8,
+) -> io::Result<()> {
+    use std::{mem, ptr};
+    use windows_sys::Win32::{
+        Security::{
+            AclSizeInformation, GetAclInformation, GetSecurityDescriptorControl,
+            GetSecurityDescriptorDacl, ACL_SIZE_INFORMATION, SE_DACL_PROTECTED,
+        },
+        Storage::FileSystem::FILE_ALL_ACCESS,
+    };
+
+    let mut control = 0u16;
+    let mut revision = 0u32;
+    if unsafe { GetSecurityDescriptorControl(observed, &mut control, &mut revision) } == 0
+        || control & SE_DACL_PROTECTED == 0
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "private DACL protection could not be verified",
+        ));
+    }
+    let mut present = 0;
+    let mut defaulted = 0;
+    let mut dacl = ptr::null_mut();
+    if unsafe { GetSecurityDescriptorDacl(observed, &mut present, &mut dacl, &mut defaulted) } == 0
+        || present == 0
+        || dacl.is_null()
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "private DACL presence could not be verified",
+        ));
+    }
+    let mut acl_info = ACL_SIZE_INFORMATION::default();
+    if unsafe {
+        GetAclInformation(
+            dacl,
+            (&mut acl_info as *mut ACL_SIZE_INFORMATION).cast(),
+            mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
+            AclSizeInformation,
+        )
+    } == 0
+        || acl_info.AceCount != 4
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "private DACL entries could not be verified",
+        ));
+    }
+    verify_private_windows_aces(dacl, expected_ace_flags, FILE_ALL_ACCESS)?;
+    Ok(())
 }
 
 #[cfg(windows)]

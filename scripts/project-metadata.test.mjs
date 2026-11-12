@@ -34,7 +34,7 @@ test('publishes canonical MIT project and manifest metadata', async () => {
   assert.match(license, /Permission is hereby granted, free of charge/);
   assert.match(license, /THE SOFTWARE IS PROVIDED "AS IS"/);
   assert.equal(
-    createHash('sha256').update(license).digest('hex'),
+    createHash('sha256').update(license.replaceAll('\r\n', '\n')).digest('hex'),
     '9d3852a60809abb4b17679b41a659341ace67db281aa268e8ae07ee64b878a0c',
   );
   assert.equal(packageJson.private, true);

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +44,19 @@ async function createFixtureProject() {
     writeFile(path.join(packageRoot, 'standard_fonts', 'Example.pfb'), 'font'),
     writeFile(path.join(packageRoot, 'wasm', 'fallback.js'), 'fallback'),
   ]);
+  return fixtureRoot;
+}
+
+async function createPinnedFixtureProject() {
+  const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), 'mmd-pdf-pinned-'));
+  temporaryDirectories.push(fixtureRoot);
+  await mkdir(path.join(fixtureRoot, 'node_modules'));
+  await symlink(
+    path.join(projectRoot, 'node_modules', 'pdfjs-dist'),
+    path.join(fixtureRoot, 'node_modules', 'pdfjs-dist'),
+    'junction',
+  );
+  await syncPdfAssets({ projectRoot: fixtureRoot });
   return fixtureRoot;
 }
 
@@ -132,12 +145,15 @@ describe('PDF asset manifest build integration', () => {
   });
 
   it('serves the exact transformed worker URL and matching development hash', async () => {
+    const fixtureRoot = await createPinnedFixtureProject();
     const server = await createServer({
       configFile: false,
-      publicDir: path.join(projectRoot, 'public'),
+      publicDir: path.join(fixtureRoot, 'public'),
       root: projectRoot,
-      plugins: [createPdfAssetManifestPlugin({ projectRoot })],
-      server: { host: '127.0.0.1', port: 0, strictPort: false },
+      // Exercise the PDF transform without scanning the unrelated application entry.
+      optimizeDeps: { noDiscovery: true, include: [] },
+      plugins: [createPdfAssetManifestPlugin({ projectRoot: fixtureRoot })],
+      server: { host: '127.0.0.1', port: 0, strictPort: false, watch: null },
     });
     try {
       await server.listen();
@@ -170,13 +186,14 @@ describe('PDF asset manifest build integration', () => {
   }, 20_000);
 
   it('emits a manifest whose worker and copied assets exist and match every hash', async () => {
+    const fixtureRoot = await createPinnedFixtureProject();
     const outDir = await mkdtemp(path.join(os.tmpdir(), 'mmd-pdf-assets-'));
     temporaryDirectories.push(outDir);
 
     await build({
       configFile: false,
-      publicDir: path.join(projectRoot, 'public'),
-      plugins: [createPdfAssetManifestPlugin({ projectRoot })],
+      publicDir: path.join(fixtureRoot, 'public'),
+      plugins: [createPdfAssetManifestPlugin({ projectRoot: fixtureRoot })],
       build: {
         emptyOutDir: true,
         lib: {

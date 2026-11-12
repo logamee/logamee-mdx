@@ -21,7 +21,7 @@ const smokePaths = [
 ].map(fileURLToPath);
 
 async function workflow() {
-  return readFile(workflowPath, 'utf8');
+  return (await readFile(workflowPath, 'utf8')).replaceAll('\r\n', '\n');
 }
 
 async function smokes() {
@@ -61,6 +61,28 @@ test('manages open intents before setup can build webviews', async () => {
   const setupBody = value.slice(setupIndex, value.indexOf('.on_menu_event', setupIndex));
   assert.match(setupBody, /app\.manage\(state\);/);
   assert.doesNotMatch(setupBody, /app\.manage\(managed_open_intents\);/);
+});
+
+test('keeps unavailable recent-file storage from aborting application setup', async () => {
+  const value = await readFile(tauriLibPath, 'utf8');
+  const setup = value.slice(value.indexOf('fn setup_app('), value.indexOf('fn handle_menu_event('));
+
+  assert.match(setup, /state\.load_startup_recent_files\(\)/);
+  assert.doesNotMatch(setup, /state\.recent_files\(\)\?\.list\(\)\?/);
+  const startupQuery = value.slice(value.indexOf('fn get_startup_error('), value.indexOf('fn handle_menu_event('));
+  assert.match(startupQuery, /validate_main_owner\(window\.label\(\)\)\?/);
+  assert.match(startupQuery, /Ok\(state\.startup_error\(\)\)/);
+});
+
+test('checks Windows release startup again while the recent-file lock is occupied', async () => {
+  const smoke = await readFile(windowsSmokePath, 'utf8');
+
+  assert.match(smoke, /function Assert-ReleaseStartup/);
+  assert.match(smoke, /RedirectStandardError/);
+  assert.match(smoke, /recent-files-v1\.lock/);
+  assert.match(smoke, /\[IO\.FileShare\]::None/);
+  assert.match(smoke, /Assert-ReleaseStartup[^\r\n]+recent-files-locked/);
+  assert.match(smoke, /finally\s*\{\s*\$historyLock\.Dispose\(\)/);
 });
 
 test('records target-native durable-write CAS and real Trash gates', async () => {
@@ -288,7 +310,7 @@ test('uses the Windows user-local temp volume for packaged Trash fixtures', asyn
 });
 
 test('keeps raw Windows Trash diagnostics behind packaged lifecycle instrumentation', async () => {
-  const value = await readFile(nativeTrashPath, 'utf8');
+  const value = (await readFile(nativeTrashPath, 'utf8')).replaceAll('\r\n', '\n');
   const gatedDiagnostics = [
     '        #[cfg(feature = "packaged-lifecycle-e2e")]',
     '        match &result {',

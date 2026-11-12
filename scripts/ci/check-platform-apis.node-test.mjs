@@ -1,10 +1,23 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { auditRustSource, collectPlatformApiViolations } from './check-platform-apis.mjs';
 
 const repoSrcRoot = fileURLToPath(new URL('../../src-tauri/src', import.meta.url));
+
+test('the CLI resolves repository paths independently of its current directory', () => {
+  const script = fileURLToPath(new URL('./check-platform-apis.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, [script], {
+    cwd: tmpdir(),
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, `${result.error ?? ''}\n${result.stderr}`);
+  assert.match(result.stdout, /platform API audit: no ungated platform-specific APIs found\./);
+});
 
 function violationsFor(source) {
   return auditRustSource({ relativePath: 'fixture.rs', source }).violations;

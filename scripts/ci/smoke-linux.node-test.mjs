@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { nativePath, mockBashEnvironment, runBashScriptSync } from './bash-test-helpers.mjs';
 import {
   chmod,
   mkdir,
@@ -47,24 +47,16 @@ exit 42
 `,
   );
 
-  const result = spawnSync('/bin/bash', [script, artifactName, 'x86_64-unknown-linux-gnu'], {
+  const result = runBashScriptSync(script, [artifactName, 'x86_64-unknown-linux-gnu'], {
     cwd: root,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      CDPATH: root,
-      PATH: `${binDir}:${process.env.PATH}`,
-      SUDO_LOG: sudoLog,
-    },
+    env: mockBashEnvironment(binDir, { CDPATH: root, SUDO_LOG: sudoLog }),
   });
 
   assert.equal(result.status, 42, `${result.stdout}\n${result.stderr}`);
-  assert.deepEqual((await readFile(sudoLog, 'utf8')).trim().split('\n'), [
-    'apt-get',
-    'install',
-    '-y',
-    await realpath(deb),
-  ]);
+  const argumentsPassed = (await readFile(sudoLog, 'utf8')).trim().split('\n');
+  assert.deepEqual(argumentsPassed.slice(0, 3), ['apt-get', 'install', '-y']);
+  assert.equal(nativePath(argumentsPassed[3]), await realpath(deb));
+  assert.equal(argumentsPassed.length, 4);
 });
 
 test('refreshes the installed desktop database and verifies the Markdown association', async (t) => {
@@ -87,16 +79,11 @@ test('refreshes the installed desktop database and verifies the Markdown associa
 printf 'Default application for text/markdown: mdx.desktop\\n'
 `);
 
-  spawnSync('/bin/bash', [script, artifactDir, 'x86_64-unknown-linux-gnu'], {
+  const result = runBashScriptSync(script, [artifactDir, 'x86_64-unknown-linux-gnu'], {
     cwd: root,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      COMMAND_LOG: commandLog,
-      PATH: `${binDir}:${process.env.PATH}`,
-      RUNNER_TEMP: root,
-    },
+    env: mockBashEnvironment(binDir, { COMMAND_LOG: commandLog, RUNNER_TEMP: root }),
   });
+  assert.equal(result.error, undefined, String(result.error));
 
   const commands = (await readFile(commandLog, 'utf8')).trim().split('\n');
   const installIndex = commands.findIndex((command) => command.startsWith('sudo apt-get install -y '));
