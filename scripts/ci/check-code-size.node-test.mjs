@@ -7,6 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import {
+  defaultQualityConfigPath,
   findRustFileViolations,
   loadBaseline,
   parseOxlintJson,
@@ -14,10 +15,21 @@ import {
 } from './check-code-size.mjs';
 
 function makeFixtureRoot() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'code-size-'));
+  const tempDir = os.tmpdir();
+  const repoRoot = path.dirname(defaultQualityConfigPath());
+  const relativeTemp = path.relative(repoRoot, tempDir);
+  const insideRepo = !relativeTemp.startsWith('..') && !path.isAbsolute(relativeTemp);
+  const fixtureTemp = process.platform === 'win32' && insideRepo && process.env.LOCALAPPDATA
+    ? path.join(process.env.LOCALAPPDATA, 'Temp')
+    : tempDir;
+  const root = fs.mkdtempSync(path.join(fixtureTemp, 'code-size-'));
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
   fs.mkdirSync(path.join(root, 'src-tauri', 'src'), { recursive: true });
   return root;
+}
+
+function checkFixture(root, options = {}) {
+  return runCheck({ root, ...options });
 }
 
 function longFunctionSource(lines = 90) {
@@ -86,42 +98,71 @@ test('runCheck ratchets: unknown violations fail, pinned ones pass', async () =>
   );
   fs.writeFileSync(path.join(root, 'src-tauri', 'src', 'big.rs'), rustSource(501));
 
-  const first = await runCheck({ root });
+  const first = await checkFixture(root);
   assert.equal(first.ok, false);
   assert.equal(first.newKeys.length, 4);
   assert.ok(first.newKeys.every((key) => !key.includes('ignored.test.ts')));
 
-  await runCheck({ root, updateBaseline: true });
+  await checkFixture(root, { updateBaseline: true });
   assert.equal(loadBaseline(root).keys.length, 4);
-  const second = await runCheck({ root });
+  const second = await checkFixture(root);
   assert.equal(second.ok, true);
   assert.deepEqual(second.removedKeys, []);
 
   fs.writeFileSync(path.join(root, 'src', 'extra.ts'), longFunctionSource(85));
-  const third = await runCheck({ root });
+  const third = await checkFixture(root);
   assert.equal(third.ok, false);
   assert.equal(third.newKeys.length, 1);
   assert.ok(third.newKeys[0].includes('src/extra.ts'));
 
-  await runCheck({ root, updateBaseline: true });
+  await checkFixture(root, { updateBaseline: true });
   fs.unlinkSync(path.join(root, 'src', 'long.ts'));
-  const fourth = await runCheck({ root });
+  const fourth = await checkFixture(root);
   assert.equal(fourth.ok, true);
   assert.equal(fourth.removedKeys.length, 1);
   assert.ok(fourth.removedKeys[0].includes('src/long.ts'));
 });
 
+test('ratchet works when Windows TEMP is inside the ignored workspace', {
+  skip: process.platform !== 'win32' || !process.env.LOCALAPPDATA,
+}, async (t) => {
+  const previousTemp = process.env.TEMP;
+  const previousTmp = process.env.TMP;
+  const tempDir = path.join(path.dirname(defaultQualityConfigPath()), '.perf');
+  fs.mkdirSync(tempDir, { recursive: true });
+  let root;
+  try {
+    process.env.TEMP = tempDir;
+    process.env.TMP = tempDir;
+    root = makeFixtureRoot();
+  } finally {
+    if (previousTemp === undefined) delete process.env.TEMP;
+    else process.env.TEMP = previousTemp;
+    if (previousTmp === undefined) delete process.env.TMP;
+    else process.env.TMP = previousTmp;
+  }
+  t.after(() => {
+    assert.equal(path.dirname(root), path.join(process.env.LOCALAPPDATA, 'Temp'));
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  fs.writeFileSync(path.join(root, 'src', 'long.ts'), longFunctionSource());
+  const result = await checkFixture(root);
+  assert.equal(result.ok, false);
+  assert.equal(result.newKeys.length, 1);
+  assert.ok(result.newKeys[0].includes('src/long.ts'));
+});
+
 test('pinned violations survive line shifts in the same function', async () => {
   const root = makeFixtureRoot();
   fs.writeFileSync(path.join(root, 'src', 'long.ts'), longFunctionSource());
-  await runCheck({ root, updateBaseline: true });
-  assert.equal((await runCheck({ root })).ok, true);
+  await checkFixture(root, { updateBaseline: true });
+  assert.equal((await checkFixture(root)).ok, true);
 
   // Inserting lines above the pinned function moves its span but keeps the
   // same normalized key; that must not register as a new violation.
   const shifted = `export const banner = 'shifted';\n\n${longFunctionSource(95)}`;
   fs.writeFileSync(path.join(root, 'src', 'long.ts'), shifted);
-  const after = await runCheck({ root });
+  const after = await checkFixture(root);
   assert.equal(after.ok, true);
   assert.deepEqual(after.newKeys, []);
 });
