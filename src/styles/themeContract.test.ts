@@ -159,6 +159,10 @@ function renderedRoot(skin: SkinId, appearance = REPRESENTATIVE_ROOT_STYLES[skin
 }
 
 describe('application skin CSS contract', () => {
+  it('animates theme changes only when the user allows motion', () => {
+    expect(baseCss).toMatch(/@media \(prefers-reduced-motion: no-preference\)\s*\{\s*:root\[data-theme-transitioning/);
+  });
+
   it('loads the shipped Typora stylesheet from the Vite public root', () => {
     expect(indexHtml).toContain('href="/styles/typora-theme/typora-jinxiu.css"');
     expect(jinxiuMarkdownSource).not.toContain("../../public/styles/typora-theme/typora-jinxiu.css");
@@ -201,6 +205,8 @@ describe('application skin CSS contract', () => {
     expect(applicationCss).toMatch(/\.editor-status\s*\{[\s\S]*?background:\s*var\(--panel-muted\)/);
     expect(applicationCss).toMatch(/\.preview-scroll\s*\{[^}]*background:\s*var\(--preview-bg\)/);
     expect(applicationCss).toMatch(/\.typora-jinxiu\s*\{[\s\S]*?color:\s*var\(--text-reading\)/);
+    expect(applicationCss).toMatch(/\.editor-context-menu\s*\{[\s\S]*?var\(--panel-strong\)/);
+    expect(applicationCss).not.toMatch(/var\(--(?:panel-bg|hover-bg|text)\)/);
   });
 
   it('overrides the shipped Typora blockquote code-card surface in dark appearance', () => {
@@ -295,7 +301,7 @@ describe('application skin CSS contract', () => {
     const rendered = renderedRoot('original', 'dark');
     expect(rendered.token('--bg')).toBe('#0f172a');
     expect(rendered.token('--text-muted')).toBe('#64748b');
-    expect(rendered.token('--text-reading')).toBe('#a1a1aa');
+    expect(rendered.token('--text-reading')).toBe('#d4d4d8');
     expect(rendered.token('--accent')).toBe('#8eb0e0');
     expect(rendered.token('--accent-hover')).toBe('#7a9ccb');
     expect(rendered.colorScheme).toBe('dark');

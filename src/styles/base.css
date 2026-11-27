@@ -1,6 +1,12 @@
 :root {
   /* 与 src-tauri/src/models.rs 的 editor_font_size 默认值保持一致（16px），设置加载前兜底。 */
   --editor-font-size: 16px;
+  --motion-fast: 100ms;
+  --motion-base: 160ms;
+  --motion-slow: 220ms;
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   color: var(--chrome-text);
   background: var(--bg);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
@@ -97,10 +103,10 @@
   --border: #1e293b;
   --border-strong: #334155;
   --chrome-text: #cbd5e1;
-  --text-main: #a1a1aa;
+  --text-main: #d4d4d8;
   --text-muted: #64748b;
   --text-faint: #7f8da3;
-  --text-reading: #a1a1aa;
+  --text-reading: #d4d4d8;
   --accent: #8eb0e0;
   --accent-hover: #7a9ccb;
   --accent-foreground: #0f172a;
@@ -127,7 +133,7 @@
   --success: #91b9a1;
   --success-muted: #1e293b;
   --editor-bg: #0f172a;
-  --editor-text: #a1a1aa;
+  --editor-text: #d4d4d8;
   --editor-gutter-bg: #1e293b;
   --editor-gutter-text: #94a3b8;
   --editor-active-line: #1e293b;
@@ -160,7 +166,7 @@
   --mermaid-primary: #8eb0e0;
   --mermaid-primary-text: #0f172a;
   --mermaid-secondary: #1e293b;
-  --mermaid-secondary-text: #a1a1aa;
+  --mermaid-secondary-text: #d4d4d8;
   --mermaid-line: #94a3b8;
   --mermaid-background: #0f172a;
 }
@@ -802,6 +808,14 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   outline-offset: 1px;
 }
 ::selection { background: var(--editor-selection); }
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme-transitioning="true"] *,
+  :root[data-theme-transitioning="true"] *::before,
+  :root[data-theme-transitioning="true"] *::after {
+    transition: background-color 180ms ease-out, color 180ms ease-out, border-color 180ms ease-out !important;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
