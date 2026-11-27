@@ -1,11 +1,29 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+const originalTempEnvironment = {
+  TMPDIR: process.env.TMPDIR,
+  TMP: process.env.TMP,
+  TEMP: process.env.TEMP,
+};
+const scratchTemp = mkdtempSync(path.join(os.tmpdir(), 'mmd-lifecycle-evidence-scratch-'));
+process.env.TMPDIR = scratchTemp;
+process.env.TMP = scratchTemp;
+process.env.TEMP = scratchTemp;
+process.on('exit', () => {
+  for (const [name, value] of Object.entries(originalTempEnvironment)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+  rmSync(scratchTemp, { recursive: true, force: true });
+});
 
 const script = fileURLToPath(new URL('./lifecycle-evidence.mjs', import.meta.url));
 
@@ -36,17 +54,33 @@ async function fixture(t) {
   return { root, source, packaged, artifact };
 }
 
-async function gateReceipts(root) {
+async function gateReceipts(root, env = {}) {
   const receipts = [];
   for (const gate of ['durable-write-cas', 'native-trash']) {
     const receipt = path.join(root, `${gate}.json`);
     assert.equal(run([
       'run-gate', '--gate', gate, '--target', 'test-target', '--output', receipt,
       '--', process.execPath, '-e', 'process.exit(0)',
-    ]).status, 0);
+    ], env).status, 0);
     receipts.push(receipt);
   }
   return receipts;
+}
+
+async function issueChallengeAgainstEvidenceFrom(t, env) {
+  const { root, source, packaged, artifact } = await fixture(t);
+  const [cas, trash] = await gateReceipts(root, env);
+  const evidence = path.join(root, 'evidence.json');
+  const challenge = path.join(root, 'challenge.json');
+  assert.equal(run([
+    'finalize', '--target', 'test-target', '--source-binary', source,
+    '--package-variant', 'dmg', '--packaged-binary', packaged, '--package', artifact,
+    '--receipt', cas, '--receipt', trash, '--output', evidence,
+  ], env).status, 0);
+  return { challenge, result: run([
+    'issue-packaged-challenge', '--evidence', evidence, '--package-variant', 'dmg',
+    '--output', challenge,
+  ]) };
 }
 
 function minimalMachO(metadataByte) {
@@ -168,6 +202,10 @@ async function writeObservedWorkspace(challenge) {
     writeFile(challenge.stalePath, 'external competing bytes\n'),
   ]);
 }
+
+test('keeps every temp lookup inside the private scratch directory', () => {
+  assert.equal(os.tmpdir(), scratchTemp);
+});
 
 test('records a gate receipt only after the child command succeeds', async (t) => {
   const { root } = await fixture(t);
@@ -471,6 +509,27 @@ test('rejects a receipt from another workflow attempt', async (t) => {
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /receipt runAttempt mismatch/);
+});
+
+test('explains a base evidence run-attempt mismatch and how to recover', async (t) => {
+  const { challenge, result } = await issueChallengeAgainstEvidenceFrom(t, { GITHUB_RUN_ATTEMPT: '1' });
+
+  assert.notEqual(result.status, 0);
+  assert.equal(result.stderr.trim(), 'base evidence runAttempt mismatch: evidence was produced in run attempt 1 but this job runs in run attempt 2; artifacts from another run or attempt cannot be re-verified — re-run the whole workflow instead of only the failed jobs');
+  await assert.rejects(readFile(challenge, 'utf8'), /ENOENT/);
+});
+
+test('names both values for base evidence run and commit mismatches', async (t) => {
+  const cases = [
+    ['runId', { GITHUB_RUN_ID: '456' }, /^base evidence runId mismatch: evidence was produced in workflow run 456 but this job runs in workflow run 123; .*re-run the whole workflow instead of only the failed jobs$/],
+    ['commit', { GITHUB_SHA: 'b'.repeat(40) }, /^base evidence commit mismatch: evidence was produced at commit b{40} but this job runs at commit a{40}; .*re-run the whole workflow instead of only the failed jobs$/],
+  ];
+  for (const [field, env, message] of cases) {
+    const { result } = await issueChallengeAgainstEvidenceFrom(t, env);
+
+    assert.notEqual(result.status, 0, field);
+    assert.match(result.stderr.trim(), message, field);
+  }
 });
 
 test('accepts Mach-O binaries with identical text despite different signing metadata', async (t) => {

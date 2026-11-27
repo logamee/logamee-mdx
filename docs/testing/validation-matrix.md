@@ -133,16 +133,24 @@ pre-commit 运行提交幅度检查（>400 行提示、>800 行拒绝）、stage
   安装包。基础产物只有在对应平台完成安装、启动、文件关联和生命周期冒烟
   验证后，才会以 `-verified` 名称再次上传；工作流权限保持只读且不发布
   GitHub Release。
+- 在 GitHub 上只重跑失败作业（Re-run failed jobs）时，原生冒烟读取的基础证据
+  仍来自上一次运行尝试，`issue-packaged-challenge` 会报
+  `base evidence runAttempt mismatch` 并拒绝签发挑战，各平台的打包冒烟随之失败。
+  遇到这个错误应重跑整个工作流，只重跑失败作业无法通过身份校验。
 - `.github/workflows/release.yml` 在主线 push 或手动触发时构建四个平台，先执行
   非 instrumented 安装包冒烟，再以 `Latest` Release 发布。缺少完整生产信任
   秘钥时会明确回退到 unsigned 安装包并关闭 updater；配置齐全时才生成签名
   产物和 `latest.json`。本地工作流契约通过也不能替代远端 GitHub Actions 的
   真实四平台运行结果。
-- 截至 2026-10-03（波 0 完成后），`node --test scripts/ci/*.node-test.mjs`
-  为 151 项通过、5 项按平台跳过、0 项失败（含代码质量门禁脚本契约）。
-  `npm run test:perf` 仍为 41 项通过、1 项失败，`npm run test:release-tools`
-  为 138 项通过、5 项按平台跳过、0 项失败；
+- 截至 2026-11-27，`node --test scripts/ci/*.node-test.mjs` 为 159 项通过、
+  6 项按平台跳过、0 项失败（含代码质量门禁脚本契约）。`npm run test:perf`
+  仍为 41 项通过、1 项失败（`verify:m3-attestation` 契约测试要求工作流暴露
+  该步骤，但对应的 M3 证据文件与工作流步骤从未落地），`npm run test:release-tools`
+  为 142 项通过、5 项按平台跳过、0 项失败；
   这些本地契约测试不能替代远端四平台构建、冒烟和发布结果。
+- 脚本契约测试不得向系统临时目录残留夹具：逐例创建的目录用 `t.after`
+  删除；被测代码会在临时目录间接创建路径时，把 `TMPDIR`、`TMP`、`TEMP`
+  指向测试私有的 scratch 目录并在进程退出时删除。
 - Windows 启动回归须包含最近文件存储暂不可访问：在应用退出后独占打开
   `recent-files-v1.lock`，再启动应用。主窗口必须保持可用并通过共享模态反馈
   提示历史列表暂不可用，不得因可选历史数据读取失败而退出；释放锁后重启应

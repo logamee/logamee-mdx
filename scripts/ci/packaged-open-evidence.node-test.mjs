@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,23 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { sameEvidenceTarget } from './packaged-open-evidence.mjs';
+
+const originalTempEnvironment = {
+  TMPDIR: process.env.TMPDIR,
+  TMP: process.env.TMP,
+  TEMP: process.env.TEMP,
+};
+const scratchTemp = mkdtempSync(path.join(os.tmpdir(), 'mmd-open-evidence-scratch-'));
+process.env.TMPDIR = scratchTemp;
+process.env.TMP = scratchTemp;
+process.env.TEMP = scratchTemp;
+process.on('exit', () => {
+  for (const [name, value] of Object.entries(originalTempEnvironment)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+  rmSync(scratchTemp, { recursive: true, force: true });
+});
 
 const evidenceScript = fileURLToPath(new URL('./packaged-open-evidence.mjs', import.meta.url));
 
@@ -411,6 +429,10 @@ async function verifyReceipt(t, challengePath, challenge, receipt) {
   const result = run(['verify', '--challenge', challengePath, '--receipt', receiptPath, '--output', outputPath]);
   return { result, outputPath };
 }
+
+test('keeps every temp lookup inside the private scratch directory', () => {
+  assert.equal(os.tmpdir(), scratchTemp);
+});
 
 test('issues schema-2 challenge fixtures for both packaged profiles', async (t) => {
   const { challenge } = await issueChallenge(t);

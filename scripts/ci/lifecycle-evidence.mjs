@@ -398,6 +398,12 @@ function findVariant(evidence, packageVariant) {
   return matches[0];
 }
 
+function describeIdentity(field, value) {
+  if (field === 'runAttempt') return `in run attempt ${value}`;
+  if (field === 'runId') return `in workflow run ${value}`;
+  return `at commit ${value}`;
+}
+
 async function issuePackagedChallenge(arguments_) {
   const { values, command } = parse(arguments_);
   if (command.length !== 0) throw new Error('issue-packaged-challenge does not accept a command');
@@ -407,7 +413,8 @@ async function issuePackagedChallenge(arguments_) {
   const evidence = await readBaseEvidence(evidencePath);
   const identity = workflowIdentity();
   for (const field of ['runId', 'runAttempt', 'commit']) {
-    if (evidence[field] !== identity[field]) throw new Error(`base evidence ${field} mismatch`);
+    if (evidence[field] === identity[field]) continue;
+    throw new Error(`base evidence ${field} mismatch: evidence was produced ${describeIdentity(field, evidence[field])} but this job runs ${describeIdentity(field, identity[field])}; artifacts from another run or attempt cannot be re-verified — re-run the whole workflow instead of only the failed jobs`);
   }
   findVariant(evidence, packageVariant);
 

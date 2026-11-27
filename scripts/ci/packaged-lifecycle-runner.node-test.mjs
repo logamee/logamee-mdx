@@ -1,10 +1,28 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+const originalTempEnvironment = {
+  TMPDIR: process.env.TMPDIR,
+  TMP: process.env.TMP,
+  TEMP: process.env.TEMP,
+};
+const scratchTemp = mkdtempSync(path.join(os.tmpdir(), 'mmd-packaged-runner-scratch-'));
+process.env.TMPDIR = scratchTemp;
+process.env.TMP = scratchTemp;
+process.env.TEMP = scratchTemp;
+process.on('exit', () => {
+  for (const [name, value] of Object.entries(originalTempEnvironment)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+  rmSync(scratchTemp, { recursive: true, force: true });
+});
 
 const runner = fileURLToPath(new URL('./packaged-lifecycle-runner.mjs', import.meta.url));
 
@@ -41,6 +59,10 @@ async function removeChallengeRoot(challengePath) {
   await rm(challenge.root, { recursive: true, force: true });
   return challenge;
 }
+
+test('keeps every temp lookup inside the private scratch directory', () => {
+  assert.equal(os.tmpdir(), scratchTemp);
+});
 
 test('coordinates stale CAS after ignoring an empty precreated receipt and preserves canonical environment', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mmd-packaged-runner-test-'));

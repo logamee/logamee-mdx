@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { collectSizeMetrics } from './collect-size-metrics.mjs';
 
-test('collects exact app, installer, frontend and largest direct dependency sizes', async () => {
+test('collects exact app, installer, frontend and largest direct dependency sizes', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mmd-size-metrics-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, 'app'));
   await mkdir(path.join(root, 'frontend'));
   await mkdir(path.join(root, 'node_modules', 'alpha'), { recursive: true });

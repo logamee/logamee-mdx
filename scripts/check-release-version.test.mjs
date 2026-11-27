@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -10,8 +10,9 @@ import { checkReleaseVersion } from './check-release-version.mjs';
 
 const script = fileURLToPath(new URL('./check-release-version.mjs', import.meta.url));
 
-async function fixture(overrides = {}) {
+async function fixture(t, overrides = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mmd-release-version-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, 'src-tauri'));
   const versions = {
     packageJson: '0.1.0',
@@ -34,17 +35,17 @@ async function fixture(overrides = {}) {
   return root;
 }
 
-test('checks both package-lock version locations independently', async () => {
-  const root = await fixture({ packageLockPackage: '0.2.0' });
+test('checks both package-lock version locations independently', async (t) => {
+  const root = await fixture(t, { packageLockPackage: '0.2.0' });
   await assert.rejects(
     checkReleaseVersion(root, { GITHUB_REF_TYPE: 'branch' }),
     /package-lock\.json packages\[""\]: expected 0\.1\.0, found 0\.2\.0/,
   );
 });
 
-test('rejects invalid semantic versions', async () => {
+test('rejects invalid semantic versions', async (t) => {
   for (const version of ['01.0.0', '1.0.0-01', '1.0.0-alpha.01']) {
-    const root = await fixture({ packageJson: version });
+    const root = await fixture(t, { packageJson: version });
     await assert.rejects(
       checkReleaseVersion(root, { GITHUB_REF_TYPE: 'branch' }),
       /package\.json: invalid semantic version/,
@@ -52,8 +53,8 @@ test('rejects invalid semantic versions', async () => {
   }
 });
 
-test('does not read a version from a later Cargo table', async () => {
-  const root = await fixture({
+test('does not read a version from a later Cargo table', async (t) => {
+  const root = await fixture(t, {
     cargoToml: '[package]\nname = "mmd"\n\n[package.metadata.release]\nversion = "0.1.0"\n',
   });
   await assert.rejects(
@@ -62,13 +63,13 @@ test('does not read a version from a later Cargo table', async () => {
   );
 });
 
-test('accepts matching repository versions on a branch', async () => {
-  const root = await fixture();
+test('accepts matching repository versions on a branch', async (t) => {
+  const root = await fixture(t);
   assert.equal(await checkReleaseVersion(root, { GITHUB_REF_TYPE: 'branch' }), '0.1.0');
 });
 
-test('writes the checked version to the GitHub output file', async () => {
-  const root = await fixture();
+test('writes the checked version to the GitHub output file', async (t) => {
+  const root = await fixture(t);
   const output = path.join(root, 'github-output');
 
   const result = spawnSync(process.execPath, [script, '--github-output'], {
@@ -90,8 +91,8 @@ for (const [field, file] of [
   ['cargo', 'src-tauri/Cargo.toml'],
   ['tauri', 'src-tauri/tauri.conf.json'],
 ]) {
-  test(`reports a mismatch in ${file}`, async () => {
-    const root = await fixture({ [field]: '0.2.0' });
+  test(`reports a mismatch in ${file}`, async (t) => {
+    const root = await fixture(t, { [field]: '0.2.0' });
     await assert.rejects(
       checkReleaseVersion(root, { GITHUB_REF_TYPE: 'branch' }),
       new RegExp(`${file.replaceAll('.', '\\.')}: expected 0\\.1\\.0, found 0\\.2\\.0`),
@@ -99,8 +100,8 @@ for (const [field, file] of [
   });
 }
 
-test('accepts a matching v-prefixed semver tag', async () => {
-  const root = await fixture();
+test('accepts a matching v-prefixed semver tag', async (t) => {
+  const root = await fixture(t);
   assert.equal(await checkReleaseVersion(root, {
     GITHUB_REF_TYPE: 'tag',
     GITHUB_REF_NAME: 'v0.1.0',
@@ -108,8 +109,8 @@ test('accepts a matching v-prefixed semver tag', async () => {
 });
 
 for (const tag of ['0.1.0', 'latest', 'v0.2.0']) {
-  test(`rejects invalid or mismatched tag ${tag}`, async () => {
-    const root = await fixture();
+  test(`rejects invalid or mismatched tag ${tag}`, async (t) => {
+    const root = await fixture(t);
     await assert.rejects(
       checkReleaseVersion(root, { GITHUB_REF_TYPE: 'tag', GITHUB_REF_NAME: tag }),
       /release tag/,

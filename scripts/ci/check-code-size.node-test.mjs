@@ -79,16 +79,18 @@ test('parseOxlintJson keeps only quality rules and builds stable keys', () => {
   assert.match(display, /src\/a\.ts:7 max-lines-per-function/);
 });
 
-test('findRustFileViolations flags only Rust files above the limit', () => {
+test('findRustFileViolations flags only Rust files above the limit', (t) => {
   const root = makeFixtureRoot();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, 'src-tauri', 'src', 'big.rs'), rustSource(501));
   fs.writeFileSync(path.join(root, 'src-tauri', 'src', 'ok.rs'), rustSource(499));
   const violations = findRustFileViolations(root);
   assert.deepEqual([...violations.keys()], ['rs-max-lines|src-tauri/src/big.rs']);
 });
 
-test('runCheck ratchets: unknown violations fail, pinned ones pass', async () => {
+test('runCheck ratchets: unknown violations fail, pinned ones pass', async (t) => {
   const root = makeFixtureRoot();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, 'src', 'long.ts'), longFunctionSource());
   fs.writeFileSync(path.join(root, 'src', 'complex.ts'), complexFunctionSource());
   fs.writeFileSync(path.join(root, 'src', 'too-big.ts'), manyLinesSource());
@@ -152,8 +154,9 @@ test('ratchet works when Windows TEMP is inside the ignored workspace', {
   assert.ok(result.newKeys[0].includes('src/long.ts'));
 });
 
-test('pinned violations survive line shifts in the same function', async () => {
+test('pinned violations survive line shifts in the same function', async (t) => {
   const root = makeFixtureRoot();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, 'src', 'long.ts'), longFunctionSource());
   await checkFixture(root, { updateBaseline: true });
   assert.equal((await checkFixture(root)).ok, true);

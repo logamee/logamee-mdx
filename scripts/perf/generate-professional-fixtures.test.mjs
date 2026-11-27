@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { generateProfessionalFixtures } from './generate-professional-fixtures.mjs';
 
-test('generates deterministic document and canvas benchmark scenarios', async () => {
+test('generates deterministic document and canvas benchmark scenarios', async (t) => {
   const first = await mkdtemp(path.join(os.tmpdir(), 'mmd-professional-fixtures-'));
   const second = await mkdtemp(path.join(os.tmpdir(), 'mmd-professional-fixtures-'));
+  t.after(() => rm(first, { recursive: true, force: true }));
+  t.after(() => rm(second, { recursive: true, force: true }));
   const firstManifest = await generateProfessionalFixtures(first);
   const secondManifest = await generateProfessionalFixtures(second);
   assert.deepEqual(firstManifest.files, secondManifest.files);

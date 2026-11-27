@@ -38,8 +38,9 @@ test('parseGitLogNumstat counts commits, churn, renames and binaries', () => {
   assert.equal(stats.get('src/logo.png').churn, 0);
 });
 
-test('computeHotspots ranks by commits weighted by current size', () => {
+test('computeHotspots ranks by commits weighted by current size', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hotspots-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
   fs.writeFileSync(path.join(root, 'src', 'big.ts'), 'a\n'.repeat(200));
   fs.writeFileSync(path.join(root, 'src', 'small.ts'), 'a\n'.repeat(10));
