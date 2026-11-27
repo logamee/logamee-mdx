@@ -206,6 +206,7 @@ describe('application skin CSS contract', () => {
     expect(applicationCss).toMatch(/\.preview-scroll\s*\{[^}]*background:\s*var\(--preview-bg\)/);
     expect(applicationCss).toMatch(/\.typora-jinxiu\s*\{[\s\S]*?color:\s*var\(--text-reading\)/);
     expect(applicationCss).toMatch(/\.editor-context-menu\s*\{[\s\S]*?var\(--panel-strong\)/);
+    expect(applicationCss).toMatch(/\.settings-tab-panels\s*\{[^}]*scrollbar-gutter:\s*stable;[^}]*scrollbar-width:\s*thin;[^}]*scrollbar-color:\s*var\(--scrollbar-thumb\)\s+transparent;/);
     expect(applicationCss).not.toMatch(/var\(--(?:panel-bg|hover-bg|text)\)/);
   });
 

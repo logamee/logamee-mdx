@@ -594,6 +594,9 @@
 .settings-tab-panels {
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 .settings-tab-panel[data-state="inactive"] { display: none; }
 .settings-tab-panel > .settings-section:first-child { border-top: 0; }
