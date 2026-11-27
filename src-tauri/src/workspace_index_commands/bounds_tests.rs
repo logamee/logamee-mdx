@@ -13,7 +13,7 @@ use tempfile::tempdir;
 use crate::path_auth::resolve_authorized_workspace_root_for_token_inner;
 use crate::workspace_index::{CancellationToken, IndexDocument, IndexLimits, IndexQuery};
 
-use super::tests::open_workspace;
+use super::tests::{open_workspace, rebuild_without_watch};
 use super::*;
 
 #[cfg(unix)]
@@ -148,7 +148,7 @@ fn search_result_open_rechecks_the_exact_workspace_scope() {
         .initialize_recent_files(app_data.path().to_path_buf())
         .unwrap();
     let (token, root) = open_workspace(&state, directory.path());
-    let rebuilt = rebuild_workspace_index_inner(&state, &token, &root, "build-1").unwrap();
+    let rebuilt = rebuild_without_watch(&state, &token, &root);
     assert_eq!(rebuilt.status, WorkspaceIndexStatus::Ready);
 
     let prepared = open_workspace_index_result_inner(
