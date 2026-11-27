@@ -64,10 +64,17 @@ export function useWorkspaceSidebarResize({
     const nextWidth = resizeWorkspaceSidebarWidthFromKey(sidebarWidth, event.key);
     if (nextWidth === null) return;
     event.preventDefault();
+    setIsResizing(true);
     setSidebarWidth(nextWidth);
   }, [setSidebarWidth, sidebarWidth]);
 
+  const endWorkspaceSidebarResizeWithKeyboard = useCallback(() => {
+    if (dragRef.current) return;
+    setIsResizing(false);
+  }, []);
+
   return {
+    endWorkspaceSidebarResizeWithKeyboard,
     isResizing,
     moveWorkspaceSidebarResize,
     resizeWorkspaceSidebarWithKeyboard,

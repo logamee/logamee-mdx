@@ -16,7 +16,7 @@ import type { AppPaneSurfaceView } from '../preview/appPaneSurface';
 
 export type ResizerHandlers = Pick<
   ComponentProps<typeof PaneResizer>,
-  'onDoubleClick' | 'onKeyDown' | 'onPointerCancel' | 'onPointerDown' | 'onPointerMove' | 'onPointerUp'
+  'onBlur' | 'onDoubleClick' | 'onKeyDown' | 'onKeyUp' | 'onPointerCancel' | 'onPointerDown' | 'onPointerMove' | 'onPointerUp'
 >;
 type SidebarResizerProps = ComponentProps<typeof WorkspaceSidebarResizer>;
 export type PopoutButton = ComponentProps<typeof PreviewPane>['popoutButton'];

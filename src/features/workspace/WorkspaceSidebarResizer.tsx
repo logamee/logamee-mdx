@@ -9,7 +9,9 @@ import {
 import { useI18n } from '../../lib/i18n';
 
 interface WorkspaceSidebarResizerProps {
+  onBlur?: () => void;
   onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
+  onKeyUp?: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
   onPointerCancel: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -18,7 +20,9 @@ interface WorkspaceSidebarResizerProps {
 }
 
 export function WorkspaceSidebarResizer({
+  onBlur,
   onKeyDown,
+  onKeyUp,
   onPointerCancel,
   onPointerDown,
   onPointerMove,
@@ -39,7 +43,9 @@ export function WorkspaceSidebarResizer({
         aria-valuemin={MIN_WORKSPACE_SIDEBAR_WIDTH}
         aria-valuenow={sidebarWidth}
         title={t('resizeSidebar')}
+        onBlur={onBlur}
         onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
         onPointerCancel={onPointerCancel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

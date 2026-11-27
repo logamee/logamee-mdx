@@ -24,13 +24,16 @@ function Harness() {
     <>
       <WorkspaceSidebarResizer
         sidebarWidth={sidebarWidth}
+        onBlur={resize.endWorkspaceSidebarResizeWithKeyboard}
         onKeyDown={resize.resizeWorkspaceSidebarWithKeyboard}
+        onKeyUp={resize.endWorkspaceSidebarResizeWithKeyboard}
         onPointerCancel={resize.stopWorkspaceSidebarResize}
         onPointerDown={resize.startWorkspaceSidebarResize}
         onPointerMove={resize.moveWorkspaceSidebarResize}
         onPointerUp={resize.stopWorkspaceSidebarResize}
       />
       <output>{sidebarWidth}</output>
+      <output className="resizing-state">{String(resize.isResizing)}</output>
     </>
   );
 }
@@ -82,5 +85,64 @@ describe('useWorkspaceSidebarResize', () => {
     expect(container.querySelector('output')?.textContent).toBe('180');
     act(() => separator?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'End' })));
     expect(container.querySelector('output')?.textContent).toBe('420');
+  });
+
+  function renderHarness() {
+    act(() => root.render(<Harness />));
+    return {
+      isResizing: () => container.querySelector('output.resizing-state')?.textContent,
+      separator: () => container.querySelector<HTMLButtonElement>('.workspace-sidebar-resizer'),
+    };
+  }
+
+  it('marks the resize state while a key applies a step and clears it on key-up', () => {
+    const { isResizing, separator } = renderHarness();
+
+    act(() => separator()?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowRight' })));
+    expect(separator()?.getAttribute('aria-valuenow')).toBe('280');
+    expect(isResizing()).toBe('true');
+
+    act(() => separator()?.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'ArrowRight' })));
+    expect(isResizing()).toBe('false');
+  });
+
+  it('clears the resize state when the resizer loses focus', () => {
+    const { isResizing, separator } = renderHarness();
+
+    act(() => separator()?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'End' })));
+    expect(isResizing()).toBe('true');
+
+    act(() => separator()?.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+    expect(isResizing()).toBe('false');
+  });
+
+  it('does not mark the resize state for keys that apply no step', () => {
+    const { isResizing, separator } = renderHarness();
+
+    act(() => separator()?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' })));
+
+    expect(separator()?.getAttribute('aria-valuenow')).toBe('264');
+    expect(isResizing()).toBe('false');
+  });
+
+  it('keeps a pointer drag resizing when a key is released or focus moves mid-drag', () => {
+    const { isResizing, separator } = renderHarness();
+    const target = separator();
+    if (!target) throw new Error('sidebar resizer is missing');
+    Object.assign(target, {
+      hasPointerCapture: () => true,
+      releasePointerCapture: vi.fn<(pointerId: number) => void>(),
+      setPointerCapture: vi.fn<(pointerId: number) => void>(),
+    });
+
+    act(() => target.dispatchEvent(pointerEvent('pointerdown', { clientX: 300, pointerId: 7 })));
+    expect(isResizing()).toBe('true');
+
+    act(() => target.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'ArrowRight' })));
+    act(() => target.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+    expect(isResizing()).toBe('true');
+
+    act(() => target.dispatchEvent(pointerEvent('pointerup', { clientX: 300, pointerId: 7 })));
+    expect(isResizing()).toBe('false');
   });
 });

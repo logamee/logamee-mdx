@@ -44,4 +44,31 @@ describe('PaneResizer', () => {
     });
     expect(onDoubleClick).toHaveBeenCalledTimes(1);
   });
+
+  it('forwards key-up and blur so a keyboard resize can end', () => {
+    const onBlur = vi.fn<() => void>();
+    const onKeyUp = vi.fn<() => void>();
+    act(() => {
+      root.render(
+        <PaneResizer
+          editorPaneRatio={0.35}
+          onBlur={onBlur}
+          onDoubleClick={vi.fn<() => void>()}
+          onKeyDown={vi.fn<() => void>()}
+          onKeyUp={onKeyUp}
+          onPointerCancel={vi.fn<() => void>()}
+          onPointerDown={vi.fn<() => void>()}
+          onPointerMove={vi.fn<() => void>()}
+          onPointerUp={vi.fn<() => void>()}
+        />,
+      );
+    });
+    const separator = container.querySelector<HTMLButtonElement>('[role="separator"]');
+
+    act(() => separator?.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'ArrowRight' })));
+    act(() => separator?.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+
+    expect(onKeyUp).toHaveBeenCalledTimes(1);
+    expect(onBlur).toHaveBeenCalledTimes(1);
+  });
 });

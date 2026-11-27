@@ -45,6 +45,7 @@ export interface WorkspaceMainAreaComposites {
     };
   };
   paneResize: {
+    endPaneResizeWithKeyboard?: () => void;
     isResizing?: boolean;
     resetPaneRatio?: () => void;
     resizePaneWithKeyboard: ResizerHandlers['onKeyDown'];
@@ -53,6 +54,7 @@ export interface WorkspaceMainAreaComposites {
     movePaneResize: ResizerHandlers['onPointerMove'];
   };
   sidebarResize: {
+    endWorkspaceSidebarResizeWithKeyboard?: () => void;
     isResizing?: boolean;
     resizeWorkspaceSidebarWithKeyboard: ResizerHandlers['onKeyDown'];
     stopWorkspaceSidebarResize: ResizerHandlers['onPointerCancel'];
@@ -106,8 +108,10 @@ function buildMainAreaView(ctx: WorkspaceMainAreaComposites): WorkspaceMainAreaV
     onQuickOpen: ctx.onQuickOpen,
     openPreviewPopout: paneViews.openPreviewPopout,
     paneResizer: {
+      onBlur: ctx.paneResize.endPaneResizeWithKeyboard,
       onDoubleClick: ctx.paneResize.resetPaneRatio,
       onKeyDown: ctx.paneResize.resizePaneWithKeyboard,
+      onKeyUp: ctx.paneResize.endPaneResizeWithKeyboard,
       onPointerCancel: ctx.paneResize.stopPaneResize as () => void,
       onPointerDown: ctx.paneResize.startPaneResize,
       onPointerMove: ctx.paneResize.movePaneResize,
@@ -124,7 +128,9 @@ function buildMainAreaView(ctx: WorkspaceMainAreaComposites): WorkspaceMainAreaV
     setWorkspaceMoveOperation: panels.tree.setWorkspaceMoveOperation,
     sidebarResizerHandlers: {
       sidebarWidth: ctx.sidebarWidth,
+      onBlur: ctx.sidebarResize.endWorkspaceSidebarResizeWithKeyboard,
       onKeyDown: ctx.sidebarResize.resizeWorkspaceSidebarWithKeyboard,
+      onKeyUp: ctx.sidebarResize.endWorkspaceSidebarResizeWithKeyboard,
       onPointerCancel: ctx.sidebarResize.stopWorkspaceSidebarResize as () => void,
       onPointerDown: ctx.sidebarResize.startWorkspaceSidebarResize,
       onPointerMove: ctx.sidebarResize.moveWorkspaceSidebarResize,

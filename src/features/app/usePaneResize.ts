@@ -50,11 +50,18 @@ export function usePaneResize({ editorPaneRatio, setEditorPaneRatio }: UsePaneRe
     const nextRatio = resizeEditorPaneRatioFromKey(editorPaneRatio, event.key, event.shiftKey);
     if (nextRatio === null) return;
     event.preventDefault();
+    setIsResizing(true);
     setEditorPaneRatio(() => nextRatio);
   }, [editorPaneRatio, setEditorPaneRatio]);
 
+  const endPaneResizeWithKeyboard = useCallback(() => {
+    if (dragRef.current) return;
+    setIsResizing(false);
+  }, []);
+
   return {
     editorPaneRef,
+    endPaneResizeWithKeyboard,
     isResizing,
     movePaneResize,
     previewPaneRef,

@@ -7,8 +7,10 @@ import { useI18n } from '../lib/i18n';
 
 interface PaneResizerProps {
   editorPaneRatio: number;
+  onBlur?: () => void;
   onDoubleClick?: () => void;
   onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
+  onKeyUp?: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
   onPointerCancel: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -17,8 +19,10 @@ interface PaneResizerProps {
 
 export function PaneResizer({
   editorPaneRatio,
+  onBlur,
   onDoubleClick,
   onKeyDown,
+  onKeyUp,
   onPointerCancel,
   onPointerDown,
   onPointerMove,
@@ -38,8 +42,10 @@ export function PaneResizer({
         aria-valuemax={75}
         aria-valuenow={Math.round(editorPaneRatio * 100)}
         title={t('resizePanes')}
+        onBlur={onBlur}
         onDoubleClick={onDoubleClick}
         onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
