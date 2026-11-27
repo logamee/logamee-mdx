@@ -16,6 +16,7 @@
 | 代码质量门禁语义与阈值 | 同上「代码质量门禁」一节 |
 | 代码质量存量违规偿还计划 | [`plans/code-quality-refactor-plan.md`](plans/code-quality-refactor-plan.md) |
 | 重构分波实施计划 | [`plans/wave-0-cleanup-and-mechanisms.md`](plans/wave-0-cleanup-and-mechanisms.md)（波 0，后续波次同目录命名） |
+| UI/UX 与动效质感分阶段实施方案 | [`plans/ui-ux-motion-polish-plan.md`](plans/ui-ux-motion-polish-plan.md) |
 | 10k/100k 工作区索引性能基线 | [`performance-baselines.md`](performance-baselines.md) |
 
 ## 文档关系

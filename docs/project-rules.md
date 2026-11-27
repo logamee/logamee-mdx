@@ -16,6 +16,7 @@
 - 性能基线契约：[`docs/performance-baselines.md`](../../docs/performance-baselines.md)
 - 代码质量偿还计划：[`docs/plans/code-quality-refactor-plan.md`](../plans/code-quality-refactor-plan.md)
 - 重构波次实施计划：[`docs/plans/wave-0-cleanup-and-mechanisms.md`](../plans/wave-0-cleanup-and-mechanisms.md)、[波 1](../plans/wave-1-hotspot-decomposition.md)
+- UI/UX 与动效质感实施方案：[`docs/plans/ui-ux-motion-polish-plan.md`](../plans/ui-ux-motion-polish-plan.md)
 
 ## 变更路由
 
