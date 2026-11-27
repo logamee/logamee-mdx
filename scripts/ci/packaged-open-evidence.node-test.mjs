@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
 import { mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,24 +8,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { sameEvidenceTarget } from './packaged-open-evidence.mjs';
+import { usePrivateScratchTemp } from './test-scratch-temp.mjs';
 
-const originalTempEnvironment = {
-  TMPDIR: process.env.TMPDIR,
-  TMP: process.env.TMP,
-  TEMP: process.env.TEMP,
-};
-const scratchTemp = mkdtempSync(path.join(os.tmpdir(), 'mmd-open-evidence-scratch-'));
-process.env.TMPDIR = scratchTemp;
-process.env.TMP = scratchTemp;
-process.env.TEMP = scratchTemp;
-process.on('exit', () => {
-  for (const [name, value] of Object.entries(originalTempEnvironment)) {
-    if (value === undefined) delete process.env[name];
-    else process.env[name] = value;
-  }
-  rmSync(scratchTemp, { recursive: true, force: true });
-});
-
+const scratchTemp = usePrivateScratchTemp('mmd-open-evidence-scratch-');
 const evidenceScript = fileURLToPath(new URL('./packaged-open-evidence.mjs', import.meta.url));
 
 function run(arguments_) {

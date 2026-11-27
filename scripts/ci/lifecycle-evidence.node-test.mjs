@@ -1,30 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const originalTempEnvironment = {
-  TMPDIR: process.env.TMPDIR,
-  TMP: process.env.TMP,
-  TEMP: process.env.TEMP,
-};
-const scratchTemp = mkdtempSync(path.join(os.tmpdir(), 'mmd-lifecycle-evidence-scratch-'));
-process.env.TMPDIR = scratchTemp;
-process.env.TMP = scratchTemp;
-process.env.TEMP = scratchTemp;
-process.on('exit', () => {
-  for (const [name, value] of Object.entries(originalTempEnvironment)) {
-    if (value === undefined) delete process.env[name];
-    else process.env[name] = value;
-  }
-  rmSync(scratchTemp, { recursive: true, force: true });
-});
+import { usePrivateScratchTemp } from './test-scratch-temp.mjs';
 
+const scratchTemp = usePrivateScratchTemp('mmd-lifecycle-evidence-scratch-');
 const script = fileURLToPath(new URL('./lifecycle-evidence.mjs', import.meta.url));
 
 function run(args, env = {}) {

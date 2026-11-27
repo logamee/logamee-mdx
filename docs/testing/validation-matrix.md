@@ -142,7 +142,7 @@ pre-commit 运行提交幅度检查（>400 行提示、>800 行拒绝）、stage
   秘钥时会明确回退到 unsigned 安装包并关闭 updater；配置齐全时才生成签名
   产物和 `latest.json`。本地工作流契约通过也不能替代远端 GitHub Actions 的
   真实四平台运行结果。
-- 截至 2026-11-27，`node --test scripts/ci/*.node-test.mjs` 为 159 项通过、
+- 截至 2026-11-27，`node --test scripts/ci/*.node-test.mjs` 为 162 项通过、
   6 项按平台跳过、0 项失败（含代码质量门禁脚本契约）。`npm run test:perf`
   仍为 41 项通过、1 项失败（`verify:m3-attestation` 契约测试要求工作流暴露
   该步骤，但对应的 M3 证据文件与工作流步骤从未落地），`npm run test:release-tools`
@@ -150,7 +150,9 @@ pre-commit 运行提交幅度检查（>400 行提示、>800 行拒绝）、stage
   这些本地契约测试不能替代远端四平台构建、冒烟和发布结果。
 - 脚本契约测试不得向系统临时目录残留夹具：逐例创建的目录用 `t.after`
   删除；被测代码会在临时目录间接创建路径时，把 `TMPDIR`、`TMP`、`TEMP`
-  指向测试私有的 scratch 目录并在进程退出时删除。
+  指向测试私有的 scratch 目录，并在进程退出时经
+  `scripts/ci/test-scratch-temp.mjs` 带重试地删除；删除失败只告警，不得
+  让已通过的测试运行以失败退出。
 - Windows 启动回归须包含最近文件存储暂不可访问：在应用退出后独占打开
   `recent-files-v1.lock`，再启动应用。主窗口必须保持可用并通过共享模态反馈
   提示历史列表暂不可用，不得因可选历史数据读取失败而退出；释放锁后重启应
