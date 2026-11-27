@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps -- 纯搬移：聚焦效果依赖保持提取前原样 */
 import { useEffect } from 'react';
 import { useI18n } from '../../lib/i18n';
+import { isImeCompositionKey } from '../../lib/imeComposition';
 import type { WorkspaceFileTreeNode } from '../../lib/fileTree';
 import type { WorkspaceTreeTarget } from './fileTreeRowInteractions';
 
@@ -33,6 +34,7 @@ export function TreeRowRenameInput({
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
+        if (isImeCompositionKey(event.nativeEvent)) return;
         if (event.key === 'Enter') {
           event.preventDefault();
           commitRename();
