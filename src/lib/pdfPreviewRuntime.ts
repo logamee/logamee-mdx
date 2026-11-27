@@ -5,7 +5,9 @@ import {
   PdfResourceLimitError,
   assertPdfPageCount,
   decodePdfBase64,
+  fitPdfOutputScale,
   runPdfPageQueue,
+  type PdfPageSize,
 } from './pdfRenderScheduler';
 import {
   cancelRenderTasks,
@@ -75,17 +77,35 @@ function launchPdfLoadingTask(
   return job.loadingTask;
 }
 
+async function resolveOutputScale(
+  job: PdfPreviewJob,
+  pdfDocument: PdfDocument,
+  zoomPercent: number,
+  deviceScale: number,
+): Promise<number> {
+  const pageSizes: PdfPageSize[] = [];
+  for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber += 1) {
+    throwIfStopped(job);
+    const page = await pdfDocument.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: zoomPercent / 100 });
+    pageSizes.push({ height: viewport.height, width: viewport.width });
+  }
+  return fitPdfOutputScale(pageSizes, deviceScale);
+}
+
 // 解析落定后按队列渲染全部页面，渲染队列随解析承诺一起接受超时护栏。
 async function renderLoadedPages(
   options: StartPdfPreviewOptions,
   job: PdfPreviewJob,
   loadingTask: PdfLoadingTask,
-  outputScale: number,
+  deviceScale: number,
 ): Promise<void> {
   let renderQueue: Promise<void> | null = null;
-  const preparedDocument = loadingTask.promise.then((pdfDocument: PdfDocument) => {
+  const preparedDocument = loadingTask.promise.then(async (pdfDocument: PdfDocument) => {
     throwIfStopped(job);
     assertPdfPageCount(pdfDocument.numPages);
+    const outputScale = await resolveOutputScale(job, pdfDocument, options.zoomPercent, deviceScale);
+    throwIfStopped(job);
     renderQueue = runPdfPageQueue({
       pageCount: pdfDocument.numPages,
       signal: job.abortController.signal,

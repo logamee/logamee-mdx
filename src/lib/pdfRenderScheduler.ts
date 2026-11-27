@@ -15,6 +15,13 @@ export class PdfResourceLimitError extends Error {
   }
 }
 
+export class PdfOutputBudgetError extends PdfResourceLimitError {
+  constructor() {
+    super('PDF output scale cannot fit the live canvas budget');
+    this.name = 'PdfOutputBudgetError';
+  }
+}
+
 export class PdfDeadlineError extends Error {
   constructor(message = 'PDF operation deadline exceeded') {
     super(message);
@@ -167,6 +174,51 @@ export class PdfCanvasBudget {
     this.allocations.clear();
     this.allocatedPixels = 0;
   }
+}
+
+export interface PdfPageSize {
+  height: number;
+  width: number;
+}
+
+function pdfPageSizeInvalid({ width, height }: PdfPageSize): boolean {
+  return !Number.isFinite(width)
+    || width <= 0
+    || !Number.isFinite(height)
+    || height <= 0;
+}
+
+function pdfOutputPixels(pageSizes: readonly PdfPageSize[], scale: number): number {
+  return pageSizes.reduce(
+    (total, { width, height }) => total + Math.ceil(width * scale) * Math.ceil(height * scale),
+    0,
+  );
+}
+
+export function fitPdfOutputScale(
+  pageSizes: readonly PdfPageSize[],
+  deviceScale: number,
+): number {
+  if (
+    pageSizes.length === 0
+    || !Number.isFinite(deviceScale)
+    || deviceScale <= 0
+    || pageSizes.some(pdfPageSizeInvalid)
+  ) {
+    throw new PdfResourceLimitError();
+  }
+  const budget = PDF_PREVIEW_LIMITS.maxLiveCanvasPixels;
+  if (pdfOutputPixels(pageSizes, deviceScale) <= budget) return deviceScale;
+  const minimumScale = Math.min(1, deviceScale);
+  if (pdfOutputPixels(pageSizes, minimumScale) > budget) throw new PdfOutputBudgetError();
+  let fitting = minimumScale;
+  let overflowing = deviceScale;
+  for (let iteration = 0; iteration < 12; iteration += 1) {
+    const middle = (fitting + overflowing) / 2;
+    if (pdfOutputPixels(pageSizes, middle) <= budget) fitting = middle;
+    else overflowing = middle;
+  }
+  return fitting;
 }
 
 function throwIfCancelled(signal: AbortSignal): void {

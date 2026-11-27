@@ -31,7 +31,7 @@ export function PdfPreview({
   const identity = `${documentId}:${documentEpoch}`;
   const reportFailure = usePdfPreviewFailureReport(identity, onFeedback, t('pdfPreviewFailure'));
   const { status, zoomHandlers, zoomPercent } = usePdfPreviewController({
-    assetManifest, bytesBase64, enabled, identity, reportFailure, viewportRef,
+    assetManifest, bytesBase64, enabled, identity, limitMessage: t('pdfPreviewLimit'), reportFailure, viewportRef,
   });
 
   return (

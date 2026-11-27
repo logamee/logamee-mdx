@@ -7,8 +7,10 @@ import {
   assertPdfPageCount,
   assertPdfSourceByteLength,
   decodePdfBase64,
+  fitPdfOutputScale,
   getPdfCanvasAllocation,
   runPdfPageQueue,
+  PdfOutputBudgetError,
 } from './pdfRenderScheduler';
 
 interface Deferred {
@@ -25,6 +27,27 @@ function deferred(): Deferred {
 }
 
 describe('PDF render resource scheduler', () => {
+  it('lowers the output scale of long documents so every page fits the live canvas budget', () => {
+    const a4 = { height: 842, width: 595 };
+    const pixelsAt = (scale: number, pages: number) => Array.from({ length: pages }, () => a4).reduce(
+      (total, { width, height }) => total + Math.ceil(width * scale) * Math.ceil(height * scale),
+      0,
+    );
+
+    expect(fitPdfOutputScale(Array.from({ length: 20 }, () => a4), 2)).toBe(2);
+
+    const fitted = fitPdfOutputScale(Array.from({ length: 35 }, () => a4), 2);
+    expect(fitted).toBeGreaterThan(1);
+    expect(fitted).toBeLessThan(2);
+    expect(pixelsAt(fitted, 35)).toBeLessThanOrEqual(PDF_PREVIEW_LIMITS.maxLiveCanvasPixels);
+    expect(pixelsAt(fitted + 0.01, 35)).toBeGreaterThan(PDF_PREVIEW_LIMITS.maxLiveCanvasPixels);
+
+    expect(() => fitPdfOutputScale(Array.from({ length: 200 }, () => a4), 2)).toThrow(PdfOutputBudgetError);
+    expect(() => fitPdfOutputScale([], 2)).toThrow(PdfResourceLimitError);
+    expect(() => fitPdfOutputScale([a4], 0)).toThrow(PdfResourceLimitError);
+    expect(() => fitPdfOutputScale([{ height: Number.NaN, width: 595 }], 2)).toThrow(PdfResourceLimitError);
+  });
+
   it('decodes canonical base64 locally and rejects malformed or oversized sources before allocation', () => {
     expect(Array.from(decodePdfBase64('JVBERi0xLjQ='))).toEqual([
       0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34,

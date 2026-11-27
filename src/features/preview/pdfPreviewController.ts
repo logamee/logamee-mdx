@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps -- 纯搬移：效果依赖保持提取前原样，由 PdfPreview.test.tsx 回归约束 */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadPdfAssetManifest, type PdfAssetManifest } from '../../lib/pdfAssetManifest';
+import { PdfOutputBudgetError } from '../../lib/pdfRenderScheduler';
 import { startPdfPreview } from '../../lib/pdfPreviewRuntime';
 import { PREVIEW_ZOOM_POLICY, reducePreviewZoom, type PreviewZoomAction } from '../../lib/previewZoom';
 
@@ -76,14 +77,15 @@ export function usePdfPreviewController(deps: {
   bytesBase64: string | null;
   enabled: boolean;
   identity: string;
-  reportFailure: () => void;
+  limitMessage: string;
+  reportFailure: (override?: string) => void;
   viewportRef: React.RefObject<HTMLDivElement | null>;
 }): {
   status: PdfPreviewStatus;
   zoomHandlers: { onDecrease: () => void; onIncrease: () => void; onReset: () => void };
   zoomPercent: number;
 } {
-  const { assetManifest, bytesBase64, enabled, identity, reportFailure, viewportRef } = deps;
+  const { assetManifest, bytesBase64, enabled, identity, limitMessage, reportFailure, viewportRef } = deps;
   const [loadedManifest, setLoadedManifest] = useState<PdfAssetManifest | null>(null);
   const [status, setStatus] = useState<PdfPreviewStatus>('idle');
   const { decrease, increase, reset, zoomPercent } = usePreviewZoomState(identity);
@@ -107,17 +109,17 @@ export function usePdfPreviewController(deps: {
     const run = startPdfPreview({ assetManifest: effectiveManifest, bytesBase64, container, zoomPercent });
     void run.done.then(() => {
       if (current) setStatus('ready');
-    }).catch(() => {
+    }).catch((error: unknown) => {
       if (!current) return;
       setStatus('failed');
-      reportFailure();
+      reportFailure(error instanceof PdfOutputBudgetError ? limitMessage : undefined);
     });
 
     return () => {
       current = false;
       run.cancel();
     };
-  }, [bytesBase64, canPreview, effectiveManifest, enabled, identity, reportFailure, zoomPercent]);
+  }, [bytesBase64, canPreview, effectiveManifest, enabled, identity, limitMessage, reportFailure, zoomPercent]);
 
   return { status, zoomHandlers: { onDecrease: decrease, onIncrease: increase, onReset: reset }, zoomPercent };
 }
@@ -127,11 +129,11 @@ export function usePdfPreviewFailureReport(
   identity: string,
   onFeedback: (feedback: { kind: 'error'; message: string }) => void,
   message: string,
-): () => void {
+): (override?: string) => void {
   const reportedFailureIdentityRef = useRef<string | null>(null);
-  return useCallback(() => {
+  return useCallback((override?: string) => {
     if (reportedFailureIdentityRef.current === identity) return;
     reportedFailureIdentityRef.current = identity;
-    onFeedback({ kind: 'error', message });
+    onFeedback({ kind: 'error', message: override ?? message });
   }, [identity, message, onFeedback]);
 }

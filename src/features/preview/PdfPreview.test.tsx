@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PdfAssetManifest } from '../../lib/pdfAssetManifest';
 import type { PdfPreviewRun } from '../../lib/pdfPreviewRuntime';
+import { PdfOutputBudgetError } from '../../lib/pdfRenderScheduler';
 import { PdfPreview, type PdfPreviewFeedback } from './PdfPreview';
 
 interface Deferred<T = void> {
@@ -167,6 +168,27 @@ describe('PdfPreview', () => {
       zoomPercent: 100,
     });
     expect(container.querySelector('.preview-zoom-value')?.textContent).toBe('100%');
+  });
+
+  it('explains a render-budget failure instead of blaming the file', async () => {
+    await act(async () => root.render(
+      <PdfPreview
+        assetManifest={manifest}
+        bytesBase64="JVBERg=="
+        documentEpoch={1}
+        documentId="document-budget"
+        onFeedback={onFeedback}
+      />,
+    ));
+
+    await act(async () => runs[0]!.reject(new PdfOutputBudgetError()));
+
+    expect(onFeedback).toHaveBeenCalledOnce();
+    expect(onFeedback).toHaveBeenCalledWith({
+      kind: 'error',
+      message: 'This PDF is too long to display at this size. Zoom out and try again, or open it in another application.',
+    });
+    expect(container.textContent).not.toContain('damaged');
   });
 
   it('suppresses stale failure and routes the current friendly failure through onFeedback once', async () => {

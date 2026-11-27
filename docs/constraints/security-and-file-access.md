@@ -100,7 +100,7 @@ Rust 端在实际打开、读取、写入、重命名、移动、删除和提供
 | 资源 | 当前上限 | 主要实现 |
 |---|---:|---|
 | 图片输入 | 64 MiB | `src-tauri/src/commands.rs`、`src/lib/p2BinaryPolicy.test.ts` |
-| PDF 输入 | 64 MiB；最多 500 页；单页最多 32M 像素；活动画布最多 64M 像素；最多 2 个并发渲染；解析/单页超时 30s/15s | `src/lib/pdfRenderScheduler.ts`、`pdfPreviewRuntime.ts` |
+| PDF 输入 | 64 MiB；最多 500 页；单页最多 32M 像素；活动画布最多 64M 像素（页数较多时整体降低输出倍率且不低于 1，以守住该预算）；最多 2 个并发渲染；解析/单页超时 30s/15s | `src/lib/pdfRenderScheduler.ts`、`pdfPreviewRuntime.ts` |
 | DOCX 输入 | 32 MiB；ZIP 最多 10,000 个条目、展开后最多 128 MiB，展开比最多 100 倍 | `docx_preflight.rs`、`docxWorkerConversion.ts` |
 | DOCX 预览 HTML | 4 MiB；最多 50,000 个节点/图片；单图 8 MiB/24M 像素；总图 32 MiB/64M 像素 | `src/lib/docxResources.ts`、`docxSanitizer.ts` |
 | 一般工作区资源 | 16 MiB | `resource_store.rs` |

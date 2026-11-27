@@ -272,8 +272,10 @@ describe('PDF.js preview runtime', () => {
     });
     void run.done.catch(() => undefined);
 
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(pages[0]!.render).toHaveBeenCalledOnce();
+      expect(pages[1]!.render).toHaveBeenCalledOnce();
+    });
     run.cancel();
     await expect(run.done).rejects.toBeInstanceOf(PdfCancelledError);
 
@@ -370,6 +372,27 @@ describe('PDF.js preview runtime', () => {
 
     expect(canvas.isConnected).toBe(false);
     expect(container.querySelector('canvas')).toBeNull();
+  });
+
+  it('renders every page of a long document inside the live canvas budget by lowering the output scale', async () => {
+    const pages = Array.from({ length: 35 }, () => createPage(595, 842));
+    pdfjsMock.getDocument.mockReturnValueOnce(loadingTask(createDocument(pages)));
+
+    await startPdfPreview({
+      assetManifest: manifest,
+      bytesBase64: 'JVBERg==',
+      container,
+      zoomPercent: 100,
+    }).done;
+
+    const canvases = Array.from(container.querySelectorAll('canvas'));
+    expect(canvases.map((canvas) => canvas.dataset.pageNumber)).toHaveLength(35);
+    expect(pages.every((page) => page.render.mock.calls.length === 1)).toBe(true);
+    expect(canvases.every((canvas) => canvas.style.width === '595px' && canvas.style.height === '842px')).toBe(true);
+    expect(canvases.every((canvas) => canvas.width >= 595 && canvas.width < 1190)).toBe(true);
+    const livePixels = canvases.reduce((total, canvas) => total + canvas.width * canvas.height, 0);
+    expect(livePixels).toBeLessThanOrEqual(PDF_PREVIEW_LIMITS.maxLiveCanvasPixels);
+    expect(livePixels).toBeGreaterThan(PDF_PREVIEW_LIMITS.maxLiveCanvasPixels * 0.9);
   });
 
   it('rejects excessive pages, page pixels, and aggregate live pixels before unsafe work survives', async () => {
