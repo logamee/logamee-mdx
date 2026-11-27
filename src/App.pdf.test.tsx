@@ -14,6 +14,7 @@ const appMocks = vi.hoisted(() => ({
   excalidrawPane: vi.fn<(props: Record<string, unknown>) => null>(() => null),
   jinxiuMarkdown: vi.fn<(props: Record<string, unknown>) => null>(() => null),
   paneResizer: vi.fn<(props: Record<string, unknown>) => null>(() => null),
+  openPanePopout: vi.fn<(pane: 'editor' | 'preview') => Promise<void>>(async () => undefined),
   pdfPreview: vi.fn<(props: Record<string, unknown>) => null>(() => null),
   workspaceImagePreview: vi.fn<(props: Record<string, unknown>) => null>(() => null),
   workspaceMediaPreview: vi.fn<(props: Record<string, unknown>) => null>(() => null),
@@ -57,10 +58,8 @@ vi.mock('./features/app/usePanePopouts', () => ({
   usePanePopouts: () => ({
     closePopoutWindows: vi.fn<() => Promise<void>>(async () => undefined),
     editorPopoutButton: undefined,
-    openPanePopout: vi.fn<(pane: 'editor' | 'preview') => Promise<void>>(
-      async () => undefined,
-    ),
-    previewPopoutButton: undefined,
+    openPanePopout: appMocks.openPanePopout,
+    previewPopoutButton: { ariaLabel: 'Open preview window', title: 'Open preview window', isPoppedOut: false },
   }),
 }));
 vi.mock('./features/app/useProgramCloseGuard', () => ({
@@ -289,6 +288,7 @@ describe('App binary document composition', () => {
     appMocks.excalidrawPane.mockClear();
     appMocks.jinxiuMarkdown.mockClear();
     appMocks.paneResizer.mockClear();
+    appMocks.openPanePopout.mockClear();
     appMocks.pdfPreview.mockClear();
     appMocks.workspaceImagePreview.mockClear();
     appMocks.workspaceMediaPreview.mockClear();
@@ -682,6 +682,42 @@ describe('App binary document composition', () => {
       'The operation could not be completed. Please try again.',
     );
     expect(session.setNotice).toHaveBeenLastCalledWith(null);
+  });
+
+  it.each([
+    ['New Markdown File', 'Untitled.md', 'markdown'],
+    ['New Excalidraw File', 'Untitled.excalidraw', 'excalidraw'],
+    ['New Folder', 'New Folder', 'folder'],
+  ] as const)('routes the sidebar’s %s action to the current workspace', async (label, name, kind) => {
+    const session = createTextSession('markdown');
+    appMocks.useDocumentSession.mockReturnValue(session);
+    await act(async () => root.render(<App />));
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Add workspace item"]')!.click());
+    const item = Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+      .find((button) => button.textContent === label)!;
+    act(() => item.click());
+    expect(container.querySelector<HTMLInputElement>('.workspace-entry-dialog input')?.value).toBe(name);
+    act(() => container.querySelector<HTMLButtonElement>('.workspace-entry-dialog [type="submit"]')!.click());
+    expect(session.createFolderInWorkspace.mock.calls).toEqual(kind === 'folder' ? [['/workspace', name]] : []);
+    expect(session.createFileInWorkspace.mock.calls).toEqual(kind === 'folder' ? [] : [['/workspace', name, kind]]);
+  });
+
+  it('opens a folder from the empty sidebar and refreshes the current workspace', async () => {
+    const session = createTextSession('markdown');
+    appMocks.useDocumentSession.mockReturnValue(session);
+    await act(async () => root.render(<App />));
+    act(() => container.querySelector<HTMLButtonElement>('button.empty-sidebar')!.click());
+    expect(session.handleOpenDirectory).toHaveBeenCalledOnce();
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Refresh workspace"]')!.click());
+    expect(session.refreshWorkspace).toHaveBeenCalledOnce();
+  });
+
+  it.each(['markdown', 'pdf'] as const)('opens the preview window from the %s pane header', async (kind) => {
+    const session = kind === 'pdf' ? createBinarySession(kind, 'committed') : createTextSession(kind);
+    appMocks.useDocumentSession.mockReturnValue(session);
+    await act(async () => root.render(<App />));
+    act(() => container.querySelector<HTMLButtonElement>('.preview-pane [aria-label="Open preview window"]')!.click());
+    expect(appMocks.openPanePopout).toHaveBeenCalledExactlyOnceWith('preview');
   });
 
   it('routes inline rename and the move sheet through the workspace session', async () => {

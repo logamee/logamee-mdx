@@ -117,18 +117,31 @@ export interface EditorPanePropRefs {
   vimModeEnabledRef: { current: boolean };
 }
 
+type EditorContextMenuLabelKey =
+  | 'contextBold'
+  | 'contextItalic'
+  | 'contextStrikethrough'
+  | 'contextInlineCode'
+  | 'contextLink'
+  | 'contextImagePlaceholder'
+  | 'contextTable'
+  | 'contextCodeBlock'
+  | 'contextFormula'
+  | 'contextAlertBlock'
+  | 'contextMoreFormats';
+
 export type EditorContextMenuItem =
   | {
     command: MarkdownFormatCommandId;
     icon: LucideIcon;
     kind: 'command';
-    label: string;
+    labelKey: EditorContextMenuLabelKey;
   }
   | {
     action: EditorContextMenuInsertAction | 'open-format-palette';
     icon: LucideIcon;
     kind: 'action';
-    label: string;
+    labelKey: EditorContextMenuLabelKey;
   }
   | { kind: 'separator' };
 

@@ -37,6 +37,7 @@ export interface FileSidebarProps {
   onOpenDirectory?: () => void;
   onOpenFile: (path: string) => void;
   onPasteEntry?: (destinationParentPath: string) => void;
+  onQuickOpen?: () => void;
   onRefreshWorkspace: () => void;
   onRenameEntry: (path: string, newName: string, kind: 'file' | 'folder') => void;
   onRequestMove: (target: Exclude<FileTreeContextTarget, { kind: 'root' }>) => void;

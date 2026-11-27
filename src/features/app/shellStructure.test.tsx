@@ -40,11 +40,44 @@ describe('shell structure accessibility', () => {
     expect(html).not.toContain('class="toolbar-actions"');
   });
 
+  it('renders the settings button inside the toolbar trailing group when provided', () => {
+    const html = renderToStaticMarkup(
+      <AppToolbar
+        activePath="/workspace/notes/design.md"
+        busy={false}
+        canSearch
+        dirty={false}
+        onOpenSettings={vi.fn<() => void>()}
+        onQuickOpen={vi.fn<() => void>()}
+        onWorkspaceSearch={vi.fn<() => void>()}
+      />,
+    );
+
+    expect(html).toContain('class="toolbar-trailing"');
+    expect(html).toContain('class="settings-launch-button"');
+    expect(html).toContain('aria-label="Open settings"');
+  });
+
   it('provides non-translucent and high-contrast shell fallbacks', () => {
     expect(appShellCss).toContain('@media (prefers-reduced-transparency: reduce)');
     expect(appShellCss).toContain('@media (prefers-contrast: more)');
     expect(appShellCss).toMatch(/prefers-reduced-transparency:[\s\S]*?backdrop-filter:\s*none/);
     expect(appShellCss).toMatch(/prefers-contrast:[\s\S]*?border-color:\s*var\(--chrome-text\)/);
+  });
+
+  it('blurs the workspace on the layer that fades during modal handoffs', () => {
+    expect(appShellCss).toMatch(/\.app-dialog-motion-layer\s*\{[^}]*backdrop-filter:\s*blur\(4px\)/);
+    expect(appShellCss).toMatch(/\.app-dialog-motion-layer\s*>\s*div\s*\{[^}]*backdrop-filter:\s*none/);
+  });
+
+  it('keeps settings navigation stationary and its keyboard focus visible', () => {
+    expect(appShellCss).toMatch(/\.settings-dialog form\s*\{[^}]*\sheight:\s*min\(/);
+    expect(appShellCss).toMatch(/\.settings-tab-trigger:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--focus-ring\)/);
+  });
+
+  it('keeps a scroll path on dialogs that share the settings surface', () => {
+    expect(appShellCss).toMatch(/\.settings-dialog\s*\{[^}]*width:\s*min\(500px, 100%\);[^}]*overflow:\s*auto;/);
+    expect(appShellCss).toMatch(/\.settings-dialog\.settings-tabs-dialog\s*\{[^}]*width:\s*min\(640px, 100%\);[^}]*overflow:\s*hidden;/);
   });
 
   it('positions the workspace add menu in the viewport with an end-aligned origin', () => {

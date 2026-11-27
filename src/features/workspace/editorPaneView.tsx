@@ -1,4 +1,4 @@
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import { Type, ZoomIn, ZoomOut } from 'lucide-react';
 import { MarkdownFormatDialog } from './MarkdownFormatDialog';
 import { PaneHeader } from '../../components/PaneHeader';
 import { VimLogo } from './VimLogo';
@@ -98,18 +98,49 @@ function EditorStatusBar(props: { editorStatus: EditorStatus; paneProps: EditorP
   );
 }
 
+function EditorFormatToggle(props: {
+  enabled: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useI18n();
+  if (!props.enabled) return null;
+  return (
+    <button
+      type="button"
+      className={props.open ? 'pane-vim-button is-active' : 'pane-vim-button'}
+      aria-label={t('format')}
+      aria-pressed={props.open}
+      title={t('format')}
+      onClick={props.onToggle}
+    >
+      <Type size={14} aria-hidden="true" />
+    </button>
+  );
+}
+
 // 编辑器面板视图：标题工具条、编辑器宿主、状态栏、右键菜单与格式面板。
 export function EditorPaneView(props: { ctrl: EditorPaneController; paneProps: EditorPaneProps }) {
   const { ctrl, paneProps } = props;
   const { t } = useI18n();
   const editable = paneProps.editable ?? true;
   const fileKind = paneProps.fileKind ?? 'markdown';
+  const markdownEditable = editable && fileKind === 'markdown';
   return (
     <section className={paneProps.popout ? 'editor-pane popout-pane' : 'editor-pane'} ref={paneProps.paneRef}>
       <PaneHeader
         title={t('editor')}
         subtitle={displayName(paneProps.activePath)}
-        beforePopout={<EditorVimToggle enabled={ctrl.vimModeEnabled} onToggle={ctrl.setVimModeEnabled} />}
+        beforePopout={(
+          <>
+            <EditorFormatToggle
+              enabled={markdownEditable}
+              open={ctrl.formatDialogOpen}
+              onToggle={() => ctrl.setFormatDialogOpen((open) => !open)}
+            />
+            <EditorVimToggle enabled={ctrl.vimModeEnabled} onToggle={ctrl.setVimModeEnabled} />
+          </>
+        )}
         popoutButton={paneProps.popoutButton}
         onPopout={paneProps.onPopout}
       />

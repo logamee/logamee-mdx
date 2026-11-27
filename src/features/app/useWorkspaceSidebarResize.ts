@@ -1,6 +1,7 @@
 import {
   useCallback,
   useRef,
+  useState,
   type Dispatch,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -28,6 +29,7 @@ export function useWorkspaceSidebarResize({
   sidebarWidth,
 }: UseWorkspaceSidebarResizeInput) {
   const dragRef = useRef<WorkspaceSidebarDrag | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
 
   const startWorkspaceSidebarResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
@@ -36,6 +38,7 @@ export function useWorkspaceSidebarResize({
       startWidth: clampWorkspaceSidebarWidth(sidebarWidth),
       startX: event.clientX,
     };
+    setIsResizing(true);
     event.currentTarget.setPointerCapture(event.pointerId);
   }, [sidebarWidth]);
 
@@ -51,6 +54,7 @@ export function useWorkspaceSidebarResize({
   const stopWorkspaceSidebarResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
     if (dragRef.current?.pointerId !== event.pointerId) return;
     dragRef.current = null;
+    setIsResizing(false);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -64,6 +68,7 @@ export function useWorkspaceSidebarResize({
   }, [setSidebarWidth, sidebarWidth]);
 
   return {
+    isResizing,
     moveWorkspaceSidebarResize,
     resizeWorkspaceSidebarWithKeyboard,
     startWorkspaceSidebarResize,

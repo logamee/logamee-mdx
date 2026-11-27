@@ -14,7 +14,8 @@ function FileSidebarTabs({ ctrl }: SidebarSectionProps) {
   const { t } = useI18n();
   const { handleSidebarTabNavigation, selectSidebarView, sidebarTabRefs, sidebarView } = ctrl.views;
   return (
-    <div className="sidebar-tabs" role="tablist" aria-label={t('workspaceViews')}>
+    <div className="sidebar-tabs" role="tablist" data-view={sidebarView} aria-label={t('workspaceViews')}>
+      <span className="sidebar-tab-indicator" aria-hidden="true" />
       <button
         ref={(element) => { sidebarTabRefs.current.files = element; }}
         id="workspace-files-tab"

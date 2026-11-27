@@ -22,6 +22,8 @@ export function FileSidebar(props: FileSidebarProps) {
         ? (
           <FileSidebarRail
             onCollapseChange={props.onCollapseChange}
+            onQuickOpen={props.onQuickOpen}
+            onSelectView={ctrl.views.selectSidebarView}
             toggleLabel={toggleLabel}
           />
         )

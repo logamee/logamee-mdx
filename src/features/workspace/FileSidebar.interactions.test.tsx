@@ -602,8 +602,11 @@ describe('FileSidebar native workspace interactions', () => {
     expect(outlineTab?.getAttribute('aria-selected')).toBe('false');
     expect(container.querySelector('[aria-label="Workspace file tree"]')).not.toBeNull();
 
+    const indicator = container.querySelector('.sidebar-tab-indicator');
+    expect(indicator).not.toBeNull();
     act(() => filesTab?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowRight' })));
 
+    expect(container.querySelector('.sidebar-tab-indicator')).toBe(indicator);
     expect(outlineTab?.getAttribute('aria-selected')).toBe('true');
     expect(document.activeElement).toBe(outlineTab);
     expect(container.querySelector('#workspace-files-panel')?.hasAttribute('hidden')).toBe(true);

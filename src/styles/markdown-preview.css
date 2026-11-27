@@ -34,8 +34,11 @@
 
 .typora-jinxiu blockquote {
   border-left-color: var(--motif-color);
+  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   background: var(--preview-quote-bg);
-  box-shadow: 4px 4px 5px var(--shadow);
+  box-shadow: none;
   color: var(--preview-quote-text) !important;
 }
 .typora-jinxiu blockquote > p,
@@ -51,8 +54,9 @@
 .typora-jinxiu blockquote li { color: var(--preview-quote-text) !important; }
 
 .typora-jinxiu code {
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   background: var(--syntax-code-bg);
-  box-shadow: 1px 1px 5px var(--shadow);
+  box-shadow: none;
   color: var(--syntax-code);
 }
 .jinxiu-code-copy-wrap,
@@ -84,9 +88,11 @@
   border-radius: 7px;
   background: var(--control-bg);
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out, transform 100ms ease-out;
 }
-.code-copy-button:hover { color: var(--theme-emphasis); }
+.code-copy-button:hover { border-color: var(--accent); background: var(--control-hover); color: var(--theme-emphasis); }
+.code-copy-button:active { transform: scale(0.96); }
 .typora-jinxiu pre:not(.jinxiu-code-block-pre),
 .typora-jinxiu pre:not(.jinxiu-code-block-pre)::after,
 .typora-jinxiu .jinxiu-code-surface pre.jinxiu-code-block-pre,

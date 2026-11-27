@@ -1,4 +1,3 @@
-import { Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppToolbar } from './AppToolbar';
 import { getPaneLayoutStyle } from '../../lib/paneLayout';
@@ -101,17 +100,9 @@ export function AppMainWindow(props: AppMainWindowProps): ReactNode {
         onQuickOpen={() => panels.search.showWorkspaceSearchDialog('quick-open')}
         onWorkspaceSearch={() => panels.search.showWorkspaceSearchDialog('workspace-search')}
         onExport={workspace.session.activeFileKind === 'markdown' || workspace.session.activeFileKind === 'excalidraw' ? props.exportFlow.openExportDialog : undefined}
+        onOpenSettings={() => props.settingsChrome.setShowSettings(true)}
+        settingsDisabled={props.settingsChrome.settingsState.busy || props.settingsChrome.settingsState.settings === null}
       />
-      <button
-        type="button"
-        className="settings-launch-button"
-        aria-label={props.settingsChrome.locale === 'zh-CN' ? '打开设置' : 'Open settings'}
-        title={props.settingsChrome.locale === 'zh-CN' ? '设置' : 'Settings'}
-        disabled={props.settingsChrome.settingsState.busy || props.settingsChrome.settingsState.settings === null}
-        onClick={() => props.settingsChrome.setShowSettings(true)}
-      >
-        <Settings size={17} />
-      </button>
       <AppDialogStackSection ctx={buildDialogComposites(props)} />
       <WorkspaceMainAreaSection ctx={buildMainComposites(props, paneSurfaceView)} />
     </div>
@@ -164,6 +155,9 @@ function buildMainComposites(
       editorPaneRatio: layout.editorPaneRatio,
       paneLayoutStyle: useMemo(() => getPaneLayoutStyle(layout.editorPaneRatio), [layout.editorPaneRatio]),
       sidebarLayoutStyle: getWorkspaceSidebarLayoutStyle(layout.workspaceSidebarWidth) },
+    onQuickOpen: Boolean(session.workspaceRoot && session.workspaceToken) && !session.busy
+      ? () => panels.search.showWorkspaceSearchDialog('quick-open')
+      : undefined,
     outlineSelect: props.outline.handleOutlineItemSelect,
     paneSurface: paneSurfaceView,
     paneViews: {

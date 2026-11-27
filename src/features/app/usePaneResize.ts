@@ -1,6 +1,7 @@
 import {
   useCallback,
   useRef,
+  useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -15,6 +16,7 @@ export function usePaneResize({ editorPaneRatio, setEditorPaneRatio }: UsePaneRe
   const editorPaneRef = useRef<HTMLElement | null>(null);
   const previewPaneRef = useRef<HTMLElement | null>(null);
   const dragRef = useRef<{ startX: number; startRatio: number; containerWidth: number; pointerId: number } | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
 
   const startPaneResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
     const editorWidth = editorPaneRef.current?.getBoundingClientRect().width ?? 0;
@@ -22,6 +24,7 @@ export function usePaneResize({ editorPaneRatio, setEditorPaneRatio }: UsePaneRe
     const containerWidth = editorWidth + previewWidth;
     if (containerWidth <= 0) return;
     dragRef.current = { startX: event.clientX, startRatio: editorPaneRatio, containerWidth, pointerId: event.pointerId };
+    setIsResizing(true);
     event.currentTarget.setPointerCapture(event.pointerId);
   }, [editorPaneRatio]);
 
@@ -34,9 +37,14 @@ export function usePaneResize({ editorPaneRatio, setEditorPaneRatio }: UsePaneRe
   const stopPaneResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
     if (dragRef.current?.pointerId === event.pointerId) {
       dragRef.current = null;
+      setIsResizing(false);
       if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     }
   }, []);
+
+  const resetPaneRatio = useCallback(() => {
+    setEditorPaneRatio(() => 0.5);
+  }, [setEditorPaneRatio]);
 
   const resizePaneWithKeyboard = useCallback((event: ReactKeyboardEvent<HTMLButtonElement>) => {
     const nextRatio = resizeEditorPaneRatioFromKey(editorPaneRatio, event.key, event.shiftKey);
@@ -47,8 +55,10 @@ export function usePaneResize({ editorPaneRatio, setEditorPaneRatio }: UsePaneRe
 
   return {
     editorPaneRef,
+    isResizing,
     movePaneResize,
     previewPaneRef,
+    resetPaneRatio,
     resizePaneWithKeyboard,
     startPaneResize,
     stopPaneResize,

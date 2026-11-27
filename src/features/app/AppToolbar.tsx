@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Download, FileText, Files, LoaderCircle, Search } from 'lucide-react';
+import { Check, CircleAlert, Download, FileText, Files, LoaderCircle, Search, Settings } from 'lucide-react';
 import { displayName } from '../../lib/documentNames';
 import { useI18n } from '../../lib/i18n';
 
@@ -10,6 +10,8 @@ interface AppToolbarProps {
   onQuickOpen: () => void;
   onWorkspaceSearch: () => void;
   onExport?: () => void;
+  onOpenSettings?: () => void;
+  settingsDisabled?: boolean;
 }
 
 export function AppToolbar({
@@ -20,6 +22,8 @@ export function AppToolbar({
   onQuickOpen,
   onWorkspaceSearch,
   onExport,
+  onOpenSettings,
+  settingsDisabled = false,
 }: AppToolbarProps) {
   const { t } = useI18n();
   const status = busy
@@ -38,9 +42,23 @@ export function AppToolbar({
       >
         {displayName(activePath)}
       </div>
-      <div className={`document-status ${status.className}`} aria-live="polite">
-        {status.icon}
-        <span>{status.label}</span>
+      <div className="toolbar-trailing">
+        <div className={`document-status ${status.className}`} aria-live="polite">
+          {status.icon}
+          <span>{status.label}</span>
+        </div>
+        {onOpenSettings && (
+          <button
+            type="button"
+            className="settings-launch-button"
+            aria-label={t('openSettings')}
+            title={t('settings')}
+            disabled={settingsDisabled}
+            onClick={onOpenSettings}
+          >
+            <Settings size={17} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </header>
   );

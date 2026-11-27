@@ -16,7 +16,7 @@ import type { AppPaneSurfaceView } from '../preview/appPaneSurface';
 
 export type ResizerHandlers = Pick<
   ComponentProps<typeof PaneResizer>,
-  'onKeyDown' | 'onPointerCancel' | 'onPointerDown' | 'onPointerMove' | 'onPointerUp'
+  'onDoubleClick' | 'onKeyDown' | 'onPointerCancel' | 'onPointerDown' | 'onPointerMove' | 'onPointerUp'
 >;
 type SidebarResizerProps = ComponentProps<typeof WorkspaceSidebarResizer>;
 export type PopoutButton = ComponentProps<typeof PreviewPane>['popoutButton'];
@@ -37,6 +37,7 @@ export interface WorkspaceMainAreaView extends AppPaneSurfaceView {
   fileTreeCollapsed: boolean;
   handleOpenDirectory: () => Promise<void>;
   handleOutlineItemSelect: ComponentProps<typeof FileSidebar>['onSelectOutlineItem'];
+  onQuickOpen?: () => void;
   openPreviewPopout: () => unknown;
   handleWorkspaceAssetInsert: ComponentProps<typeof FileSidebar>['onInsertWorkspaceAsset'];
   layoutClassName: string;
@@ -94,6 +95,7 @@ function FileSidebarSection({ view }: { view: WorkspaceMainAreaView }): ReactNod
       onOpenDirectory={() => void view.handleOpenDirectory()}
       onOpenFile={view.requestWorkspaceFileOpen}
       onPasteEntry={view.handleFileTreePaste}
+      onQuickOpen={view.onQuickOpen}
       onRenameEntry={(path, newName) => void view.renameWorkspaceEntryPath(path, newName)}
       onRequestMove={(target) => view.setWorkspaceMoveOperation({
         currentName: target.name,

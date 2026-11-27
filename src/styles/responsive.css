@@ -35,11 +35,11 @@
 
 @media (max-width: 640px) {
   .toolbar {
-    grid-template-columns: 34px minmax(0, 1fr) 64px;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
     gap: 8px;
-    padding: 0 44px 0 10px;
+    padding: 0 8px 0 10px;
   }
-  .settings-launch-button { right: 7px; }
+  .toolbar-trailing { gap: 4px; }
   .brand { min-width: 0; }
   .brand-copy { display: none; }
   .toolbar-search-actions { display: none; }
@@ -69,11 +69,15 @@
   .workspace-entry-dialog-icon { width: 36px; height: 36px; }
   .settings-dialog-backdrop { padding: 12px; }
   .settings-dialog { max-height: calc(100vh - 24px); }
+  .settings-tabs-layout { grid-template-columns: minmax(0, 1fr); }
+  .settings-tab-list { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); }
   .settings-toggle,
   .settings-field { align-items: flex-start; flex-direction: column; gap: 6px; }
   .settings-field > input,
   .settings-field select,
   .settings-number,
-  .settings-path-control { width: 100%; }
+  .settings-path-control,
+  .settings-shortcut-control,
+  .settings-range-control { width: 100%; }
   .settings-skin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

@@ -1,5 +1,4 @@
 import {
-  ChevronDown,
   ChevronRight,
   FileCode2,
   FileText,
@@ -66,7 +65,7 @@ function TreeRowLeading(props: {
             props.onToggleFolder(node.path);
           }}
         >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+          <ChevronRight className={collapsed ? 'tree-chevron' : 'tree-chevron is-open'} size={14} />
         </button>
       ) : <span className="tree-chevron-spacer" aria-hidden="true" />}
       {isFolder

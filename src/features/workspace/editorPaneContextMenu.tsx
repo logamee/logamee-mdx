@@ -3,34 +3,38 @@ import { Bold, Code, Command, Image as ImageIcon, Italic, Link, MessageSquareWar
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
+import { useI18n, type Translate } from '../../lib/i18n';
 import type { MarkdownFormatCommandId } from '../../lib/markdownFormatCommands';
 import type { WorkspaceFileKind } from '../../types';
 import type { EditorContextMenuInsertAction, EditorContextMenuState, EditorContextMenuItem, MarkdownFormatTarget } from './editorPaneTypes';
 
-const EDITOR_CONTEXT_MENU_WIDTH = 236;
+const EDITOR_CONTEXT_MENU_WIDTH = 224;
+const EDITOR_CONTEXT_MENU_ESTIMATED_HEIGHT = 360;
 const EDITOR_CONTEXT_MENU_MARGIN = 8;
 const EDITOR_CONTEXT_MENU_ITEMS: readonly EditorContextMenuItem[] = [
-  { command: 'bold', icon: Bold, kind: 'command', label: 'Bold' },
-  { command: 'italic', icon: Italic, kind: 'command', label: 'Italic' },
-  { command: 'strikethrough', icon: Strikethrough, kind: 'command', label: 'Strikethrough' },
-  { command: 'inline-code', icon: Code, kind: 'command', label: 'Inline code' },
+  { command: 'bold', icon: Bold, kind: 'command', labelKey: 'contextBold' },
+  { command: 'italic', icon: Italic, kind: 'command', labelKey: 'contextItalic' },
+  { command: 'strikethrough', icon: Strikethrough, kind: 'command', labelKey: 'contextStrikethrough' },
+  { command: 'inline-code', icon: Code, kind: 'command', labelKey: 'contextInlineCode' },
   { kind: 'separator' },
-  { command: 'link', icon: Link, kind: 'command', label: 'Link' },
-  { action: 'insert-image', icon: ImageIcon, kind: 'action', label: 'Image placeholder' },
-  { action: 'insert-table', icon: Table, kind: 'action', label: 'Table' },
-  { command: 'code-block', icon: Code, kind: 'command', label: 'Code block' },
-  { action: 'insert-formula', icon: Sigma, kind: 'action', label: 'Formula' },
-  { command: 'alert-tip', icon: MessageSquareWarning, kind: 'command', label: 'Alert block' },
+  { command: 'link', icon: Link, kind: 'command', labelKey: 'contextLink' },
+  { action: 'insert-image', icon: ImageIcon, kind: 'action', labelKey: 'contextImagePlaceholder' },
+  { action: 'insert-table', icon: Table, kind: 'action', labelKey: 'contextTable' },
+  { command: 'code-block', icon: Code, kind: 'command', labelKey: 'contextCodeBlock' },
+  { action: 'insert-formula', icon: Sigma, kind: 'action', labelKey: 'contextFormula' },
+  { command: 'alert-tip', icon: MessageSquareWarning, kind: 'command', labelKey: 'contextAlertBlock' },
   { kind: 'separator' },
-  { action: 'open-format-palette', icon: Command, kind: 'action', label: 'More formats…' },
+  { action: 'open-format-palette', icon: Command, kind: 'action', labelKey: 'contextMoreFormats' },
 ];
 
 function clampContextMenuPosition(clientX: number, clientY: number): EditorContextMenuState {
   const viewportWidth = typeof window === 'undefined' ? clientX + EDITOR_CONTEXT_MENU_WIDTH : window.innerWidth;
-  const viewportHeight = typeof window === 'undefined' ? clientY + 320 : window.innerHeight;
+  const viewportHeight = typeof window === 'undefined'
+    ? clientY + EDITOR_CONTEXT_MENU_ESTIMATED_HEIGHT
+    : window.innerHeight;
   return {
     x: Math.max(EDITOR_CONTEXT_MENU_MARGIN, Math.min(clientX, viewportWidth - EDITOR_CONTEXT_MENU_WIDTH - EDITOR_CONTEXT_MENU_MARGIN)),
-    y: Math.max(EDITOR_CONTEXT_MENU_MARGIN, Math.min(clientY, viewportHeight - EDITOR_CONTEXT_MENU_MARGIN)),
+    y: Math.max(EDITOR_CONTEXT_MENU_MARGIN, Math.min(clientY, viewportHeight - EDITOR_CONTEXT_MENU_ESTIMATED_HEIGHT - EDITOR_CONTEXT_MENU_MARGIN)),
   };
 }
 
@@ -114,16 +118,17 @@ export function EditorContextMenuList(props: {
   onApplyInsert: (action: EditorContextMenuInsertAction) => void;
   onOpenFormatPalette: () => void;
 }): React.ReactNode {
+  const { t } = useI18n();
   return (
     <div
-      aria-label="Markdown editor context menu"
+      aria-label={t('editorContextMenu')}
       className="editor-context-menu"
       data-editor-context-menu="true"
       ref={props.contextMenuRef}
       role="menu"
       style={{ left: `${props.contextMenuState.x}px`, top: `${props.contextMenuState.y}px` }}
     >
-      {EDITOR_CONTEXT_MENU_ITEMS.map((item, index) => contextMenuItemElement(item, index, props))}
+      {EDITOR_CONTEXT_MENU_ITEMS.map((item, index) => contextMenuItemElement(item, index, props, t))}
     </div>
   );
 }
@@ -136,6 +141,7 @@ function contextMenuItemElement(
     onApplyInsert: (action: EditorContextMenuInsertAction) => void;
     onOpenFormatPalette: () => void;
   },
+  t: Translate,
 ): React.ReactNode {
   if (item.kind === 'separator') {
     return <hr key={`separator-${index}`} className="editor-context-menu-separator" aria-hidden="true" />;
@@ -151,8 +157,8 @@ function contextMenuItemElement(
         role="menuitem"
         type="button"
       >
-        <Icon aria-hidden="true" className="editor-context-menu-icon" size={16} />
-        <span>{item.label}</span>
+        <Icon aria-hidden="true" className="editor-context-menu-icon" size={14} />
+        <span>{t(item.labelKey)}</span>
       </button>
     );
   }
@@ -167,8 +173,8 @@ function contextMenuItemElement(
       role="menuitem"
       type="button"
     >
-      <Icon aria-hidden="true" className="editor-context-menu-icon" size={16} />
-      <span>{item.label}</span>
+      <Icon aria-hidden="true" className="editor-context-menu-icon" size={14} />
+      <span>{t(item.labelKey)}</span>
     </button>
   );
 }

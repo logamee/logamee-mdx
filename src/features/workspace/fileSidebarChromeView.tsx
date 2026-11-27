@@ -3,8 +3,10 @@ import {
   ChevronRight,
   Ellipsis,
   FilePlus2,
+  Files,
   FolderOpen,
   FolderPlus,
+  ListTree,
   PencilRuler,
   Plus,
   RefreshCw,
@@ -18,12 +20,18 @@ interface SidebarSectionProps {
   ctrl: FileSidebarController;
 }
 
-// 收起态侧栏轨道：仅保留展开按钮与文件标签。
+// 收起态侧栏轨道：展开按钮 + 文件/大纲/快速打开快捷入口。
 export function FileSidebarRail(props: {
   onCollapseChange: (collapsed: boolean) => void;
+  onQuickOpen?: () => void;
+  onSelectView?: (view: 'files' | 'outline') => void;
   toggleLabel: string;
 }) {
   const { t } = useI18n();
+  const expandTo = (view: 'files' | 'outline') => {
+    props.onSelectView?.(view);
+    props.onCollapseChange(false);
+  };
   return (
     <div className="sidebar-rail">
       <button
@@ -35,8 +43,38 @@ export function FileSidebarRail(props: {
       >
         <ChevronRight size={16} />
       </button>
+      <div className="sidebar-rail-actions">
+        <button
+          type="button"
+          className="sidebar-icon-button"
+          aria-label={t('files')}
+          title={t('files')}
+          onClick={() => expandTo('files')}
+        >
+          <FolderOpen size={16} />
+        </button>
+        <button
+          type="button"
+          className="sidebar-icon-button"
+          aria-label={t('outline')}
+          title={t('outline')}
+          onClick={() => expandTo('outline')}
+        >
+          <ListTree size={16} />
+        </button>
+        {props.onQuickOpen && (
+          <button
+            type="button"
+            className="sidebar-icon-button"
+            aria-label={t('quickOpen')}
+            title={t('quickOpen')}
+            onClick={props.onQuickOpen}
+          >
+            <Files size={16} />
+          </button>
+        )}
+      </div>
       <div className="sidebar-rail-label" title={t('workspaceFiles')}>
-        <FolderOpen size={18} />
         <span>{t('files')}</span>
       </div>
     </div>

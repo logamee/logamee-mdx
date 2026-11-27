@@ -19,6 +19,7 @@ export interface WorkspaceMainAreaComposites {
     paneLayoutStyle: React.CSSProperties;
     sidebarLayoutStyle: React.CSSProperties;
   };
+  onQuickOpen?: () => void;
   outlineSelect: ComponentProps<typeof FileSidebar>['onSelectOutlineItem'];
   requestWorkspaceFileOpen: (path: string) => void;
   setFileTreeCollapsed: (collapsed: boolean) => void;
@@ -44,12 +45,15 @@ export interface WorkspaceMainAreaComposites {
     };
   };
   paneResize: {
+    isResizing?: boolean;
+    resetPaneRatio?: () => void;
     resizePaneWithKeyboard: ResizerHandlers['onKeyDown'];
     stopPaneResize: ResizerHandlers['onPointerCancel'];
     startPaneResize: ResizerHandlers['onPointerDown'];
     movePaneResize: ResizerHandlers['onPointerMove'];
   };
   sidebarResize: {
+    isResizing?: boolean;
     resizeWorkspaceSidebarWithKeyboard: ResizerHandlers['onKeyDown'];
     stopWorkspaceSidebarResize: ResizerHandlers['onPointerCancel'];
     startWorkspaceSidebarResize: ResizerHandlers['onPointerDown'];
@@ -93,11 +97,16 @@ function buildMainAreaView(ctx: WorkspaceMainAreaComposites): WorkspaceMainAreaV
     handleOpenDirectory: session.handleOpenDirectory,
     handleOutlineItemSelect: ctx.outlineSelect,
     handleWorkspaceAssetInsert: ctx.handleWorkspaceAssetInsert,
-    layoutClassName: getWorkspaceLayoutClassName(ctx.fileTreeCollapsed, session.activeFileKind),
+    layoutClassName: [
+      getWorkspaceLayoutClassName(ctx.fileTreeCollapsed, session.activeFileKind),
+      ctx.paneResize.isResizing || ctx.sidebarResize.isResizing ? 'is-resizing' : '',
+    ].filter(Boolean).join(' '),
     layoutStyle: { ...layout.sidebarLayoutStyle, ...layout.paneLayoutStyle },
     moveWorkspaceEntryPath: session.moveWorkspaceEntryPath,
+    onQuickOpen: ctx.onQuickOpen,
     openPreviewPopout: paneViews.openPreviewPopout,
     paneResizer: {
+      onDoubleClick: ctx.paneResize.resetPaneRatio,
       onKeyDown: ctx.paneResize.resizePaneWithKeyboard,
       onPointerCancel: ctx.paneResize.stopPaneResize as () => void,
       onPointerDown: ctx.paneResize.startPaneResize,
