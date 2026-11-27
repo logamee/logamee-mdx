@@ -1,6 +1,7 @@
 import { FolderInput } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { WorkspaceMoveDestination } from '../../lib/fileTreeOperations';
+import { isImeCompositionEscape } from '../../lib/imeComposition';
 import { useI18n } from '../../lib/i18n';
 
 export interface WorkspaceMoveOperation {
@@ -39,7 +40,10 @@ export function WorkspaceMoveDialog({
         aria-modal="true"
         aria-labelledby="workspace-move-dialog-title"
         aria-describedby="workspace-move-dialog-message"
-        onKeyDown={(event) => { if (event.key === 'Escape' && !busy) { event.preventDefault(); onCancel(); } }}
+        onKeyDown={(event) => {
+          if (isImeCompositionEscape(event.nativeEvent)) return;
+          if (event.key === 'Escape' && !busy) { event.preventDefault(); onCancel(); }
+        }}
       >
         <form
           className="workspace-entry-dialog-form"

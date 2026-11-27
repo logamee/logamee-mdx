@@ -1,3 +1,4 @@
+import { isImeCompositionEscape } from '../../lib/imeComposition';
 import { useI18n } from '../../lib/i18n';
 import { useWorkspaceSearchResults } from './workspaceSearchResultsController';
 import type { WorkspaceSearchMode, WorkspaceSearchSelection } from './workspaceSearchResultsController';
@@ -35,6 +36,7 @@ export function WorkspaceSearchDialog({
         className="workspace-search-dialog"
         aria-labelledby="workspace-search-dialog-title"
         onKeyDown={(event) => {
+          if (isImeCompositionEscape(event.nativeEvent)) return;
           if (event.key === 'Escape') {
             event.preventDefault();
             onCancel();

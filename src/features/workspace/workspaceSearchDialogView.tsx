@@ -2,6 +2,7 @@ import { FileText, LoaderCircle, RotateCw, Search, X } from 'lucide-react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import type { WorkspaceIndexQueryResult } from '../../types';
 import { useI18n } from '../../lib/i18n';
+import { isImeCompositionKey } from '../../lib/imeComposition';
 
 function resultLabel(result: WorkspaceIndexQueryResult): string {
   const segments = result.relativePath.split('/');
@@ -41,7 +42,7 @@ export function WorkspaceSearchInputRow(props: {
         spellCheck={false}
         value={props.query}
         onChange={(event) => props.setQuery(event.currentTarget.value)}
-        onKeyDown={(event) => handleSearchInputKey(event, {
+        onKeyDown={(event) => handleSearchInputKey(event.nativeEvent, {
           results: props.results, setActiveIndex: props.setActiveIndex, submitActive: props.submitActive,
         })}
       />
@@ -60,11 +61,12 @@ export function WorkspaceSearchInputRow(props: {
 }
 
 // 输入键盘：上下循环移动激活项，回车确认。
-function handleSearchInputKey(event: { key: string; preventDefault: () => void }, handlers: {
+function handleSearchInputKey(event: { isComposing: boolean; key: string; keyCode: number; preventDefault: () => void }, handlers: {
   results: WorkspaceIndexQueryResult[];
   setActiveIndex: Dispatch<SetStateAction<number>>;
   submitActive: () => void;
 }): void {
+  if (isImeCompositionKey(event)) return;
   if (event.key === 'ArrowDown') {
     event.preventDefault();
     handlers.setActiveIndex((index) => handlers.results.length ? (index + 1) % handlers.results.length : 0);

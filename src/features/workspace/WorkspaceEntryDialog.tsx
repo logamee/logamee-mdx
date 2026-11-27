@@ -1,6 +1,7 @@
 import { AlertTriangle, FilePlus2, FolderPlus, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkspaceFileKind } from '../../types';
+import { isImeCompositionEscape } from '../../lib/imeComposition';
 import { useI18n, type Translate } from '../../lib/i18n';
 
 type WorkspaceEntryKind = 'file' | 'folder';
@@ -87,7 +88,10 @@ export function WorkspaceEntryDialog({ busy, operation, onCancel, onConfirm }: W
         aria-modal="true"
         aria-labelledby="workspace-entry-dialog-title"
         aria-describedby="workspace-entry-dialog-message"
-        onKeyDown={(event) => { if (event.key === 'Escape' && !busy) { event.preventDefault(); onCancel(); } }}
+        onKeyDown={(event) => {
+          if (isImeCompositionEscape(event.nativeEvent)) return;
+          if (event.key === 'Escape' && !busy) { event.preventDefault(); onCancel(); }
+        }}
       >
         <form
           className="workspace-entry-dialog-form"

@@ -1,3 +1,4 @@
+import { isImeCompositionEscape } from '../../lib/imeComposition';
 import { useI18n } from '../../lib/i18n';
 import type { MarkdownFormatCommandId } from '../../lib/markdownFormatCommands';
 import type { MarkdownFormatCommand } from '../../lib/markdownFormatCommands';
@@ -61,6 +62,7 @@ export function FormatDialogShell(props: {
           props.onFocusLeave();
         }}
         onKeyDown={(event) => {
+          if (isImeCompositionEscape(event.nativeEvent)) return;
           if (event.key !== 'Escape') return;
           event.preventDefault();
           event.stopPropagation();

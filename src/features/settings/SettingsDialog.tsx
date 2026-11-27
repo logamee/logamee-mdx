@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 're
 import { FolderCog, Keyboard, Palette, Settings2, SlidersHorizontal, X } from 'lucide-react';
 import type { AppSettings } from '../../types';
 import type { EffectiveLocale } from '../../lib/locale';
+import { isImeCompositionEscape } from '../../lib/imeComposition';
 import type { SettingsRecovery } from './useSettings';
 import { MAX_EDITOR_FONT_SIZE, MIN_EDITOR_FONT_SIZE, previewEditorFontSize } from '../../lib/settings';
 import { findShortcutConflicts, resolveShortcutProfile } from '../../lib/shortcutProfiles';
@@ -70,7 +71,7 @@ function useSettingsFocus(busy: boolean, onClose: () => void) {
   useEffect(() => {
     if (busy) return;
     const dismiss = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || closeButton.current?.closest('[inert]')) return;
+      if (event.key !== 'Escape' || event.defaultPrevented || isImeCompositionEscape(event) || closeButton.current?.closest('[inert]')) return;
       event.preventDefault();
       onClose();
     };

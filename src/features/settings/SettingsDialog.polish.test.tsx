@@ -111,6 +111,25 @@ describe('SettingsDialog and SidebarRail polish behaviors', () => {
     }
   });
 
+  it('stays open while an IME composition reports Escape', async () => {
+    const onClose = vi.fn<() => void>();
+    await act(async () => root.render(
+      <SettingsDialog busy={false} locale="en" settings={settings} onClose={onClose} {...callbacks} />,
+    ));
+    for (const init of [
+      { isComposing: true, key: 'Escape' },
+      { isComposing: false, key: 'Escape', keyCode: 229 },
+    ]) {
+      const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+      act(() => document.activeElement!.dispatchEvent(event));
+      expect(event.defaultPrevented).toBe(false);
+    }
+    expect(onClose).not.toHaveBeenCalled();
+
+    act(() => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' })));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it.each(['cancel', 'failed save', 'failed reset'])('restores the live skin and font preview after %s', async (outcome) => {
     document.documentElement.setAttribute('data-skin', 'original');
     document.documentElement.setAttribute('data-appearance', 'light');

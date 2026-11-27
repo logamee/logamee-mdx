@@ -71,4 +71,28 @@ describe('MarkdownFormatDialog', () => {
     act(() => boldCommand?.click());
     expect(onSelect).toHaveBeenCalledWith('bold');
   });
+
+  it('ignores a composing Escape and still cancels on a plain Escape', () => {
+    const onCancel = vi.fn<() => void>();
+    act(() => {
+      root.render(
+        <MarkdownFormatDialog
+          onCancel={onCancel}
+          onFocusLeave={vi.fn<() => void>()}
+          onSelect={vi.fn<(command: MarkdownFormatCommandId) => void>()}
+        />,
+      );
+    });
+    const combobox = container.querySelector<HTMLInputElement>('[role="combobox"]');
+    const composing = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, isComposing: true, key: 'Escape' });
+
+    act(() => combobox?.dispatchEvent(composing));
+
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(composing.defaultPrevented).toBe(false);
+
+    act(() => combobox?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Escape' })));
+
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
 });

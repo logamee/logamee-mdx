@@ -262,4 +262,58 @@ describe('WorkspaceSearchDialog', () => {
     });
     expect(onCancel).toHaveBeenCalledTimes(2);
   });
+
+  it('ignores a composing Escape and still cancels on a plain Escape', async () => {
+    const onCancel = vi.fn<() => void>();
+    await renderWith(vi.fn<(selection: WorkspaceSearchSelection) => void>(), onCancel);
+    const input = container.querySelector<HTMLInputElement>('.workspace-search-input input');
+    const composing = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, isComposing: true, key: 'Escape' });
+
+    act(() => {
+      input?.dispatchEvent(composing);
+    });
+
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(composing.defaultPrevented).toBe(false);
+
+    act(() => {
+      input?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Escape' }));
+    });
+
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it('ignores Enter and arrow keys reported during an IME composition', async () => {
+    queryWorkspaceIndex.mockResolvedValue({
+      status: 'ready', workspaceToken: 'workspace-7', indexGeneration: 3,
+      implementationId: 'impl', schemaId: 'schema', truncated: false,
+      results: [{ relativePath: 'notes/draft.md', snippet: null, location: null }],
+    });
+    const onSelect = vi.fn<(selection: WorkspaceSearchSelection) => void>();
+    await renderWith(onSelect, vi.fn<() => void>());
+    const input = container.querySelector<HTMLInputElement>('.workspace-search-input input');
+    await enterQuery(input!, 'draft');
+    await act(async () => {
+      vi.advanceTimersByTime(160);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const composing = [
+      new KeyboardEvent('keydown', { bubbles: true, cancelable: true, isComposing: true, key: 'ArrowDown' }),
+      new KeyboardEvent('keydown', { bubbles: true, cancelable: true, isComposing: true, key: 'Enter' }),
+      new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter', keyCode: 229 }),
+    ];
+    for (const event of composing) {
+      act(() => input?.dispatchEvent(event));
+    }
+
+    expect(onSelect).not.toHaveBeenCalled();
+    for (const event of composing) expect(event.defaultPrevented).toBe(false);
+
+    act(() => {
+      input?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' }));
+    });
+    expect(onSelect).toHaveBeenCalledOnce();
+  });
 });
