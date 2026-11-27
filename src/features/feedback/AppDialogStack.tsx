@@ -1,3 +1,4 @@
+import { AnimatePresence, m, useIsPresent, useReducedMotion } from 'motion/react';
 import type { ReactNode } from 'react';
 import { CrashDraftStoreRepairDialog } from './CrashDraftStoreRepairDialog';
 import { DocumentSaveConflictDialog } from './DocumentSaveConflictDialog';
@@ -12,6 +13,7 @@ import { WorkspaceEntryDialog } from '../workspace/WorkspaceEntryDialog';
 import { WorkspaceMoveDialog } from '../workspace/WorkspaceMoveDialog';
 import { WorkspaceSearchDialog } from '../workspace/WorkspaceSearchDialog';
 import { normalizeAppError } from '../../lib/appFeedback';
+import { OVERLAY_MOTION } from '../../lib/motionPresets';
 import type { AppDialogStackView } from './appDialogStackTypes';
 import type { AppDialogStackComposites } from './appDialogStackComposites';
 import {
@@ -23,32 +25,47 @@ import {
 // 由 openIntentModalActive 与各流程互斥驱动。
 type DialogView = AppDialogStackView;
 
-type DialogBranch = [active: boolean, render: () => ReactNode];
+type DialogBranch = [key: string, active: boolean, render: () => ReactNode];
 
 function dialogBranches(view: DialogView): DialogBranch[] {
   return [
-    [view.showExport, () => exportDialog(view)],
-    [Boolean(view.workspaceSearchMode && view.workspaceRoot && view.workspaceToken), () => searchDialog(view)],
-    [Boolean(view.crashDraftRecovery.error), () => repairDialog(view)],
-    [Boolean(view.settingsState.recovery), () => recoveryDialog(view)],
-    [Boolean(view.externalFileAction), () => externalChangeDialog(view)],
-    [Boolean(view.saveConflict), () => saveConflictDialog(view)],
-    [view.showUnsavedExitPrompt, () => unsavedExitDialog(view)],
-    [Boolean(view.unsavedFileSwitchPrompt), () => unsavedSwitchDialog(view)],
-    [Boolean(view.workspaceEntryOperation), () => entryDialog(view)],
-    [Boolean(view.workspaceMoveOperation), () => moveDialog(view)],
-    [Boolean(view.showSettings && view.settingsState.settings), () => settingsDialog(view)],
-    [Boolean(view.appUpdater.update), () => updateDialog(view)],
-    [Boolean(view.feedbackDialog), () => (
+    ['export', view.showExport, () => exportDialog(view)],
+    ['search', Boolean(view.workspaceSearchMode && view.workspaceRoot && view.workspaceToken), () => searchDialog(view)],
+    ['repair', Boolean(view.crashDraftRecovery.error), () => repairDialog(view)],
+    ['recovery', Boolean(view.settingsState.recovery), () => recoveryDialog(view)],
+    ['external-change', Boolean(view.externalFileAction), () => externalChangeDialog(view)],
+    ['save-conflict', Boolean(view.saveConflict), () => saveConflictDialog(view)],
+    ['unsaved-exit', view.showUnsavedExitPrompt, () => unsavedExitDialog(view)],
+    ['unsaved-switch', Boolean(view.unsavedFileSwitchPrompt), () => unsavedSwitchDialog(view)],
+    ['entry', Boolean(view.workspaceEntryOperation), () => entryDialog(view)],
+    ['move', Boolean(view.workspaceMoveOperation), () => moveDialog(view)],
+    ['settings', Boolean(view.showSettings && view.settingsState.settings), () => settingsDialog(view)],
+    ['update', Boolean(view.appUpdater.update), () => updateDialog(view)],
+    ['feedback', Boolean(view.feedbackDialog), () => (
       <FeedbackDialog dialog={view.feedbackDialog as never} onDismiss={view.dismissFeedbackDialog} />
     )] ];
 }
 
+function DialogMotionLayer({ children }: { children: ReactNode }) {
+  const isPresent = useIsPresent();
+  return (
+    <m.div className="app-dialog-motion-layer" inert={!isPresent} {...OVERLAY_MOTION}>
+      {children}
+    </m.div>
+  );
+}
+
 function AppDialogStack({ view }: { view: DialogView }): ReactNode {
-  for (const [active, render] of dialogBranches(view)) {
-    if (active) return render();
+  const activeBranch = dialogBranches(view).find(([, active]) => active);
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion || typeof Element === 'undefined' || !Element.prototype.animate) {
+    return activeBranch ? activeBranch[2]() : null;
   }
-  return null;
+  return (
+    <AnimatePresence mode="wait">
+      {activeBranch && <DialogMotionLayer key={activeBranch[0]}>{activeBranch[2]()}</DialogMotionLayer>}
+    </AnimatePresence>
+  );
 }
 
 function exportDialog(view: DialogView): ReactNode {
