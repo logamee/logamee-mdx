@@ -120,7 +120,7 @@
      - 将 `<ChevronRight>` / `<ChevronDown>` 硬切换改为单个 `<ChevronRight>` 配合 `transform: rotate(90deg)` 的 `150ms` 过渡。
      - 子级分支展开时增加极轻的透明度与微位移入场（避免在大目录树下做昂贵的 `height: auto` 布局重排，确保 10k 节点性能不退化）。
    - **侧边栏收起/展开平滑过渡**（`src/features/workspace/WorkspaceMainArea.tsx`、`src/features/app/useWorkspaceSidebarResize.ts`、`src/styles/app-shell.css`）：
-     - 在点击收起/展开按钮时给 `.workspace` 启用 `grid-template-columns` 过渡（`180ms`）；在指针拖拽调整宽度期间通过 `.is-resizing` 类关闭过渡，保持 1:1 零延迟跟手。
+     - 在点击收起/展开按钮时给 `.workspace` 启用 `grid-template-columns` 过渡（`180ms`）；在指针拖拽或键盘方向键调整宽度期间通过 `.is-resizing` 类关闭过渡，保持 1:1 零延迟跟手，松开按键或失焦后恢复过渡。
    - **侧栏「文件 / 大纲」Tab 共享滑块**（`src/features/workspace/fileSidebarPanelsView.tsx`）：
      - 在标签栏内保留一个指示器。切换视图时用 CSS 平移一个标签宽度加列间距，键盘和鼠标切换共用相同的过渡。
    - **主题皮肤柔滑切换**（`src/lib/theme.ts`、`src/styles/base.css`）：
@@ -207,5 +207,5 @@
 - [x] **阶段 1**：右键菜单修复与全站基础交互/过渡统一
 - [x] **阶段 2A**：引入 `motion`、动效令牌与弹层进退场动画
 - [x] **阶段 2B**：布局连续性动效、分隔条微手柄与预览区质感细化
-- [x] **阶段 3A**：引入 `@radix-ui/react-tabs` 与统一遮罩/`Escape` 关闭体验
+- [~] **阶段 3A**：已引入 `@radix-ui/react-tabs`，统一遮罩与 `Escape` 关闭体验，模态期间把工具栏和工作区置为 `inert`。尚未开始：基于 Radix Dialog 的 `ModalDialog` 封装及四个对话框的迁移、`SwitchControl`、`SliderControl`。
 - [x] **阶段 3B**：`SettingsDialog` 分栏/实时预览/快捷键录制重构 + 窄轨与格式入口增强

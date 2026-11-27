@@ -75,8 +75,8 @@ export interface WorkspaceMainAreaComposites {
   sidebarWidth: number;
 }
 
-export function WorkspaceMainAreaSection({ ctx }: { ctx: WorkspaceMainAreaComposites }) {
-  return WorkspaceMainArea({ view: buildMainAreaView(ctx) });
+export function WorkspaceMainAreaSection({ ctx, inert = false }: { ctx: WorkspaceMainAreaComposites; inert?: boolean }) {
+  return WorkspaceMainArea({ view: buildMainAreaView(ctx), inert });
 }
 
 function buildMainAreaView(ctx: WorkspaceMainAreaComposites): WorkspaceMainAreaView {

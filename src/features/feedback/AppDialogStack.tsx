@@ -46,6 +46,14 @@ function dialogBranches(view: DialogView): DialogBranch[] {
     )] ];
 }
 
+function isBranchActive(branch: DialogBranch): boolean {
+  return branch[1];
+}
+
+export function isDialogStackActive(view: AppDialogStackView): boolean {
+  return dialogBranches(view).some(isBranchActive);
+}
+
 function DialogMotionLayer({ children }: { children: ReactNode }) {
   const isPresent = useIsPresent();
   return (
@@ -55,8 +63,8 @@ function DialogMotionLayer({ children }: { children: ReactNode }) {
   );
 }
 
-function AppDialogStack({ view }: { view: DialogView }): ReactNode {
-  const activeBranch = dialogBranches(view).find(([, active]) => active);
+export function AppDialogStackSection({ view }: { view: DialogView }): ReactNode {
+  const activeBranch = dialogBranches(view).find(isBranchActive);
   const reduceMotion = useReducedMotion();
   if (reduceMotion || typeof Element === 'undefined' || !Element.prototype.animate) {
     return activeBranch ? activeBranch[2]() : null;
@@ -254,11 +262,7 @@ function updateDialog(view: DialogView): ReactNode {
   );
 }
 
-export function AppDialogStackSection({ ctx }: { ctx: AppDialogStackComposites }) {
-  return AppDialogStack({ view: buildDialogStackView(ctx) });
-}
-
-function buildDialogStackView(ctx: AppDialogStackComposites): AppDialogStackView {
+export function buildDialogStackView(ctx: AppDialogStackComposites): AppDialogStackView {
   const { uiStates, panels, unsavedExit, intentDirtyModal, exportFlow } = ctx;
   return {
     ...sessionDialogFields(ctx),

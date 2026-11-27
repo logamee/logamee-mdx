@@ -7,7 +7,7 @@ import { domAnimation, LazyMotion } from 'motion/react';
 import { getUnsavedExitPrompt, getUnsavedFileSwitchPrompt } from '../../lib/closeGuard';
 import { currentSettingsEnvelope } from '../../lib/settingsFixtures';
 import { rebuildWorkspaceIndex } from '../../lib/tauriCommands';
-import { AppDialogStackSection } from './AppDialogStack';
+import { AppDialogStackSection, buildDialogStackView, isDialogStackActive } from './AppDialogStack';
 import type { AppDialogStackComposites } from './appDialogStackComposites';
 
 vi.mock('../../lib/tauriCommands', () => ({
@@ -43,6 +43,19 @@ function idleDialogs(): AppDialogStackComposites {
 
 const feedback = { kind: 'info', role: 'dialog', dismissLabel: 'OK', title: 'Saved', message: 'Settings saved' } as const;
 
+const activeDialogs: [string, (ctx: AppDialogStackComposites) => void][] = [
+  ['the settings dialog', ctx => { ctx.showSettings = true; }],
+  ['a feedback notification', ctx => { ctx.feedbackDialog = feedback; }],
+  ['a workspace move', ctx => { ctx.uiStates.workspaceMoveOperation = { currentName: 'Note', entryKind: 'file', path: '/note.md' }; }],
+  ['an available update', ctx => { ctx.appUpdater.update = { currentVersion: '1.0.0', version: '1.1.0', close: async () => undefined, downloadAndInstall: async () => undefined }; }],
+];
+
+const inactiveDialogs: [string, (ctx: AppDialogStackComposites) => void][] = [
+  ['no dialog at all', () => undefined],
+  ['a search request without workspace authority', ctx => { ctx.uiStates.workspaceSearchMode = 'quick-open'; }],
+  ['a settings request before settings load', ctx => { ctx.showSettings = true; ctx.settingsState.settings = null; }],
+];
+
 const dialogRoutes: [string, (ctx: AppDialogStackComposites) => void][] = [
   ['export-dialog-title', ctx => { ctx.exportFlow.showExport = true; }],
   ['crash-draft-store-repair-title', ctx => { ctx.crashDraftRecovery.error = { code: 'storeFull', message: 'Storage full', canReset: false }; }],
@@ -55,6 +68,22 @@ const dialogRoutes: [string, (ctx: AppDialogStackComposites) => void][] = [
   ['settings-dialog-title', ctx => { ctx.showSettings = true; }],
   ['update-dialog-title', ctx => { ctx.appUpdater.update = { currentVersion: '1.0.0', version: '1.1.0', close: async () => undefined, downloadAndInstall: async () => undefined }; }],
 ];
+
+describe('dialog stack activity', () => {
+  it.each(inactiveDialogs)('reports no open dialog for %s', (_, arrange) => {
+    const ctx = idleDialogs();
+    arrange(ctx);
+
+    expect(isDialogStackActive(buildDialogStackView(ctx))).toBe(false);
+  });
+
+  it.each(activeDialogs)('reports an open dialog for %s', (_, arrange) => {
+    const ctx = idleDialogs();
+    arrange(ctx);
+
+    expect(isDialogStackActive(buildDialogStackView(ctx))).toBe(true);
+  });
+});
 
 describe('application dialog stack', () => {
   let container: HTMLDivElement;
@@ -71,7 +100,7 @@ describe('application dialog stack', () => {
     act(() => root.unmount());
     container.remove();
   });
-  const render = () => act(() => root.render(<LazyMotion features={domAnimation}><AppDialogStackSection ctx={ctx} /></LazyMotion>));
+  const render = () => act(() => root.render(<LazyMotion features={domAnimation}><AppDialogStackSection view={buildDialogStackView(ctx)} /></LazyMotion>));
   const click = (label: string) => {
     const button = [...container.querySelectorAll('button')].find(candidate => candidate.textContent === label);
     expect(button).toBeDefined();

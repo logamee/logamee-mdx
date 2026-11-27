@@ -58,9 +58,9 @@ export interface WorkspaceMainAreaView extends AppPaneSurfaceView {
   toggleFolder: (path: string) => void;
 }
 
-export function WorkspaceMainArea({ view }: { view: WorkspaceMainAreaView }): ReactNode {
+export function WorkspaceMainArea({ view, inert = false }: { view: WorkspaceMainAreaView; inert?: boolean }): ReactNode {
   return (
-    <main className={view.layoutClassName} style={view.layoutStyle}>
+    <main className={view.layoutClassName} style={view.layoutStyle} inert={inert}>
       <FileSidebarSection view={view} />
       <SidebarResizerSection view={view} />
       {DocumentArea(view) ?? EditorPreviewSplit(view)}

@@ -7,6 +7,7 @@ interface AppToolbarProps {
   busy: boolean;
   canSearch: boolean;
   dirty: boolean;
+  inert?: boolean;
   onQuickOpen: () => void;
   onWorkspaceSearch: () => void;
   onExport?: () => void;
@@ -19,6 +20,7 @@ export function AppToolbar({
   busy,
   canSearch,
   dirty,
+  inert = false,
   onQuickOpen,
   onWorkspaceSearch,
   onExport,
@@ -33,7 +35,7 @@ export function AppToolbar({
       : { className: 'is-saved', icon: <Check size={13} />, label: t('saved') };
 
   return (
-    <header className="toolbar" data-tauri-drag-region>
+    <header className="toolbar" data-tauri-drag-region inert={inert}>
       <ToolbarBrand canSearch={canSearch} onExport={onExport} onQuickOpen={onQuickOpen} onWorkspaceSearch={onWorkspaceSearch} />
       <div
         className="toolbar-document"
@@ -65,7 +67,7 @@ export function AppToolbar({
 }
 
 // 品牌区：标识 + 导出/快速打开/工作区搜索三个图标按钮。
-function ToolbarBrand(props: Omit<AppToolbarProps, 'activePath' | 'busy' | 'dirty'>) {
+function ToolbarBrand(props: Omit<AppToolbarProps, 'activePath' | 'busy' | 'dirty' | 'inert'>) {
   const { t } = useI18n();
   return (
     <div className="brand">

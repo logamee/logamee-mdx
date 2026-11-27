@@ -5,7 +5,7 @@ import { getWorkspaceSidebarLayoutStyle } from '../../lib/sidebarLayout';
 import { getWorkspaceMoveDestinations } from '../../lib/fileTreeOperations';
 import { useMemo } from 'react';
 import { buildPaneSurfaceView, type PaneSurfaceBuildContext } from '../preview/appPaneSurface';
-import { AppDialogStackSection } from '../feedback/AppDialogStack';
+import { AppDialogStackSection, buildDialogStackView, isDialogStackActive } from '../feedback/AppDialogStack';
 import type { AppDialogStackComposites } from '../feedback/appDialogStackComposites';
 import type { useAppExitFlows } from '../feedback/appExitFlows';
 import type { useAppOpenIntentFlow } from '../document/appOpenIntentFlow';
@@ -72,6 +72,8 @@ export interface AppMainWindowProps {
 // App 完成钩子编排；三个视图对象的字段组装集中在此。
 export function AppMainWindow(props: AppMainWindowProps): ReactNode {
   const { workspace, panels, uiStates, channel, outline } = props;
+  const dialogView = buildDialogStackView(buildDialogComposites(props));
+  const backgroundInert = isDialogStackActive(dialogView);
   const paneSurfaceView = buildPaneSurfaceView({
     chrome: {
       dismissFeedbackDialog: props.exitFlows.dismissFeedbackDialog,
@@ -97,14 +99,15 @@ export function AppMainWindow(props: AppMainWindowProps): ReactNode {
         busy={workspace.session.busy}
         canSearch={Boolean(workspace.session.workspaceRoot && workspace.session.workspaceToken) && !workspace.session.busy && uiStates.workspaceSearchMode === null}
         dirty={workspace.session.dirty}
+        inert={backgroundInert}
         onQuickOpen={() => panels.search.showWorkspaceSearchDialog('quick-open')}
         onWorkspaceSearch={() => panels.search.showWorkspaceSearchDialog('workspace-search')}
         onExport={workspace.session.activeFileKind === 'markdown' || workspace.session.activeFileKind === 'excalidraw' ? props.exportFlow.openExportDialog : undefined}
         onOpenSettings={() => props.settingsChrome.setShowSettings(true)}
         settingsDisabled={props.settingsChrome.settingsState.busy || props.settingsChrome.settingsState.settings === null}
       />
-      <AppDialogStackSection ctx={buildDialogComposites(props)} />
-      <WorkspaceMainAreaSection ctx={buildMainComposites(props, paneSurfaceView)} />
+      <WorkspaceMainAreaSection ctx={buildMainComposites(props, paneSurfaceView)} inert={backgroundInert} />
+      <AppDialogStackSection view={dialogView} />
     </div>
   );
 }

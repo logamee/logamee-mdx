@@ -58,6 +58,25 @@ describe('shell structure accessibility', () => {
     expect(html).toContain('aria-label="Open settings"');
   });
 
+  it('keeps the toolbar interactive unless a dialog asks for it to be inert', () => {
+    const toolbar = (inert?: boolean) => renderToStaticMarkup(
+      <AppToolbar
+        activePath={null}
+        busy={false}
+        canSearch={false}
+        dirty={false}
+        inert={inert}
+        onQuickOpen={vi.fn<() => void>()}
+        onWorkspaceSearch={vi.fn<() => void>()}
+      />,
+    );
+
+    expect(toolbar()).toMatch(/^<header class="toolbar"[^>]*>/);
+    expect(toolbar()).not.toMatch(/<header[^>]*\sinert/);
+    expect(toolbar(false)).not.toMatch(/<header[^>]*\sinert/);
+    expect(toolbar(true)).toMatch(/^<header class="toolbar"[^>]*\sinert=""/);
+  });
+
   it('provides non-translucent and high-contrast shell fallbacks', () => {
     expect(appShellCss).toContain('@media (prefers-reduced-transparency: reduce)');
     expect(appShellCss).toContain('@media (prefers-contrast: more)');
