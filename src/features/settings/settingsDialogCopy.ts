@@ -25,6 +25,9 @@ export const copy = {
     chooseResources: 'Choose resource folder',
     shortcuts: 'Keyboard Shortcuts', resetShortcuts: 'Restore shortcut defaults',
     shortcutConflict: 'Shortcut conflict', shortcutInvalid: 'Enter a supported shortcut.',
+    shortcutRecord: 'Record shortcut', shortcutRecordingStop: 'Stop recording',
+    shortcutRecordingPrompt: 'Press shortcut…',
+    tabGeneral: 'General', tabAppearance: 'Appearance', tabShortcuts: 'Shortcuts', tabWorkspace: 'Workspace',
     shortcutLabels: { save: 'Save', saveAs: 'Save as', quickOpen: 'Quick open', workspaceSearch: 'Workspace search', export: 'Export', settings: 'Settings', editorFontLarger: 'Increase editor font', editorFontSmaller: 'Decrease editor font', editorFontReset: 'Reset editor font' },
   },
   'zh-CN': {
@@ -51,6 +54,9 @@ export const copy = {
     chooseResources: '选择资源文件夹',
     shortcuts: '键盘快捷键', resetShortcuts: '恢复默认快捷键',
     shortcutConflict: '快捷键冲突', shortcutInvalid: '请输入受支持的快捷键。',
+    shortcutRecord: '录制快捷键', shortcutRecordingStop: '停止录制',
+    shortcutRecordingPrompt: '请按下组合键…',
+    tabGeneral: '常规', tabAppearance: '外观', tabShortcuts: '快捷键', tabWorkspace: '工作区',
     shortcutLabels: { save: '保存', saveAs: '另存为', quickOpen: '快速打开', workspaceSearch: '工作区搜索', export: '导出', settings: '设置', editorFontLarger: '放大编辑器字号', editorFontSmaller: '缩小编辑器字号', editorFontReset: '重置编辑器字号' },
   },
 };

@@ -151,8 +151,20 @@ export function stepEditorFontSize(current: number, step: number): number {
   return Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, next));
 }
 
+const fontPreviews = new WeakSet<Pick<HTMLElement, 'style'>>();
+
 export function applyEditorFontSize(root: Pick<HTMLElement, 'style'>, size: number): void {
+  fontPreviews.delete(root);
   root.style.setProperty('--editor-font-size', `${size}px`);
+}
+
+export function previewEditorFontSize(root: HTMLElement, size: number): () => void {
+  const previous = root.style.getPropertyValue('--editor-font-size');
+  applyEditorFontSize(root, size);
+  fontPreviews.add(root);
+  return () => {
+    if (fontPreviews.delete(root)) root.style.setProperty('--editor-font-size', previous);
+  };
 }
 
 export function projectSettingsError(value: unknown): Pick<SettingsError, 'canReset'> & { kind: 'conflict' | 'future' | 'recoverable' } {

@@ -10,10 +10,11 @@ import {
   type ShortcutAction,
 } from '../../lib/shortcutProfiles';
 import type { SettingsDialogText } from './settingsDialogCopy';
+import { ShortcutFieldRow } from './settingsShortcutRecorder';
 
 type DraftProps = {
   draft: AppSettings;
-  setDraft: Dispatch<SetStateAction<AppSettings | null>>;
+  setDraft: Dispatch<SetStateAction<AppSettings>>;
   text: SettingsDialogText;
 };
 
@@ -34,12 +35,8 @@ export function SettingsAutosaveSection({ draft, setDraft, text }: DraftProps) {
   );
 }
 
-// 快捷键编辑：逐动作输入 + 冲突/非法提示。
-export function SettingsShortcutsSection(props: DraftProps & {
-  shortcutConflicts: { shortcut: string }[];
-  shortcutsValid: boolean;
-}) {
-  const { draft, setDraft, text } = props;
+// 快捷键编辑：逐动作输入/录制 + 冲突/非法提示。
+export function SettingsShortcutsSection({ draft, setDraft, text }: DraftProps) {
   return (
     <section className="settings-section" aria-labelledby="settings-shortcuts-heading">
       <div className="settings-section-heading">
@@ -47,13 +44,15 @@ export function SettingsShortcutsSection(props: DraftProps & {
         <button type="button" name="resetShortcuts" className="settings-icon-button" title={text.resetShortcuts} aria-label={text.resetShortcuts} onClick={() => setDraft({ ...draft, shortcuts: { ...DEFAULT_SHORTCUTS } })}><RotateCcw size={15} aria-hidden="true" /></button>
       </div>
       {SHORTCUT_ACTIONS.map((action) => (
-        <label className="settings-field" key={action}>
-          <span>{text.shortcutLabels[action as ShortcutAction]}</span>
-          <input name={`shortcut-${action}`} type="text" value={draft.shortcuts[action] ?? ''} onChange={(event) => setDraft({ ...draft, shortcuts: { ...draft.shortcuts, [action]: event.target.value } })} />
-        </label>
+        <ShortcutFieldRow
+          key={action}
+          action={action as ShortcutAction}
+          label={text.shortcutLabels[action as ShortcutAction]}
+          value={draft.shortcuts[action] ?? ''}
+          text={text}
+          onChange={(nextValue) => setDraft({ ...draft, shortcuts: { ...draft.shortcuts, [action]: nextValue } })}
+        />
       ))}
-      {!props.shortcutsValid && <p className="settings-validation" role="alert">{text.shortcutInvalid}</p>}
-      {props.shortcutConflicts.map((conflict) => <p className="settings-validation" role="alert" key={conflict.shortcut}>{text.shortcutConflict}: {conflict.shortcut}</p>)}
     </section>
   );
 }
@@ -66,7 +65,7 @@ export function SettingsResourceSection(props: DraftProps & {
   const { busy, draft, setDraft, text } = props;
   const authorize = async () => {
     const path = await props.onAuthorizeResourceDirectory?.();
-    if (path) setDraft((current) => current ? { ...current, resourceDirectory: path } : current);
+    if (path) setDraft((current) => ({ ...current, resourceDirectory: path }));
   };
   return (
     <section className="settings-section">
@@ -87,7 +86,13 @@ export function SettingsResourceSection(props: DraftProps & {
           </button>
         </span>
       </label>
-      <label className="settings-field"><span>{text.layout}</span><input name="editorPaneRatio" type="range" min="0.25" max="0.75" step="0.01" value={draft.editorPaneRatio} onChange={(event) => setDraft({ ...draft, editorPaneRatio: Number(event.target.value) })} /></label>
+      <label className="settings-field">
+        <span>{text.layout}</span>
+        <span className="settings-range-control">
+          <input name="editorPaneRatio" type="range" min="0.25" max="0.75" step="0.01" value={draft.editorPaneRatio} onChange={(event) => setDraft({ ...draft, editorPaneRatio: Number(event.target.value) })} />
+          <small>{Math.round(draft.editorPaneRatio * 100)}%</small>
+        </span>
+      </label>
     </section>
   );
 }

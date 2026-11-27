@@ -151,12 +151,50 @@ export function resolveThemeForAppearance(
     : { skin: "original", appearance };
 }
 
+const THEME_TRANSITION_MS = 200;
+let themeTransitionTimer: ReturnType<typeof setTimeout> | null = null;
+const appearancePreviews = new WeakSet<ThemeRoot>();
+
 export function applyEffectiveTheme(
   root: ThemeRoot,
   theme: EffectiveTheme,
 ): void {
+  appearancePreviews.delete(root);
+  const domRoot = root as ThemeRoot & {
+    getAttribute?: (name: string) => string | null;
+    removeAttribute?: (name: string) => void;
+  };
+  const previousSkin = domRoot.getAttribute?.("data-skin");
+  const previousAppearance = domRoot.getAttribute?.("data-appearance");
+  const changed =
+    previousSkin !== null &&
+    previousSkin !== undefined &&
+    (previousSkin !== theme.skin || previousAppearance !== theme.appearance);
+
+  if (changed && typeof domRoot.removeAttribute === "function") {
+    root.setAttribute("data-theme-transitioning", "true");
+    if (themeTransitionTimer !== null) clearTimeout(themeTransitionTimer);
+    themeTransitionTimer = setTimeout(() => {
+      domRoot.removeAttribute?.("data-theme-transitioning");
+      themeTransitionTimer = null;
+    }, THEME_TRANSITION_MS);
+  }
+
   root.setAttribute("data-skin", theme.skin);
   root.setAttribute("data-appearance", theme.appearance);
+}
+
+export function previewEffectiveTheme(root: HTMLElement, theme: EffectiveTheme): () => void {
+  const previous = ["data-skin", "data-appearance"].map((name) => [name, root.getAttribute(name)] as const);
+  applyEffectiveTheme(root, theme);
+  appearancePreviews.add(root);
+  return () => {
+    if (!appearancePreviews.delete(root)) return;
+    for (const [name, value] of previous) {
+      if (value === null) root.removeAttribute(name);
+      else root.setAttribute(name, value);
+    }
+  };
 }
 
 interface BootstrapThemeOptions {

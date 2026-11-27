@@ -23,7 +23,13 @@ export function WorkspaceSearchDialog({
   const placeholder = mode === 'quick-open' ? t('searchFiles') : t('searchContent');
 
   return (
-    <div className="workspace-search-dialog-backdrop">
+    <div
+      className="workspace-search-dialog-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.button === 0 && event.target === event.currentTarget) onCancel();
+      }}
+    >
       <dialog
         open
         className="workspace-search-dialog"

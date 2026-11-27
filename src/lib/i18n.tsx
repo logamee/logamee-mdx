@@ -62,6 +62,11 @@ const en = {
   unsavedSwitchMessage: '“{name}” has not been saved. Save before switching to “{target}”?',
   save: 'Save', quitApp: 'Quit', saveAndSwitch: 'Save and Switch', switchWithoutSaving: 'Switch Without Saving',
   problem: 'Something Went Wrong', notice: 'Notice', gotIt: 'OK', operationFailed: 'The operation could not be completed. Please try again.',
+  openSettings: 'Open settings', settings: 'Settings',
+  editorContextMenu: 'Markdown editor context menu', contextBold: 'Bold', contextItalic: 'Italic',
+  contextStrikethrough: 'Strikethrough', contextInlineCode: 'Inline code', contextLink: 'Link',
+  contextImagePlaceholder: 'Image placeholder', contextTable: 'Table', contextCodeBlock: 'Code block',
+  contextFormula: 'Formula', contextAlertBlock: 'Alert block', contextMoreFormats: 'More formats…',
 } as const;
 
 type MessageKey = keyof typeof en;
@@ -110,7 +115,8 @@ const zh: Record<MessageKey, string> = {
   excalidrawPreviewUnavailable: 'Excalidraw 预览暂时不可用。',
   markdownImageLoadFailed: '⚠ 图片暂时无法显示', docxPreviewFailure: '无法显示该 DOCX。文件可能已损坏或不受支持。',
   docxPreviewDegraded: '该 DOCX 的部分内容无法完整显示，当前预览仅包含可安全呈现的内容。',
-  pdfPreviewFailure: '无法显示该 PDF。文件可能已损坏或不受支持。', pdfPreviewLimit: '该 PDF 页数较多，当前显示比例下无法完整渲染。请缩小显示比例后重试，或用其他应用打开。', watchedFileDeleted: '“{name}”已从磁盘中删除。',
+  pdfPreviewFailure: '无法显示该 PDF。文件可能已损坏或不受支持。', watchedFileDeleted: '“{name}”已从磁盘中删除。',
+  pdfPreviewLimit: '该 PDF 页数较多，当前显示比例下无法完整渲染。请缩小显示比例后重试，或用其他应用打开。',
   watchStopped: '文件监控已停止。请重新打开文件后重试。', watchInterrupted: '文件监控暂时中断，正在重试。',
   watchUnavailable: '无法继续监控当前文件。请重新打开后重试。', popoutOpenFailed: '无法打开 {pane} 独立窗口：{detail}',
   popoutInsertionUnavailable: '无法连接到独立编辑器。请保持窗口打开后再次插入。',
@@ -119,6 +125,11 @@ const zh: Record<MessageKey, string> = {
   unsavedSwitchMessage: '“{name}” 尚未保存。切换到“{target}”前要保存吗？', save: '保存', quitApp: '退出程序',
   saveAndSwitch: '保存并切换', switchWithoutSaving: '不保存并切换',
   problem: '出现问题', notice: '提示', gotIt: '知道了', operationFailed: '操作没有完成。请稍后重试。',
+  openSettings: '打开设置', settings: '设置',
+  editorContextMenu: 'Markdown 编辑器右键菜单', contextBold: '加粗', contextItalic: '斜体',
+  contextStrikethrough: '删除线', contextInlineCode: '行内代码', contextLink: '链接',
+  contextImagePlaceholder: '图片占位', contextTable: '表格', contextCodeBlock: '代码块',
+  contextFormula: '公式块', contextAlertBlock: '提示块', contextMoreFormats: '更多格式…',
 };
 
 export type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
