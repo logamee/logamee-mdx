@@ -149,15 +149,16 @@ describe('SettingsDialog', () => {
     ));
     const submit = () => container.querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
-    const setNumberInput = (input: HTMLInputElement, value: string) => {
+    const setNumberInput = (input: HTMLInputElement, value: string) => act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
       valueSetter?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
-    };
+    });
 
     setNumberInput(container.querySelector<HTMLInputElement>('[name="editorFontSize"]')!, '31');
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('编辑器字号需在 12 到 28 px 之间。');
+    expect(container.querySelector('[role="alert"]')!.closest('[data-state="inactive"]')).toBeNull();
     expect(submit().disabled).toBe(true);
     await act(async () => container.querySelector('form')?.dispatchEvent(
       new Event('submit', { bubbles: true, cancelable: true }),
@@ -238,6 +239,7 @@ describe('SettingsDialog', () => {
       quickOpenShortcut.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(container.textContent).toContain('Shortcut conflict');
+    expect(container.querySelector('[role="alert"]')!.closest('[data-state="inactive"]')).toBeNull();
     expect(container.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
 
     act(() => container.querySelector<HTMLButtonElement>('[name="resetShortcuts"]')?.click());
@@ -469,4 +471,5 @@ describe('SettingsDialog uncovered branches', () => {
     });
     expect(ratio?.value).toBe('0.5');
   });
+
 });

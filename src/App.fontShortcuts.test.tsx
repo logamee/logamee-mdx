@@ -130,8 +130,19 @@ function createMarkdownSession() {
   };
 }
 
-function pressKeys(key: string, target: HTMLElement = document.body): KeyboardEvent {
-  const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ctrlKey: true, key });
+// jsdom 报告的 navigator.platform 是空串，等于非 Mac 语义；三个系统必须显式指定。
+const shortcutPlatforms = [
+  ['macOS', 'MacIntel', { metaKey: true }],
+  ['Windows', 'Win32', { ctrlKey: true }],
+  ['Linux', 'Linux x86_64', { ctrlKey: true }],
+] as const;
+
+function pressKeys(
+  key: string,
+  target: HTMLElement = document.body,
+  modifiers: KeyboardEventInit = { ctrlKey: true },
+): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...modifiers, key });
   target.dispatchEvent(event);
   return event;
 }
@@ -185,32 +196,37 @@ describe('App editor font size shortcuts', () => {
     expect(ratioApplied).toBe(true);
   });
 
-  it('steps and resets the editor font size from zoom-style shortcuts', async () => {
-    await act(async () => root.render(<App />));
+  it.each(shortcutPlatforms)('steps and resets the editor font size from zoom-style shortcuts on %s', async (_name, platform, modifiers) => {
+    const platformSpy = vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
+    try {
+      await act(async () => root.render(<App />));
 
-    const increase = pressKeys('=');
-    expect(increase.defaultPrevented).toBe(true);
-    expect(appMocks.updateSettings).toHaveBeenCalledTimes(1);
-    const increased = appMocks.updateSettings.mock.lastCall?.[0];
-    if (!increased) throw new Error('Expected a font size update');
+      const increase = pressKeys('=', document.body, modifiers);
+      expect(increase.defaultPrevented).toBe(true);
+      expect(appMocks.updateSettings).toHaveBeenCalledTimes(1);
+      const increased = appMocks.updateSettings.mock.lastCall?.[0];
+      if (!increased) throw new Error('Expected a font size update');
 
-    // 模拟 useSettings 提交新设置后的重渲染，并让串行写入队列清空目标。
-    appMocks.settings = increased;
-    await act(async () => root.render(<App />));
-    await settleFlush();
-    appMocks.updateSettings.mockClear();
+      // 模拟 useSettings 提交新设置后的重渲染，并让串行写入队列清空目标。
+      appMocks.settings = increased;
+      await act(async () => root.render(<App />));
+      await settleFlush();
+      appMocks.updateSettings.mockClear();
 
-    const decrease = pressKeys('-');
-    expect(decrease.defaultPrevented).toBe(true);
-    expect(appMocks.updateSettings.mock.lastCall?.[0].editorFontSize).toBe(16);
+      const decrease = pressKeys('-', document.body, modifiers);
+      expect(decrease.defaultPrevented).toBe(true);
+      expect(appMocks.updateSettings.mock.lastCall?.[0].editorFontSize).toBe(16);
 
-    appMocks.settings = { ...baseSettings, editorFontSize: 21 };
-    await act(async () => root.render(<App />));
-    await settleFlush();
-    appMocks.updateSettings.mockClear();
-    const reset = pressKeys('0');
-    expect(reset.defaultPrevented).toBe(true);
-    expect(appMocks.updateSettings.mock.lastCall?.[0].editorFontSize).toBe(16);
+      appMocks.settings = { ...baseSettings, editorFontSize: 21 };
+      await act(async () => root.render(<App />));
+      await settleFlush();
+      appMocks.updateSettings.mockClear();
+      const reset = pressKeys('0', document.body, modifiers);
+      expect(reset.defaultPrevented).toBe(true);
+      expect(appMocks.updateSettings.mock.lastCall?.[0].editorFontSize).toBe(16);
+    } finally {
+      platformSpy.mockRestore();
+    }
   });
 
   it('keeps the shortcuts working while typing inside the editor content', async () => {
